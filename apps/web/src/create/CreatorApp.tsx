@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
 import { GENERATOR_LIMITS, TEMPLATES, defaultAspectRatio } from "@qyplayer/core";
-import { PACKAGE_LIMITS, mimeForPath, openPackage } from "@qyplayer/qyp";
+import { PACKAGE_LIMITS, openPackage } from "@qyplayer/qyp";
 import { AboutDialog } from "../AboutDialog";
 import { isDesktop, saveBlob } from "../desktop";
 import { LANG_NAMES, otherLang, useI18n, type MessageKey } from "../i18n";
@@ -15,6 +15,7 @@ import { AssetPanel, type ImportFailure } from "./AssetPanel";
 import { buildPackage, type MusicEntry } from "./buildPackage";
 import { describeBuildError, describeFileError } from "./describe";
 import { ConfirmDialog, MessageDialog } from "./Dialogs";
+import { MOBILE_MAX_BYTES, exceedsMobileLimit, mobileSizeLevel } from "./environment";
 import { classifyDrop } from "./editor/drop";
 import { editorMediaFromImport } from "./editor/fromImport";
 import { DESKTOP_MEDIA_QUERY } from "./editor/layout";
@@ -52,6 +53,7 @@ import { EmptyState, PreviewPane } from "./PreviewPane";
 import { SettingsPanel } from "./SettingsPanel";
 import { useObjectUrls } from "./useObjectUrls";
 import { usePreview } from "./usePreview";
+import { useTranscode } from "./useTranscode";
 
 const useStyles = createUseStyles({
   "@global": {
@@ -122,6 +124,9 @@ export function CreatorApp() {
   editorRef.current = editor;
   const doc = currentDoc(editor);
   const urlFor = useObjectUrls(editor);
+  const transcodeSetting = useTranscode();
+  const transcodeRef = useRef(transcodeSetting.transcode);
+  transcodeRef.current = transcodeSetting.transcode;
 
   const [failures, setFailures] = useState<ImportFailure[]>([]);
   const [importing, setImporting] = useState<{ done: number; total: number } | null>(null);
@@ -199,14 +204,22 @@ export function CreatorApp() {
     const failed: ImportFailure[] = [];
     let count = currentDoc(editorRef.current).media.length;
     let bytes = currentDoc(editorRef.current).media.reduce((sum, m) => sum + m.blob.size, 0);
+    // 手机的总量按原始文件大小累计；第一个让总量超过 600 MB 的文件及其后的文件都被拒绝（5.3）
+    let originalBytes = currentDoc(editorRef.current).media.reduce((sum, m) => sum + (m.originalBytes ?? m.blob.size), 0);
+    let mobileBlocked = false;
     for (const [index, file] of files.entries()) {
       try {
         if (count >= GENERATOR_LIMITS.maxMedia) throw new ImportError("too-many");
-        const entry = await importMedia(file);
+        if (transcodeSetting.mobile && (mobileBlocked || exceedsMobileLimit(originalBytes, file.size))) {
+          mobileBlocked = true;
+          throw new ImportError("mobile-limit");
+        }
+        const entry = await importMedia(file, { transcode: transcodeRef.current });
         if (bytes + entry.blob.size > PACKAGE_LIMITS.maxUncompressedBytes) throw new ImportError("too-large");
-        added.push(editorMediaFromImport(entry, file.type || mimeForPath(file.name)));
+        added.push(editorMediaFromImport(entry));
         count++;
         bytes += entry.blob.size;
+        originalBytes += file.size;
       } catch (error) {
         failed.push({ fileName: file.name, error });
       }
@@ -232,7 +245,7 @@ export function CreatorApp() {
     let opened: Awaited<ReturnType<typeof openPackage>> | undefined;
     try {
       opened = await openPackage(file);
-      const restored = await restorePackage(opened, { serialName, fallbackSeed: randomSeed() });
+      const restored = await restorePackage(opened, { serialName, fallbackSeed: randomSeed(), ...(transcodeSetting.mobile && { maxTotalBytes: MOBILE_MAX_BYTES }) });
       apply((state) => loadEditor(state, restored.content));
       const music = restored.content.music;
       setCustomMusic(music.kind === "custom" ? music.entry : null);
@@ -242,7 +255,7 @@ export function CreatorApp() {
       setTab("preview");
       announce(t("statusOpened", { count: restored.content.media.length }));
     } catch (error) {
-      setErrorMessage(error instanceof RestoreError ? t("openFailed", { detail: error.message }) : describeError(error, t));
+      setErrorMessage(error instanceof RestoreError ? t("importMobileLimit") : describeError(error, t));
     } finally {
       await opened?.close();
       setWorking(null);
@@ -407,6 +420,7 @@ export function CreatorApp() {
   const empty = doc.media.length === 0;
   const resolvedAspect = empty ? "16:9" : defaultAspectRatio(doc.media);
   const hasVideoSound = doc.media.some((m) => m.type === "video" && m.hasAudio);
+  const originalTotal = doc.media.reduce((sum, m) => sum + (m.originalBytes ?? m.blob.size), 0);
 
   const assets = (
     <AssetPanel
@@ -417,6 +431,7 @@ export function CreatorApp() {
       busy={busy}
       importing={importing}
       mobile={!desktopLayout}
+      sizeWarning={transcodeSetting.mobile && mobileSizeLevel(originalTotal) === "warn"}
       onAdd={() => run("addMedia")}
       onMove={(from, to) => apply((state) => moveMedia(state, from, to))}
       onRemove={(key) => apply((state) => removeMedia(state, key))}
@@ -446,6 +461,8 @@ export function CreatorApp() {
       hasVideoSound={hasVideoSound}
       customMusic={customMusic}
       placeholderTitle={result?.defaultTitle ?? t("makerTitlePlaceholder")}
+      transcode={{ checked: transcodeSetting.transcode, canChange: transcodeSetting.capabilities.videoEncode, note: transcodeSetting.note }}
+      onTranscode={transcodeSetting.setTranscode}
       onTitle={(title) => apply((state) => setTitle(state, title, Date.now()))}
       onAspect={(aspect) => apply((state) => setAspect(state, aspect))}
       onTemplate={(templateId) => apply((state) => setTemplate(state, templateId))}

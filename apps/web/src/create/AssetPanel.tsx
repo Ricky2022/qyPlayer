@@ -52,6 +52,8 @@ const useStyles = createUseStyles({
     "&:focus-visible": { outline: `2px solid ${theme.accent}` },
   },
   compactButton: { width: 32, height: 32 },
+  sizeWarning: { margin: "0 0 8px", padding: "6px 10px", borderRadius: 8, background: "rgba(160, 90, 0, 0.92)", color: "#fff", fontSize: 13 },
+  noPreview: { display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: theme.muted, textAlign: "center", lineHeight: 1.2 },
   failures: { margin: "10px 0 0", padding: "6px 10px", borderRadius: 8, background: theme.dangerBg, color: theme.danger, fontSize: 13 },
   failureSummary: { cursor: "pointer" },
   failureList: { margin: "6px 0", paddingLeft: 18 },
@@ -66,7 +68,15 @@ export interface ImportFailure {
   error: unknown;
 }
 
-function describeMedia(media: EditorMedia, t: Translate): string {
+/** 界面语言的本地日期时间；拍摄时间读不到而用修改时间时加“修改时间”字样 */
+function describeCapturedAt(media: EditorMedia, t: Translate, lang: string): string | undefined {
+  if (!media.capturedAt) return undefined;
+  const date = new Date(media.capturedAt);
+  const text = Number.isNaN(date.getTime()) ? media.capturedAt.slice(0, 10) : date.toLocaleString(lang === "zh" ? "zh-CN" : "en", { dateStyle: "medium", timeStyle: "short" });
+  return media.capturedAtFromModified ? t("mediaCapturedModified", { time: text }) : text;
+}
+
+function describeMedia(media: EditorMedia, t: Translate, lang: string): string {
   const size = formatBytes(media.blob.size);
   const base =
     media.type === "image"
@@ -78,7 +88,26 @@ function describeMedia(media: EditorMedia, t: Translate): string {
           sound: media.hasAudio ? t("mediaSound") : t("mediaSilent"),
           size,
         });
-  return media.capturedAt ? `${base} · ${media.capturedAt.slice(0, 10)}` : base;
+  const captured = describeCapturedAt(media, t, lang);
+  return captured ? `${base} · ${captured}` : base;
+}
+
+interface ThumbnailProps {
+  item: EditorMedia;
+  url: string;
+  className: string;
+  fallbackClassName: string;
+  label: string;
+}
+
+/** 缩略图；本机解不了（例如 Chrome 里的 HEIC）时显示“无法预览” */
+function Thumbnail({ item, url, className, fallbackClassName, label }: ThumbnailProps) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <div className={fallbackClassName}>{label}</div>;
+  if (item.type === "image") return <img className={className} src={url} alt="" onError={() => setFailed(true)} />;
+  return (
+    <video className={className} src={`${url}#t=${Math.min(0.5, (item.duration ?? 1) / 2)}`} preload="metadata" muted aria-hidden="true" onError={() => setFailed(true)} />
+  );
 }
 
 interface AssetPanelProps {
@@ -90,6 +119,8 @@ interface AssetPanelProps {
   importing: { done: number; total: number } | null;
   /** 手机布局：用上移、下移按钮代替拖动手柄 */
   mobile: boolean;
+  /** 手机环境下素材累计超过 300 MB：在列表上方显示提示条 */
+  sizeWarning: boolean;
   onAdd(): void;
   onMove(from: number, to: number): void;
   onRemove(key: number): void;
@@ -97,9 +128,9 @@ interface AssetPanelProps {
 }
 
 /** 素材面板（3A.7）：列表顺序就是影片播放顺序 */
-export function AssetPanel({ media, urlFor, failures, describeFailure, busy, importing, mobile, onAdd, onMove, onRemove, onClearFailures }: AssetPanelProps) {
+export function AssetPanel({ media, urlFor, failures, describeFailure, busy, importing, mobile, sizeWarning, onAdd, onMove, onRemove, onClearFailures }: AssetPanelProps) {
   const classes = useStyles();
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
   const rowRefs = useRef(new Map<number, HTMLLIElement>());
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [insertAt, setInsertAt] = useState<number | null>(null);
@@ -155,6 +186,11 @@ export function AssetPanel({ media, urlFor, failures, describeFailure, busy, imp
         </button>
       </div>
       <div className={classes.scroll}>
+        {sizeWarning && (
+          <p className={classes.sizeWarning} role="status">
+            {t("mobileSizeWarning")}
+          </p>
+        )}
         {importing && (
           <p className={classes.status} role="status">
             {t("makerImporting", importing)}
@@ -166,7 +202,7 @@ export function AssetPanel({ media, urlFor, failures, describeFailure, busy, imp
           <ul className={classes.list} role="list" aria-label={t("assetListLabel")} onDragOver={(event) => dragIndex !== null && event.preventDefault()} onDrop={onDropList}>
             {media.map((item, index) => {
               const name = item.fileName;
-              const detail = describeMedia(item, t);
+              const detail = describeMedia(item, t, lang);
               const rowClass = [
                 classes.row,
                 insertAt === index ? classes.insertBefore : "",
@@ -205,11 +241,13 @@ export function AssetPanel({ media, urlFor, failures, describeFailure, busy, imp
                       <DragHandleIcon size={18} />
                     </span>
                   )}
-                  {item.type === "image" ? (
-                    <img className={classes.thumb} src={urlFor(item)} alt="" />
-                  ) : (
-                    <video className={classes.thumb} src={`${urlFor(item)}#t=${Math.min(0.5, (item.duration ?? 1) / 2)}`} preload="metadata" muted aria-hidden="true" />
-                  )}
+                  <Thumbnail
+                    item={item}
+                    url={urlFor(item)}
+                    className={classes.thumb}
+                    fallbackClassName={`${classes.thumb} ${classes.noPreview}`}
+                    label={t("assetNoPreview")}
+                  />
                   <div className={classes.info}>
                     <div className={classes.name} title={name}>
                       {name}

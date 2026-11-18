@@ -14,5 +14,5 @@ export async function loadBuiltinMusic(): Promise<MusicEntry> {
   const blob = await response.blob();
   const { duration } = await inspectAudio(blob, "builtin-music");
   // 写进包里的标题用英文，不依赖界面语言
-  return { blob, extension: ".mp3", duration, title: BUILTIN_MUSIC_TITLE_EN, license: BUILTIN_MUSIC_LICENSE };
+  return { blob, mimeType: "audio/mpeg", duration, title: BUILTIN_MUSIC_TITLE_EN, license: BUILTIN_MUSIC_LICENSE };
 }

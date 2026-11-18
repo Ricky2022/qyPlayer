@@ -16,10 +16,15 @@ import { TEMPLATES, findTemplate } from "./templates";
 
 // ---------- 测试数据 ----------
 
+const JPEG = "image/jpeg";
+const MP4 = 'video/mp4; codecs="avc1.640028, mp4a.40.2"';
+const M4A = 'audio/mp4; codecs="mp4a.40.2"';
+const original = (mimeType: string): { mimeType: string; source: { mimeType: string; transcoded: false } } => ({ mimeType, source: { mimeType, transcoded: false } });
+
 const FIXED = { id: "film-1", createdAt: "2026-11-18T10:00:00+08:00" } as const;
 
 function photo(id: string, width: number, height: number, capturedAt?: string, fileName = `${id}.jpg`): MediaInput {
-  return { id, type: "image", src: `media/${id}.jpg`, fileName, width, height, ...(capturedAt && { capturedAt }) };
+  return { id, type: "image", src: `media/${id}.jpg`, ...original(JPEG), fileName, width, height, ...(capturedAt && { capturedAt }) };
 }
 
 function video(id: string, duration: number, capturedAt?: string): MediaInput {
@@ -27,6 +32,7 @@ function video(id: string, duration: number, capturedAt?: string): MediaInput {
     id,
     type: "video",
     src: `media/${id}.mp4`,
+    ...original(MP4),
     fileName: `${id}.mp4`,
     width: 1920,
     height: 1080,
@@ -36,7 +42,7 @@ function video(id: string, duration: number, capturedAt?: string): MediaInput {
   };
 }
 
-const music = (duration: number): MusicInput => ({ id: "a001", src: "audio/bgm.m4a", duration, title: "Track", license: "CC0-1.0" });
+const music = (duration: number): MusicInput => ({ id: "a001", src: "audio/bgm.m4a", ...original(M4A), duration, title: "Track", license: "CC0-1.0" });
 
 /** 第 i 张照片的拍摄时间，间隔 1 分钟 */
 const at = (i: number): string => new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString();
@@ -519,5 +525,17 @@ describe("generateManifest errors", () => {
     expect(code(() => gen({ media: [{ ...video("v", 5), duration: 0 }] }))).toBe("invalid-media");
     expect(code(() => gen({ media: landscapePhotos(2), music: { ...music(10), id: "m000" } }))).toBe("duplicate-media-id");
     expect(code(() => gen({ media: landscapePhotos(2), music: music(0) }))).toBe("invalid-media");
+  });
+});
+
+describe("格式 0.2 的素材信息", () => {
+  it("写 formatVersion 0.2，素材和配乐都带 mimeType 和 source，且通过校验", () => {
+    const converted: MediaInput = { ...photo("m001", 2560, 1707, at(0)), mimeType: JPEG, source: { mimeType: "image/heic", transcoded: true } };
+    const m = gen({ media: [converted, video("m002", 5, at(1))], music: music(30) });
+    expect(m.formatVersion).toBe("0.2");
+    expect(m.assets[0]).toMatchObject({ mimeType: JPEG, source: { mimeType: "image/heic", transcoded: true } });
+    expect(m.assets[1]).toMatchObject({ mimeType: MP4, source: { mimeType: MP4, transcoded: false } });
+    expect(m.assets[2]).toMatchObject({ type: "audio", mimeType: M4A, source: { mimeType: M4A, transcoded: false } });
+    expectValid(m);
   });
 });

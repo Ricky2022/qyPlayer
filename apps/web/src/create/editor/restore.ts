@@ -54,11 +54,6 @@ function isCc0(license: string | undefined): boolean {
   return license?.replace(/[^a-z0-9]/gi, "").toLowerCase() === "cc010";
 }
 
-function musicExtension(src: string): string {
-  const dot = src.lastIndexOf(".");
-  return dot < 0 ? "" : src.slice(dot).toLowerCase();
-}
-
 async function restoreMusic(opened: OpenedPackage, tracks: readonly BuiltinTrack[]): Promise<MusicChoice> {
   const manifest = opened.manifest;
   if (!manifest.bgm) return { kind: "none" };
@@ -69,7 +64,8 @@ async function restoreMusic(opened: OpenedPackage, tracks: readonly BuiltinTrack
   const blob = await opened.readBlob(asset.src);
   const entry: MusicEntry = {
     blob,
-    extension: musicExtension(asset.src),
+    mimeType: asset.mimeType ?? mimeForPath(asset.src),
+    ...(asset.source !== undefined && { source: asset.source }),
     duration: asset.duration ?? 0,
     ...(asset.title !== undefined && { title: asset.title }),
     ...(asset.license !== undefined && { license: asset.license }),

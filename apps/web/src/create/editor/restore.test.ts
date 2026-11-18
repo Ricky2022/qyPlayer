@@ -7,23 +7,34 @@ import { createPreviewPackage, memoryPackage } from "./preview";
 import { RestoreError, assetsInFirstAppearanceOrder, restorePackage, type RestoreOptions } from "./restore";
 import { currentDoc, createEditor, loadEditor, type EditorMediaInput } from "./state";
 
+const original = (mimeType: string) => ({ mimeType, source: { mimeType, transcoded: false } });
 const photo = (name: string, capturedAt?: string): MediaEntry => ({
   fileName: name,
   type: "image",
+  ...original("image/jpeg"),
   blob: new Blob([name]),
   width: 1600,
   height: 1067,
   ...(capturedAt && { capturedAt }),
 });
-const video: MediaEntry = { fileName: "clip.mp4", type: "video", blob: new Blob(["video"]), width: 1920, height: 1080, duration: 12, hasAudio: true };
-const song: MusicEntry = { blob: new Blob(["song"]), extension: ".mp3", duration: 30, title: "My song" };
+const video: MediaEntry = { fileName: "clip.mp4", type: "video", ...original("video/mp4"), blob: new Blob(["video"]), width: 1920, height: 1080, duration: 12, hasAudio: true };
+const song: MusicEntry = { blob: new Blob(["song"]), mimeType: "audio/mpeg", duration: 30, title: "My song" };
 
 const options: RestoreOptions = {
   serialName: (type, index) => `${type === "image" ? "照片" : "视频"} ${index}`,
   fallbackSeed: 4242,
 };
 
-/** 生成一个 0.1 的包并在内存里打开 */
+/** 把清单改成 0.1：没有 mimeType 和 source */
+const toV01 = (m: Manifest): void => {
+  m.formatVersion = "0.1";
+  for (const asset of m.assets) {
+    delete asset.mimeType;
+    delete asset.source;
+  }
+};
+
+/** 生成一个包（现在的生成器写 0.2）并在内存里打开 */
 function makeMemoryPackage(over: Partial<Parameters<typeof planPackage>[0]> = {}, edit?: (manifest: Manifest) => void) {
   const { manifest, files } = planPackage({
     media: [photo("a.jpg", "2026-03-01T00:00:00Z"), video, photo("b.jpg", "2026-03-02T00:00:00Z")],
@@ -60,7 +71,7 @@ describe("还原：素材", () => {
   });
 
   it("0.1 的包：mimeType 由扩展名推断，source 为未转码，视为最终文件", async () => {
-    const { content } = await restorePackage(makeMemoryPackage(), options);
+    const { content } = await restorePackage(makeMemoryPackage({}, toV01), options);
     expect(content.media[0]).toMatchObject({ mimeType: "image/jpeg", source: { mimeType: "image/jpeg", transcoded: false }, final: true });
     expect(content.media[1]).toMatchObject({ mimeType: "video/mp4", final: true });
   });
@@ -132,12 +143,12 @@ describe("还原：配乐", () => {
     expect((await restorePackage(opened, options)).content.music.kind).toBe("custom");
   });
 
-  it("导入的音频：读出文件，沿用曲名、许可、时长和扩展名", async () => {
+  it("导入的音频：读出文件，沿用曲名、许可、时长和类型", async () => {
     const opened = makeMemoryPackage({ music: { ...song, license: "CC-BY-4.0" } });
     const { music } = (await restorePackage(opened, options)).content;
     expect(music.kind).toBe("custom");
     if (music.kind !== "custom") return;
-    expect(music.entry).toMatchObject({ extension: ".mp3", duration: 30, title: "My song", license: "CC-BY-4.0" });
+    expect(music.entry).toMatchObject({ mimeType: "audio/mpeg", source: { mimeType: "audio/mpeg", transcoded: false }, duration: 30, title: "My song", license: "CC-BY-4.0" });
     expect(await music.entry.blob.text()).toBe("song");
   });
 });
@@ -168,7 +179,7 @@ describe("还原后重新生成", () => {
 
 describe("预览包", () => {
   it("readBlob 直接返回编辑状态里的素材，不存在的路径报缺失", async () => {
-    const input: EditorMediaInput = { ...photo("a.jpg"), mimeType: "image/jpeg", source: { mimeType: "image/jpeg", transcoded: false }, final: false };
+    const input: EditorMediaInput = { ...photo("a.jpg"), final: false };
     const state = loadEditor(createEditor(1, "clean"), { media: [input], title: "", aspect: "auto", templateId: "clean", music: { kind: "none" }, seed: 1 });
     const { opened, manifest } = createPreviewPackage(currentDoc(state));
     const src = manifest.assets[0]!.src;

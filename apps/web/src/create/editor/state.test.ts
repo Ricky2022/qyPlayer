@@ -111,7 +111,7 @@ describe("编辑状态：设置", () => {
   });
 
   it("导入的配乐按文件对象比较", () => {
-    const entry = { blob: new Blob(["m"]), extension: ".mp3", duration: 30 };
+    const entry = { blob: new Blob(["m"]), mimeType: "audio/mpeg", duration: 30 };
     const state = setMusic(fresh(), { kind: "custom", entry });
     expect(setMusic(state, { kind: "custom", entry })).toBe(state);
     expect(setMusic(state, { kind: "custom", entry: { ...entry } })).not.toBe(state);

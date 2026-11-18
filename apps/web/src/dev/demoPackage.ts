@@ -58,6 +58,8 @@ export async function buildDemoPackage(): Promise<Blob> {
     id: `m${String(i + 1).padStart(3, "0")}`,
     type: "image",
     src: `media/m${String(i + 1).padStart(3, "0")}.jpg`,
+    mimeType: "image/jpeg",
+    source: { mimeType: "image/jpeg", transcoded: false },
     fileName: `IMG_${String(i + 1).padStart(4, "0")}.jpg`,
     width,
     height,
@@ -73,7 +75,7 @@ export async function buildDemoPackage(): Promise<Blob> {
     templateId: "lively",
     seed: 7,
     title: "演示影片（程序生成）",
-    music: { id: "bgm", src: "audio/bgm.m4a", duration: MUSIC_SECONDS },
+    music: { id: "bgm", src: "audio/bgm.m4a", mimeType: 'audio/mp4; codecs="mp4a.40.2"', source: { mimeType: 'audio/mp4; codecs="mp4a.40.2"', transcoded: false }, duration: MUSIC_SECONDS },
   });
   return writePackage(manifest, files);
 }

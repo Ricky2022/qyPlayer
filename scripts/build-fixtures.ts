@@ -44,7 +44,7 @@ async function prepare(records: readonly SourceRecord[]): Promise<{ media: Prepa
     if (record.kind === "audio") {
       const src = `audio/bgm${extension}`;
       music = {
-        input: { id: "bgm", src, duration: info.duration!, title: record.title, license: record.license },
+        input: { id: "bgm", src, mimeType: info.mimeType, source: { mimeType: info.mimeType, transcoded: false }, duration: info.duration!, title: record.title, license: record.license },
         file: { path: src, data: bytes },
       };
       continue;
@@ -56,6 +56,8 @@ async function prepare(records: readonly SourceRecord[]): Promise<{ media: Prepa
         id,
         type: record.kind,
         src,
+        mimeType: info.mimeType,
+        source: { mimeType: info.mimeType, transcoded: false },
         fileName: record.file,
         width: info.width!,
         height: info.height!,

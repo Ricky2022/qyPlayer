@@ -3,16 +3,16 @@ import type { MediaEntry } from "../buildPackage";
 import { editorMediaFromImport } from "./fromImport";
 
 const base = { fileName: "a", blob: new Blob(["a"]), width: 10, height: 10 };
+const original = (mimeType: string) => ({ mimeType, source: { mimeType, transcoded: false } });
 
 describe("导入素材转为编辑项", () => {
-  it("图片：已重新编码为 JPEG，记录原类型，视为最终文件", () => {
-    const entry: MediaEntry = { ...base, type: "image" };
-    expect(editorMediaFromImport(entry, "image/png")).toMatchObject({ mimeType: "image/jpeg", source: { mimeType: "image/png", transcoded: true }, final: true });
+  it("已转码的素材是最终文件，保存时不再转码", () => {
+    const entry: MediaEntry = { ...base, type: "image", mimeType: "image/jpeg", source: { mimeType: "image/png", transcoded: true } };
+    expect(editorMediaFromImport(entry)).toMatchObject({ mimeType: "image/jpeg", source: { mimeType: "image/png", transcoded: true }, final: true });
   });
 
-  it("视频：原样使用，类型取自原文件，没有类型时按 mp4", () => {
-    const entry: MediaEntry = { ...base, type: "video", duration: 3 };
-    expect(editorMediaFromImport(entry, "video/mp4")).toMatchObject({ mimeType: "video/mp4", source: { mimeType: "video/mp4", transcoded: false }, final: false });
-    expect(editorMediaFromImport(entry, "").source.mimeType).toBe("video/mp4");
+  it("原样使用的素材不是最终文件，由转码开关决定保存时是否转码", () => {
+    const entry: MediaEntry = { ...base, type: "video", duration: 3, ...original("video/quicktime") };
+    expect(editorMediaFromImport(entry)).toMatchObject({ mimeType: "video/quicktime", source: { transcoded: false }, final: false });
   });
 });

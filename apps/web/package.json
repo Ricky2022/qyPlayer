@@ -17,6 +17,9 @@
     "@qyplayer/qyp": "workspace:*",
     "@qyplayer/renderer": "workspace:*",
     "@tauri-apps/api": "^2.12.5",
+    "exifr": "^7.1.3",
+    "image-size": "^2.1.0",
+    "mediabunny": "1.66.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-jss": "^10.10.0"

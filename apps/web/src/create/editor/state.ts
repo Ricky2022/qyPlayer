@@ -1,6 +1,6 @@
 // 制作器的编辑状态：素材列表、设置、撤销重做和“有未保存更改”的判断。
 // 全部是纯函数：每个操作接收旧状态、返回新状态；没有变化时返回同一个对象（不产生历史）。规则见 docs/dev-0.3.0.md 3A.11。
-import { GENERATOR_LIMITS, type AspectRatio, type AssetSource } from "@qyplayer/core";
+import { GENERATOR_LIMITS, type AspectRatio } from "@qyplayer/core";
 import type { MediaEntry, MusicEntry } from "../buildPackage";
 import { moveItem, sortByCapturedAt } from "../files";
 
@@ -13,10 +13,6 @@ export const TITLE_MERGE_MS = 1000;
 export interface EditorMedia extends MediaEntry {
   /** 在整个编辑过程中唯一，界面用它做列表 key、缩略图缓存的键 */
   key: number;
-  /** 当前 blob 的类型（含编码信息，写法见 docs/dev-0.3.0.md 4.3） */
-  mimeType: string;
-  /** 转码前的类型，写进包的 `source` */
-  source: AssetSource;
   /** 为真表示 blob 已是最终文件，保存时不再转码（从包还原出来的素材） */
   final: boolean;
 }

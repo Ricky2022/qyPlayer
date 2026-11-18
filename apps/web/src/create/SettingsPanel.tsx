@@ -5,11 +5,14 @@ import { theme } from "../ui/theme";
 import type { MusicEntry } from "./buildPackage";
 import { BUILTIN_TRACKS } from "./builtinMusicInfo";
 import type { AspectChoice, EditorDoc, MusicChoice } from "./editor/state";
+import type { TranscodeNote } from "./environment";
 import { formatDuration } from "./files";
 
 const useStyles = createUseStyles({
   panel: { height: "100%", overflowY: "auto", boxSizing: "border-box", padding: "4px 14px 20px" },
   disabled: { opacity: 0.45, pointerEvents: "none" },
+  // 转码是用户偏好，不是影片内容：没有素材时也要能在添加前改
+  alwaysOn: { opacity: 1, pointerEvents: "auto" },
   section: { margin: "14px 0 0", padding: 0, border: "none", minWidth: 0 },
   legend: { padding: 0, marginBottom: 6, fontSize: 13, fontWeight: 600, color: theme.muted },
   label: { display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600, color: theme.muted },
@@ -44,6 +47,9 @@ interface SettingsPanelProps {
   /** 最近一次选择的导入音乐，用于在“不使用”和“导入音乐”之间来回切换 */
   customMusic: MusicEntry | null;
   placeholderTitle: string;
+  /** 转码开关（5.2）：checked 是当前生效的值；canChange 为假时不可点击 */
+  transcode: { checked: boolean; canChange: boolean; note: TranscodeNote };
+  onTranscode(on: boolean): void;
   onTitle(title: string): void;
   onAspect(aspect: AspectChoice): void;
   onTemplate(templateId: string): void;
@@ -53,7 +59,7 @@ interface SettingsPanelProps {
 }
 
 /** 设置面板（3A.9）：标题、比例、模板、配乐、换一版 */
-export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, onTitle, onAspect, onTemplate, onMusic, onPickMusic, onReroll }: SettingsPanelProps) {
+export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, transcode, onTranscode, onTitle, onAspect, onTemplate, onMusic, onPickMusic, onReroll }: SettingsPanelProps) {
   const classes = useStyles();
   const { lang, t } = useI18n();
   const ratioName = resolvedAspect === "16:9" ? t("makerLandscape") : t("makerPortrait");
@@ -136,6 +142,16 @@ export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, cu
           </div>
           {doc.music.kind !== "none" && hasVideoSound && <div className={classes.hint}>{t("makerMuteNote")}</div>}
         </div>
+      </fieldset>
+
+      <fieldset className={`${classes.section} ${classes.alwaysOn}`}>
+        <legend className={classes.legend}>{t("makerTranscode")}</legend>
+        <label className={classes.choice}>
+          <input type="checkbox" checked={transcode.checked} disabled={!transcode.canChange} onChange={(event) => onTranscode(event.target.checked)} /> {t("makerTranscodeLabel")}
+        </label>
+        {transcode.note !== "none" && (
+          <div className={classes.hint}>{t(transcode.note === "mobile" ? "makerTranscodeNoteMobile" : "makerTranscodeNoteUnsupported")}</div>
+        )}
       </fieldset>
 
       <div className={classes.section}>

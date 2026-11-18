@@ -13,6 +13,7 @@ const IMPORT_MESSAGES: Record<ImportErrorCode, MessageKey> = {
   "need-audio": "importNeedAudio",
   "too-many": "importTooMany",
   "too-large": "importTooLarge",
+  "mobile-limit": "importMobileLimit",
   "video-format": "importVideoFormat",
   "audio-format": "importAudioFormat",
   unsupported: "importUnsupported",

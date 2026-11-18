@@ -14,7 +14,7 @@ describe("classifyFile", () => {
   });
 
   it("gives a reason code for other videos and audio", () => {
-    expect(classifyFile("a.mov", "video/quicktime")).toEqual({ kind: "unsupported", reason: "video-format" });
+    expect(classifyFile("a.mov", "video/quicktime")).toEqual({ kind: "video" });
     expect(classifyFile("a.flac", "")).toEqual({ kind: "unsupported", reason: "audio-format" });
   });
 
