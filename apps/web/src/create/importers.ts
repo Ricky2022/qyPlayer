@@ -6,6 +6,7 @@ import { classifyFile, fitWithin, IMAGE_MAX_SIDE } from "./files";
 import { readImageSize } from "./imageInfo";
 import { audioMimeType, baseMimeType, imageMimeType } from "./mediaType";
 import { probeVideo } from "./probeVideo";
+import { decodeHeic } from "./transcode/heic";
 import type { MediaEntry, MusicEntry } from "./buildPackage";
 
 const JPEG_QUALITY = 0.85;
@@ -49,14 +50,27 @@ function capturedFields(found: { iso: string; source: "exif" | "container" } | u
   return { capturedAt: chosen.iso, ...(chosen.source === "modified" && { capturedAtFromModified: true }) };
 }
 
-/** 解码后缩放到长边不超过 2560，重新编码为 JPEG；浏览器解不了时抛出 ImportError("decode") */
-async function convertToJpeg(file: File): Promise<{ blob: Blob; width: number; height: number }> {
+/** HEIC 和 HEIF：浏览器解不了时由 libheif 解码（5.5） */
+const isHeif = (mimeType: string | undefined): boolean => mimeType === "image/heic" || mimeType === "image/heif";
+
+async function decodeWithLibheif(file: Blob): Promise<ImageBitmap> {
+  const { data, width, height } = await decodeHeic(file);
+  return createImageBitmap(new ImageData(data, width, height));
+}
+
+/** 解码后缩放到长边不超过 2560，重新编码为 JPEG；浏览器和 libheif 都解不了时抛出 ImportError("decode") */
+export async function convertToJpeg(file: Blob, mimeType?: string): Promise<{ blob: Blob; width: number; height: number }> {
   let bitmap: ImageBitmap;
   try {
     // 默认按图片自带的方向信息旋转
     bitmap = await createImageBitmap(file);
   } catch (error) {
-    throw new ImportError("decode", {}, { cause: error });
+    try {
+      if (!isHeif(mimeType)) throw error;
+      bitmap = await decodeWithLibheif(file);
+    } catch (cause) {
+      throw new ImportError("decode", {}, { cause });
+    }
   }
   try {
     const { width, height } = fitWithin(bitmap.width, bitmap.height, IMAGE_MAX_SIDE);
@@ -80,11 +94,11 @@ async function importImage(file: File, options: ImportOptions): Promise<MediaEnt
   // GIF、BMP 等不能原样放入包的格式，无论开关都转成 JPEG
   if (original === undefined || options.transcode) {
     try {
-      const jpeg = await convertToJpeg(file);
+      const jpeg = await convertToJpeg(file, original);
       const sourceType = original ?? (baseMimeType(file.type) || "image/jpeg");
       return { ...common, ...jpeg, mimeType: "image/jpeg", source: { mimeType: sourceType, transcoded: true } };
     } catch (error) {
-      // 浏览器解不了的 HEIC、HEIF、AVIF：保留原文件，之后由转码步骤（libheif）处理；其他格式解不了就是坏文件
+      // 浏览器和 libheif 都解不了的 HEIC、HEIF、AVIF：保留原文件，保存时再试一次，仍失败就原样放入；其他格式解不了就是坏文件
       if (original === undefined || !(error instanceof ImportError) || error.code !== "decode") throw error;
     }
   }

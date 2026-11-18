@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
 import { GENERATOR_LIMITS, TEMPLATES, defaultAspectRatio } from "@qyplayer/core";
-import { PACKAGE_LIMITS, openPackage } from "@qyplayer/qyp";
+import { PACKAGE_LIMITS, openPackage, writePackage } from "@qyplayer/qyp";
 import { AboutDialog } from "../AboutDialog";
 import { isDesktop, saveBlob } from "../desktop";
 import { LANG_NAMES, otherLang, useI18n, type MessageKey } from "../i18n";
@@ -12,9 +12,9 @@ import { InfoIcon } from "../ui/icons";
 import { theme } from "../ui/theme";
 import { useMatchMedia } from "../ui/useMatchMedia";
 import { AssetPanel, type ImportFailure } from "./AssetPanel";
-import { buildPackage, type MusicEntry } from "./buildPackage";
+import { planPackage, type MusicEntry } from "./buildPackage";
 import { describeBuildError, describeFileError } from "./describe";
-import { ConfirmDialog, MessageDialog } from "./Dialogs";
+import { ConfirmDialog, MessageDialog, ProgressDialog } from "./Dialogs";
 import { MOBILE_MAX_BYTES, exceedsMobileLimit, mobileSizeLevel } from "./environment";
 import { classifyDrop } from "./editor/drop";
 import { editorMediaFromImport } from "./editor/fromImport";
@@ -51,6 +51,9 @@ import { ImportError, importMedia, importMusic } from "./importers";
 import { MenuBar, type BarCommand, type MenuGroup } from "./MenuBar";
 import { EmptyState, PreviewPane } from "./PreviewPane";
 import { SettingsPanel } from "./SettingsPanel";
+import { TranscodeCache } from "./transcode/cache";
+import { isAbortError, transcodeForSave, type TranscodeProgress } from "./transcode/run";
+import { browserWorkers } from "./transcode/workers";
 import { useObjectUrls } from "./useObjectUrls";
 import { usePreview } from "./usePreview";
 import { useTranscode } from "./useTranscode";
@@ -136,6 +139,10 @@ export function CreatorApp() {
   const [tab, setTab] = useState<Tab>("media");
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
+  const [progress, setProgress] = useState<TranscodeProgress | null>(null);
+  const saveAbort = useRef<AbortController | null>(null);
+  const transcodeCache = useRef(new TranscodeCache());
   const [aboutOpen, setAboutOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -151,8 +158,13 @@ export function CreatorApp() {
   const busy = importing !== null || working !== null;
   const busyRef = useRef(busy);
   busyRef.current = busy;
-  const modalOpen = confirmation !== null || errorMessage !== null || aboutOpen;
+  const modalOpen = confirmation !== null || errorMessage !== null || savedNote !== null || progress !== null || aboutOpen;
   const dirty = isDirty(editor);
+
+  // 转码开关关闭时丢弃转码缓存（5.5）
+  useEffect(() => {
+    if (!transcodeSetting.transcode) transcodeCache.current.clear();
+  }, [transcodeSetting.transcode]);
 
   const apply = (change: (state: EditorState) => EditorState): void => setEditor(change);
   const announce = (message: string): void => setAnnouncement(message);
@@ -268,9 +280,11 @@ export function CreatorApp() {
     busyRef.current = true;
     setWorking("saving");
     announce(t("statusSaving"));
+    const controller = new AbortController();
+    saveAbort.current = controller;
     try {
       const music = await resolveMusic(current.music);
-      const built = await buildPackage({
+      const planned = planPackage({
         media: current.media,
         ...(music && { music }),
         ...(current.aspect !== "auto" && { aspectRatio: current.aspect }),
@@ -279,10 +293,29 @@ export function CreatorApp() {
         title: current.title,
         defaultTitleWord: t("defaultTitleWord"),
       });
-      const fileName = safeFileName(built.manifest.title, t("defaultTitleWord"));
+      let { manifest, files } = planned;
+      let failedToTranscode: string[] = [];
+      if (transcodeRef.current) {
+        const outcome = await transcodeForSave({
+          manifest,
+          files,
+          media: current.media,
+          ...(music && { music }),
+          audioEncode: transcodeSetting.capabilities.audioEncode,
+          cache: transcodeCache.current,
+          workers: browserWorkers,
+          signal: controller.signal,
+          onProgress: setProgress,
+        });
+        ({ manifest, files } = outcome);
+        failedToTranscode = outcome.failed;
+      }
+      setProgress(null);
+      const blob = await writePackage(manifest, files);
+      const fileName = safeFileName(manifest.title, t("defaultTitleWord"));
       let saved: boolean;
       try {
-        saved = await saveBlob(built.blob, fileName);
+        saved = await saveBlob(blob, fileName);
       } catch (error) {
         setErrorMessage(t("makerSaveFailed", { detail: error instanceof Error ? error.message : String(error) }));
         return;
@@ -290,10 +323,16 @@ export function CreatorApp() {
       if (saved) {
         apply(markSaved);
         announce(t("statusSaved", { name: fileName }));
+        if (failedToTranscode.length > 0) {
+          setSavedNote(t("transcodeFailed", { count: failedToTranscode.length, names: failedToTranscode.join("\n") }));
+        }
       }
     } catch (error) {
-      setErrorMessage(describeBuildError(error, t));
+      if (isAbortError(error)) announce(t("statusSaveCanceled"));
+      else setErrorMessage(describeBuildError(error, t));
     } finally {
+      saveAbort.current = null;
+      setProgress(null);
       setWorking(null);
     }
   };
@@ -605,6 +644,14 @@ export function CreatorApp() {
         />
       )}
       {errorMessage && <MessageDialog message={errorMessage} onClose={() => setErrorMessage(null)} />}
+      {savedNote && <MessageDialog title={t("dialogNoticeTitle")} message={savedNote} onClose={() => setSavedNote(null)} />}
+      {progress && (
+        <ProgressDialog
+          message={t("transcodeProgress", { index: progress.index, total: progress.total, percent: Math.round(progress.fraction * 100) })}
+          fraction={progress.fraction}
+          onCancel={() => saveAbort.current?.abort()}
+        />
+      )}
       {aboutOpen && <AboutDialog kind="maker" onClose={() => setAboutOpen(false)} />}
     </div>
   );

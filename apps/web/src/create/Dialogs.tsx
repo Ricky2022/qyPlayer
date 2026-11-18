@@ -15,6 +15,7 @@ const useStyles = createUseStyles({
   },
   title: { margin: "0 0 10px", fontSize: 17 },
   body: { margin: 0, lineHeight: 1.6, whiteSpace: "pre-line", overflowWrap: "anywhere" },
+  progress: { display: "block", width: "100%", height: 8, marginTop: 14, accentColor: theme.accent },
   actions: { display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 },
   button: {
     minHeight: 36, padding: "6px 18px", border: `1px solid ${theme.border}`, borderRadius: 999, background: theme.surface, color: theme.text, font: "inherit", cursor: "pointer",
@@ -82,15 +83,48 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel }: Co
 
 interface MessageDialogProps {
   message: string;
+  /** 缺省是错误框的标题；保存后的提示等非错误信息传入自己的标题 */
+  title?: string;
   onClose(): void;
 }
 
-/** 错误框：只有一个“确定”按钮 */
-export function MessageDialog({ message, onClose }: MessageDialogProps) {
+/** 消息框：只有一个“确定”按钮，默认是错误框 */
+export function MessageDialog({ message, title, onClose }: MessageDialogProps) {
   const { t } = useI18n();
   return (
-    <DialogShell title={t("dialogErrorTitle")} initialFocus="confirm" cancelLabel="" confirmLabel={t("ok")} onCancel={onClose} onConfirm={onClose} confirmOnly>
+    <DialogShell title={title ?? t("dialogErrorTitle")} initialFocus="confirm" cancelLabel="" confirmLabel={t("ok")} onCancel={onClose} onConfirm={onClose} confirmOnly>
       {message}
     </DialogShell>
+  );
+}
+
+interface ProgressDialogProps {
+  message: string;
+  /** 0 到 1 */
+  fraction: number;
+  onCancel(): void;
+}
+
+/** 进度框：带进度条和“取消”按钮；Esc 等同取消，点背景不取消 */
+export function ProgressDialog({ message, fraction, onCancel }: ProgressDialogProps) {
+  const { t } = useI18n();
+  const classes = useStyles();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useDialogFocus(dialogRef, onCancel, cancelRef);
+  return (
+    <div className={classes.backdrop}>
+      <div ref={dialogRef} className={classes.dialog} role="dialog" aria-modal="true" aria-label={message}>
+        <p className={classes.body} role="status">
+          {message}
+        </p>
+        <progress className={classes.progress} max={1} value={fraction} aria-label={message} />
+        <div className={classes.actions}>
+          <button ref={cancelRef} className={classes.button} onClick={onCancel}>
+            {t("cancel")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

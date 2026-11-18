@@ -64,7 +64,8 @@ export interface BuiltPackage {
   manifest: Manifest;
 }
 
-function idFor(index: number): string {
+/** 第 index 个素材在清单里的 id（m001、m002……） */
+export function idFor(index: number): string {
   return `m${String(index + 1).padStart(3, "0")}`;
 }
 
