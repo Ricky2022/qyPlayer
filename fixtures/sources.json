@@ -127,5 +127,53 @@
     "downloadUrl": "https://archive.org/download/OpenGoldbergVariations/Kimiko%20Ishizaka%20-%20J.S.%20Bach-%20-Open-%20Goldberg%20Variations%2C%20BWV%20988%20%28Piano%29%20-%2002%20Variatio%201%20a%201%20Clav..mp3",
     "note": "作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 115 秒。",
     "sha256": "c54de41cd2cb5ccd2457cb9a8ef5856d93343cc61b2721ab0fce602439fb4117"
+  },
+  {
+    "file": "bgm-goldberg-aria.mp3",
+    "kind": "audio",
+    "title": "J.S. Bach: Goldberg Variations, BWV 988 — Aria",
+    "author": "Kimiko Ishizaka（The Open Goldberg Variations）",
+    "license": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sourceUrl": "https://archive.org/details/OpenGoldbergVariations",
+    "downloadUrl": "https://archive.org/download/OpenGoldbergVariations/Kimiko%20Ishizaka%20-%20J.S.%20Bach-%20-Open-%20Goldberg%20Variations%2C%20BWV%20988%20%28Piano%29%20-%2001%20Aria.mp3",
+    "note": "作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 NaN 秒，5.8 MB。",
+    "sha256": "a36593c51a4afb80f6494abf975cb7b51e35f9fa6903f456edf53a31106b3749"
+  },
+  {
+    "file": "bgm-goldberg-var3.mp3",
+    "kind": "audio",
+    "title": "J.S. Bach: Goldberg Variations, BWV 988 — Variatio 3 a 1 Clav. Canone all’Unisono",
+    "author": "Kimiko Ishizaka（The Open Goldberg Variations）",
+    "license": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sourceUrl": "https://archive.org/details/OpenGoldbergVariations",
+    "downloadUrl": "https://archive.org/download/OpenGoldbergVariations/Kimiko%20Ishizaka%20-%20J.S.%20Bach-%20-Open-%20Goldberg%20Variations%2C%20BWV%20988%20%28Piano%29%20-%2004%20Variatio%203%20a%201%20Clav.%20Canone%20all%20Unisuono.mp3",
+    "note": "作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 NaN 秒，2.5 MB。",
+    "sha256": "249151e50e79a852e9c1c5ce88aa48769db5cd56e89530d9020b72bcc9a51eb1"
+  },
+  {
+    "file": "bgm-goldberg-var7.mp3",
+    "kind": "audio",
+    "title": "J.S. Bach: Goldberg Variations, BWV 988 — Variatio 7 a 1 ovvero 2 Clav. (al tempo di Giga)",
+    "author": "Kimiko Ishizaka（The Open Goldberg Variations）",
+    "license": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sourceUrl": "https://archive.org/details/OpenGoldbergVariations",
+    "downloadUrl": "https://archive.org/download/OpenGoldbergVariations/Kimiko%20Ishizaka%20-%20J.S.%20Bach-%20-Open-%20Goldberg%20Variations%2C%20BWV%20988%20%28Piano%29%20-%2008%20Variatio%207%20a%201%20ovvero%202%20Clav..mp3",
+    "note": "作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 NaN 秒，2.7 MB。",
+    "sha256": "c9787eb218b1f77d214310c1f22c1e4d18c5e6e67d59cf1ac38842ff9d484893"
+  },
+  {
+    "file": "bgm-goldberg-var13.mp3",
+    "kind": "audio",
+    "title": "J.S. Bach: Goldberg Variations, BWV 988 — Variatio 13 a 2 Clav.",
+    "author": "Kimiko Ishizaka（The Open Goldberg Variations）",
+    "license": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sourceUrl": "https://archive.org/details/OpenGoldbergVariations",
+    "downloadUrl": "https://archive.org/download/OpenGoldbergVariations/Kimiko%20Ishizaka%20-%20J.S.%20Bach-%20-Open-%20Goldberg%20Variations%2C%20BWV%20988%20%28Piano%29%20-%2014%20Variatio%2013%20a%202%20Clav..mp3",
+    "note": "作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 NaN 秒，5.0 MB。",
+    "sha256": "c35b0c3c58ebd5a944d28cfab4b00c075d17deb6834915221d1ce6b454be0c3a"
   }
 ]

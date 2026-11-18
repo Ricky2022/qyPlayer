@@ -9,6 +9,7 @@ describe("classifyFile", () => {
     ["clip.mp4", "video/mp4", "video"],
     ["song.mp3", "audio/mpeg", "audio"],
     ["song.M4A", "", "audio"],
+    ["tone.WAV", "audio/wav", "audio"],
   ])("%s is %s", (name, mime, kind) => {
     expect(classifyFile(name, mime)).toEqual({ kind });
   });

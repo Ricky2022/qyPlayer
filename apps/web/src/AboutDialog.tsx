@@ -1,6 +1,6 @@
 import { useRef, type MouseEvent } from "react";
 import { createUseStyles } from "react-jss";
-import { BUILTIN_MUSIC_TITLE, BUILTIN_MUSIC_TITLE_EN } from "./create/builtinMusicInfo";
+import { BUILTIN_TRACKS } from "./create/builtinMusicInfo";
 import { openExternal } from "./desktop";
 import { useI18n } from "./i18n";
 import { LanguageSwitch } from "./ui/LanguageSwitch";
@@ -114,7 +114,12 @@ export function AboutDialog({ kind, onClose }: AboutDialogProps) {
           {kind === "maker" && (
             <>
               <dt>{t("aboutMusic")}</dt>
-              <dd>{`${lang === "zh" ? BUILTIN_MUSIC_TITLE : BUILTIN_MUSIC_TITLE_EN}, CC0 1.0`}</dd>
+              <dd>
+                {BUILTIN_TRACKS.map((track) => (
+                  <div key={track.id}>{lang === "zh" ? track.title : track.titleEn}</div>
+                ))}
+                <div>CC0 1.0</div>
+              </dd>
             </>
           )}
           <dt>{t("aboutLanguage")}</dt>

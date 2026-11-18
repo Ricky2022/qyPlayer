@@ -14,13 +14,14 @@ import { useMatchMedia } from "../ui/useMatchMedia";
 import { AssetPanel, type ImportFailure } from "./AssetPanel";
 import { planPackage, type MusicEntry } from "./buildPackage";
 import { describeBuildError, describeFileError } from "./describe";
+import { addCover } from "./cover";
 import { ConfirmDialog, MessageDialog, ProgressDialog } from "./Dialogs";
 import { MOBILE_MAX_BYTES, exceedsMobileLimit, mobileSizeLevel } from "./environment";
 import { classifyDrop } from "./editor/drop";
 import { editorMediaFromImport } from "./editor/fromImport";
 import { DESKTOP_MEDIA_QUERY } from "./editor/layout";
 import { menuStatus } from "./editor/menu";
-import { resolveMusic } from "./editor/music";
+import { needsMusicRightsConfirm, resolveMusic } from "./editor/music";
 import { RestoreError, restorePackage } from "./editor/restore";
 import { commandForShortcut, shortcutLabel } from "./editor/shortcuts";
 import {
@@ -311,6 +312,7 @@ export function CreatorApp() {
         failedToTranscode = outcome.failed;
       }
       setProgress(null);
+      ({ manifest, files } = await addCover(manifest, files));
       const blob = await writePackage(manifest, files);
       const fileName = safeFileName(manifest.title, t("defaultTitleWord"));
       let saved: boolean;
@@ -370,9 +372,15 @@ export function CreatorApp() {
       case "open":
         guardDirty(() => qypInput.current?.click());
         break;
-      case "save":
-        void save();
+      case "save": {
+        // 导入的音乐每次保存前都提示确认使用权，内置曲目不提示（5.6）
+        if (needsMusicRightsConfirm(currentDoc(editorRef.current).music)) {
+          setConfirmation({ message: t("musicRightsMessage"), confirmLabel: t("musicRightsContinue"), onConfirm: () => void save() });
+        } else {
+          void save();
+        }
         break;
+      }
       case "exportMp4":
         break;
       case "undo":
@@ -612,7 +620,7 @@ export function CreatorApp() {
         ref={musicInput}
         type="file"
         hidden
-        accept=".mp3,.m4a,audio/mpeg,audio/mp4"
+        accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav"
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";

@@ -40,5 +40,13 @@
 | 文件 | 标题 | 作者 | 许可 | 来源 |
 | --- | --- | --- | --- | --- |
 | bgm-goldberg-var1.mp3 | J.S. Bach: Goldberg Variations, BWV 988 — Variatio 1 a 1 Clav. | Kimiko Ishizaka（The Open Goldberg Variations） | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [链接](https://archive.org/details/OpenGoldbergVariations) |
+| bgm-goldberg-aria.mp3 | J.S. Bach: Goldberg Variations, BWV 988 — Aria | Kimiko Ishizaka（The Open Goldberg Variations） | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [链接](https://archive.org/details/OpenGoldbergVariations) |
+| bgm-goldberg-var3.mp3 | J.S. Bach: Goldberg Variations, BWV 988 — Variatio 3 a 1 Clav. Canone all’Unisono | Kimiko Ishizaka（The Open Goldberg Variations） | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [链接](https://archive.org/details/OpenGoldbergVariations) |
+| bgm-goldberg-var7.mp3 | J.S. Bach: Goldberg Variations, BWV 988 — Variatio 7 a 1 ovvero 2 Clav. (al tempo di Giga) | Kimiko Ishizaka（The Open Goldberg Variations） | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [链接](https://archive.org/details/OpenGoldbergVariations) |
+| bgm-goldberg-var13.mp3 | J.S. Bach: Goldberg Variations, BWV 988 — Variatio 13 a 2 Clav. | Kimiko Ishizaka（The Open Goldberg Variations） | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [链接](https://archive.org/details/OpenGoldbergVariations) |
 
 - `bgm-goldberg-var1.mp3`：作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 115 秒。
+- `bgm-goldberg-aria.mp3`：作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 NaN 秒，5.8 MB。
+- `bgm-goldberg-var3.mp3`：作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 NaN 秒，2.5 MB。
+- `bgm-goldberg-var7.mp3`：作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 NaN 秒，2.7 MB。
+- `bgm-goldberg-var13.mp3`：作曲者 Bach（公有领域），录音由 Kimiko Ishizaka 以 CC0 发布。MP3 约 NaN 秒，5.0 MB。

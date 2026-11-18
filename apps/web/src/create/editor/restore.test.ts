@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GenerateError, type Manifest } from "@qyplayer/core";
 import { openPackage, writePackage } from "@qyplayer/qyp";
 import { planPackage, type MediaEntry, type MusicEntry } from "../buildPackage";
-import { BUILTIN_MUSIC_LICENSE, BUILTIN_MUSIC_TITLE_EN } from "../builtinMusicInfo";
+import { BUILTIN_MUSIC_LICENSE, BUILTIN_TRACKS } from "../builtinMusicInfo";
 import { createPreviewPackage, memoryPackage } from "./preview";
 import { RestoreError, assetsInFirstAppearanceOrder, restorePackage, type RestoreOptions } from "./restore";
 import { currentDoc, createEditor, loadEditor, type EditorMediaInput } from "./state";
@@ -134,12 +134,12 @@ describe("还原：配乐", () => {
   });
 
   it("CC0 且曲名是内置曲目：选中内置曲目，不读文件", async () => {
-    const opened = makeMemoryPackage({ music: { ...song, title: BUILTIN_MUSIC_TITLE_EN, license: BUILTIN_MUSIC_LICENSE } });
+    const opened = makeMemoryPackage({ music: { ...song, title: BUILTIN_TRACKS[0]!.titleEn, license: BUILTIN_MUSIC_LICENSE } });
     expect((await restorePackage(opened, options)).content.music).toEqual({ kind: "builtin", trackId: "goldberg-var1" });
   });
 
   it("曲名相同但许可不是 CC0：当作导入音频", async () => {
-    const opened = makeMemoryPackage({ music: { ...song, title: BUILTIN_MUSIC_TITLE_EN, license: "All rights reserved" } });
+    const opened = makeMemoryPackage({ music: { ...song, title: BUILTIN_TRACKS[0]!.titleEn, license: "All rights reserved" } });
     expect((await restorePackage(opened, options)).content.music.kind).toBe("custom");
   });
 
@@ -189,5 +189,12 @@ describe("预览包", () => {
 
   it("没有素材时抛出 no-media", () => {
     expect(() => createPreviewPackage(currentDoc(createEditor(1, "clean")))).toThrowError(GenerateError);
+  });
+});
+
+describe("还原：全部内置曲目", () => {
+  it.each(BUILTIN_TRACKS.map((track) => [track.id, track] as const))("%s：按英文曲名和 CC0 认出", async (id, track) => {
+    const opened = makeMemoryPackage({ music: { ...song, title: track.titleEn, license: BUILTIN_MUSIC_LICENSE } });
+    expect((await restorePackage(opened, options)).content.music).toEqual({ kind: "builtin", trackId: id });
   });
 });

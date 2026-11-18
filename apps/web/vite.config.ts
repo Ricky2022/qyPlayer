@@ -2,18 +2,19 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { BUILTIN_TRACKS } from "./src/create/builtinMusicInfo";
 
 const root = import.meta.dirname;
 const { version } = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as { version: string };
 
-const BUILTIN_MUSIC = "samples/bgm-goldberg-var1.mp3";
-
-/** 制作器的网页产物只带内置配乐这一个文件，不带 public/ 下的示例包 */
+/** 制作器的网页产物只带内置配乐，不带 public/ 下的示例包 */
 function emitBuiltinMusic(): Plugin {
   return {
     name: "emit-builtin-music",
     generateBundle() {
-      this.emitFile({ type: "asset", fileName: BUILTIN_MUSIC, source: readFileSync(resolve(root, "public", BUILTIN_MUSIC)) });
+      for (const { path } of BUILTIN_TRACKS) {
+        this.emitFile({ type: "asset", fileName: path, source: readFileSync(resolve(root, "public", path)) });
+      }
     },
   };
 }

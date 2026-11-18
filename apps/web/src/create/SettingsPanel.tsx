@@ -7,6 +7,7 @@ import { BUILTIN_TRACKS } from "./builtinMusicInfo";
 import type { AspectChoice, EditorDoc, MusicChoice } from "./editor/state";
 import type { TranscodeNote } from "./environment";
 import { formatDuration } from "./files";
+import { useTrackPreview } from "./useTrackPreview";
 
 const useStyles = createUseStyles({
   panel: { height: "100%", overflowY: "auto", boxSizing: "border-box", padding: "4px 14px 20px" },
@@ -27,6 +28,13 @@ const useStyles = createUseStyles({
     "&:hover": { background: theme.surfaceHover },
   },
   cardOn: { borderColor: theme.accent },
+  track: { display: "flex", alignItems: "center", gap: 8 },
+  trackLabel: { display: "flex", alignItems: "flex-start", gap: 8, flex: 1, minWidth: 0, minHeight: 28, padding: "4px 0", fontSize: 14, cursor: "pointer" },
+  small: {
+    flex: "none", minHeight: 30, minWidth: 54, padding: "2px 12px", border: `1px solid ${theme.border}`, borderRadius: 999, background: theme.surface, color: theme.text, cursor: "pointer", font: "inherit", fontSize: 13,
+    "&:hover": { background: theme.surfaceHover },
+    "&:focus-visible": { outline: `2px solid ${theme.accent}` },
+  },
   cardText: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 },
   cardName: { fontSize: 14, fontWeight: 600 },
   hint: { fontSize: 12, color: theme.muted },
@@ -68,7 +76,7 @@ export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, cu
     { value: "16:9", label: t("makerLandscape") },
     { value: "9:16", label: t("makerPortrait") },
   ];
-  const track = BUILTIN_TRACKS[0]!;
+  const preview = useTrackPreview();
   const pickedCustom = doc.music.kind === "custom" ? doc.music.entry : customMusic;
 
   return (
@@ -112,16 +120,39 @@ export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, cu
           <label className={classes.choice}>
             <input type="radio" name="qy-music" checked={doc.music.kind === "none"} disabled={disabled} onChange={() => onMusic({ kind: "none" })} /> {t("makerMusicNone")}
           </label>
-          <label className={classes.choice}>
-            <input
-              type="radio"
-              name="qy-music"
-              checked={doc.music.kind === "builtin"}
-              disabled={disabled}
-              onChange={() => onMusic({ kind: "builtin", trackId: track.id })}
-            />{" "}
-            {t("makerMusicBuiltin", { title: lang === "zh" ? track.title : track.titleEn })}
-          </label>
+          {BUILTIN_TRACKS.map((track) => {
+            const name = lang === "zh" ? track.title : track.titleEn;
+            const isPlaying = preview.playing === track.id;
+            return (
+              <div key={track.id} className={classes.track}>
+                <label className={classes.trackLabel}>
+                  <input
+                    type="radio"
+                    name="qy-music"
+                    checked={doc.music.kind === "builtin" && doc.music.trackId === track.id}
+                    disabled={disabled}
+                    onChange={() => onMusic({ kind: "builtin", trackId: track.id })}
+                  />
+                  <span>
+                    {t("makerMusicBuiltin", {
+                      title: name,
+                      mood: lang === "zh" ? track.mood : track.moodEn,
+                      duration: formatDuration(track.duration),
+                    })}
+                  </span>
+                </label>
+                <button
+                  className={classes.small}
+                  disabled={disabled}
+                  aria-label={t(isPlaying ? "musicPreviewStopAria" : "musicPreviewAria", { title: name })}
+                  onClick={() => preview.toggle(track)}
+                >
+                  {t(isPlaying ? "musicPreviewStop" : "musicPreview")}
+                </button>
+              </div>
+            );
+          })}
+          <div className={classes.hint}>{t("makerMusicBuiltinNote")}</div>
           <label className={classes.choice}>
             <input
               type="radio"

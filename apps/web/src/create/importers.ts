@@ -5,6 +5,7 @@ import { chooseCapturedAt, readPhotoExifTime } from "./capturedAt";
 import { classifyFile, fitWithin, IMAGE_MAX_SIDE } from "./files";
 import { readImageSize } from "./imageInfo";
 import { audioMimeType, baseMimeType, imageMimeType } from "./mediaType";
+import { probeWavDuration } from "./probeAudio";
 import { probeVideo } from "./probeVideo";
 import { decodeHeic } from "./transcode/heic";
 import type { MediaEntry, MusicEntry } from "./buildPackage";
@@ -133,11 +134,12 @@ export async function importMedia(file: File, options: ImportOptions): Promise<M
   return classification.kind === "image" ? importImage(file, options) : importVideo(file);
 }
 
-/** 导入配乐文件（MP3 或 M4A） */
+/** 导入配乐文件（MP3、M4A 或 WAV）。WAV 在保存时转成 AAC（5.5） */
 export async function importMusic(file: File): Promise<MusicEntry> {
   const classification = classifyFile(file.name, file.type);
   if (classification.kind === "unsupported") throw new ImportError(classification.reason);
   if (classification.kind !== "audio") throw new ImportError("need-audio");
-  const info = await inspectAudio(file, file.name);
-  return { blob: file, mimeType: audioMimeType(file.name) ?? "audio/mpeg", duration: info.duration, title: file.name };
+  const mimeType = audioMimeType(file.name) ?? "audio/mpeg";
+  const duration = mimeType === "audio/wav" ? await probeWavDuration(file, file.name) : (await inspectAudio(file, file.name)).duration;
+  return { blob: file, mimeType, duration, title: file.name };
 }

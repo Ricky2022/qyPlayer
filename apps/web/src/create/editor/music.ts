@@ -1,5 +1,6 @@
 import type { MusicEntry } from "../buildPackage";
 import { loadBuiltinMusic } from "../builtinMusic";
+import { findBuiltinTrack } from "../builtinMusicInfo";
 import type { MusicChoice } from "./state";
 
 const builtinCache = new Map<string, Promise<MusicEntry>>();
@@ -12,9 +13,11 @@ export async function resolveMusic(choice: MusicChoice): Promise<MusicEntry | un
     case "custom":
       return choice.entry;
     case "builtin": {
+      const track = findBuiltinTrack(choice.trackId);
+      if (!track) return undefined;
       let loading = builtinCache.get(choice.trackId);
       if (!loading) {
-        loading = loadBuiltinMusic();
+        loading = loadBuiltinMusic(track);
         builtinCache.set(choice.trackId, loading);
         loading.catch(() => builtinCache.delete(choice.trackId));
       }
@@ -22,3 +25,6 @@ export async function resolveMusic(choice: MusicChoice): Promise<MusicEntry | un
     }
   }
 }
+
+/** 保存和导出前要不要提示用户确认音乐的使用权（5.6）：只有导入的音频需要，内置曲目不需要 */
+export const needsMusicRightsConfirm = (choice: MusicChoice): boolean => choice.kind === "custom";
