@@ -117,7 +117,7 @@ describe("size-mismatch: 声明的大小与实际不符", () => {
     const larger = patched(zip, { directory: { uncompressedSize: zero.length + 1 } });
     expect(await codeOf(read(larger))).toBe("size-mismatch");
     expect(await read(await compressedPackage(big))).toEqual(big);
-  });
+  }, 30_000); // 解压 8 MB 的数据，CI 上的 Windows 机器较慢
 
   it("manifest.json 的声明大小不符，打开时就拒绝", async () => {
     const zip = await storedPackage();

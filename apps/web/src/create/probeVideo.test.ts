@@ -1,14 +1,18 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { openPackage } from "@qyplayer/qyp";
 import { beforeAll, describe, expect, it } from "vitest";
 import { probeVideo } from "./probeVideo";
 
 // 用示例包里的真实 H.264 + AAC 的 MP4 做样本；MOV 样本是把它的 ftyp 品牌改成 "qt  "
+const SAMPLE_PACKAGE = "fixtures/build/sample-video-sound-16x9.qyp";
+// 示例包由 pnpm fixtures:build 生成、不入库；没有它（例如 CI）时跳过
+const hasSample = existsSync(SAMPLE_PACKAGE);
 let mp4: Blob;
 let mov: Blob;
 
 beforeAll(async () => {
-  const opened = await openPackage(new Blob([readFileSync("fixtures/build/sample-video-sound-16x9.qyp")]));
+  if (!hasSample) return;
+  const opened = await openPackage(new Blob([readFileSync(SAMPLE_PACKAGE)]));
   mp4 = await opened.readBlob("media/m005.mp4");
   const bytes = new Uint8Array(await mp4.arrayBuffer());
   const ftyp = new TextDecoder().decode(bytes.subarray(4, 8));
@@ -17,7 +21,7 @@ beforeAll(async () => {
   mov = new Blob([bytes]);
 });
 
-describe("probeVideo", () => {
+describe.skipIf(!hasSample)("probeVideo", () => {
   it("读出尺寸、时长、音轨和带编码的 video/mp4 类型", async () => {
     const info = await probeVideo(mp4, "a.mp4");
     expect(info.width).toBe(1080);
