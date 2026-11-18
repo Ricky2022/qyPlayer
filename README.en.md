@@ -38,7 +38,29 @@ All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/release
 
 ## Status
 
-This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps, MP4 export and AI-assisted editing have not been started.
+This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps and AI-assisted editing have not been started (MP4 export is on the 0.3.0 development branch).
+
+### 0.3.0 progress (development branch `release/0.3.0`, not released yet)
+
+0.3.0 is under development; the detailed plan is in [`docs/dev-0.3.0.md`](./docs/dev-0.3.0.md) (in Chinese). The download links and the online demo above are still the released 0.2.1. Files built by GitHub Actions from the development branch are preview builds (the version in their file names is still 0.2.1). They have not been fully tested, so do not treat them as a release.
+
+Done:
+
+- A new creator interface: menu bar, three-column layout (three tabs on phones), media panel, auto-updating preview, undo and redo, unsaved-changes prompt, opening an existing `.qyp` to keep editing, shortcuts, accessibility.
+- Package format 0.2: each asset records its `mimeType` and where it came from before transcoding, and the real size is checked on open; a new `cover.jpg` cover; `peekPackage` reads the title, duration, cover and other summary information without unzipping.
+- The player checks the media on open, draws a placeholder for media this device cannot decode and tells you, and fades video sound in and out on each page.
+- The creator: HEIC photos are converted to JPEG with a built-in decoder; on save, videos can be trimmed and converted to H.264 + AAC and WAV to AAC (with progress, cancel, and as-is fallback with a message for items that fail); phones get a total-size warning and a limit.
+- Music: 5 built-in CC0 tracks (with preview), imported MP3, M4A and WAV; imported music asks you to confirm you have the rights before saving or exporting.
+- MP4 export: 1920x1080 (1080x1920 for portrait), 30 fps, H.264 + AAC, with progress and cancel; desktop computers only.
+
+Not done yet (the last planned step, S8, is paused):
+
+- Security wrap-up: a Content Security Policy (CSP), a reproducible Rust build and a `Cargo.lock` check.
+- Documentation sync: the PRD, `spec`, `NOTICE` and the About page still need the licenses of libheif (LGPL-3.0) and mediabunny (MPL-2.0).
+- Full acceptance testing: with real iPhone HEIC and HEVC media and an Android phone; playing an exported MP4 in the Windows built-in player (so far only checked in Chrome).
+- Release: bump the version to 0.3.0, tag it, update the download links and the release notes.
+- To decide: whether transcoding should cap the bitrate at the source video's bitrate (a low-bitrate source can currently get larger).
+- Known issues: an exported MP4 is held entirely in memory, so a very long film may run out of memory (a film over 10 minutes asks first); Chrome's hardware encoder writes H.264 level 5.0 instead of the 4.0 in the spec, though the stream itself stays within the level 4.0 limits.
 
 New in 0.2.0: an immersive player (auto-hiding controls, a big play button, keyboard shortcuts); a bilingual Chinese / English interface; an About page; new Q + cloud icons (a play triangle for the player, a pencil for the creator) and a dedicated `.qyp` file icon; a reworked Windows installer (see above).
 
@@ -48,7 +70,7 @@ What works today:
 - Creating: import photos and videos, reorder or remove them by hand, choose the aspect ratio (landscape 16:9 or portrait 9:16), a style template, a title and music, preview in the page, "another version", and download the `.qyp`.
 - The `.qyp` format: a ZIP containing `manifest.json` and the media. Packages are validated strictly on open; paths that escape the package, remote references and oversized packages are rejected. See [`spec/manifest.schema.json`](./spec/manifest.schema.json) and section 7 of the [PRD](./docs/PRD.en.md).
 
-Known limitations (details in the [Phase 0 report](./docs/phase0-report.md), in Chinese):
+Known limitations (for the released 0.2.1; details in the [Phase 0 report](./docs/phase0-report.md), in Chinese; see above for what 0.3.0 improves):
 
 - Videos must be H.264 MP4 and are packaged **as they are**, with no transcoding or trimming, so the package is as large as the original video.
 - Photos are re-encoded to JPEG in the creator (longest side at most 2560 px). Formats the browser cannot decode (for example HEIC in Chromium) are skipped with a message.
