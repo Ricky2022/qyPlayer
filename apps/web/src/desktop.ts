@@ -37,15 +37,16 @@ function downloadInBrowser(blob: Blob, fileName: string): void {
 
 /**
  * 保存文件：网页里走浏览器下载；桌面程序里弹出系统「另存为」对话框。
- * 用户在对话框里取消时不报错。
+ * 返回是否真的保存了：用户在对话框里取消时不报错，返回 false。网页下载无法得知用户是否取消，总是返回 true。
  */
-export async function saveBlob(blob: Blob, fileName: string): Promise<void> {
+export async function saveBlob(blob: Blob, fileName: string): Promise<boolean> {
   if (!isDesktop()) {
     downloadInBrowser(blob, fileName);
-    return;
+    return true;
   }
   // 文件名放在请求头里（需百分号编码），文件内容作为原始字节体
-  await invoke("save_file", new Uint8Array(await blob.arrayBuffer()), {
+  const saved = await invoke<boolean>("save_file", new Uint8Array(await blob.arrayBuffer()), {
     headers: { "x-file-name": encodeURIComponent(fileName) },
   });
+  return saved;
 }

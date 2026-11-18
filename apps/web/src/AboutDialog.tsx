@@ -1,9 +1,10 @@
-import { useEffect, useRef, type MouseEvent } from "react";
+import { useRef, type MouseEvent } from "react";
 import { createUseStyles } from "react-jss";
 import { BUILTIN_MUSIC_TITLE, BUILTIN_MUSIC_TITLE_EN } from "./create/builtinMusicInfo";
 import { openExternal } from "./desktop";
 import { useI18n } from "./i18n";
 import { LanguageSwitch } from "./ui/LanguageSwitch";
+import { useDialogFocus } from "./ui/useDialogFocus";
 import { Logo } from "./ui/Logo";
 import { CloseIcon } from "./ui/icons";
 import { theme } from "./ui/theme";
@@ -65,21 +66,14 @@ interface AboutDialogProps {
 export function AboutDialog({ kind, onClose }: AboutDialogProps) {
   const classes = useStyles();
   const { lang, t } = useI18n();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useDialogFocus(dialogRef, onClose, closeRef);
 
   const name = kind === "player" ? t("appName") : t("makerName");
   return (
     <div className={classes.backdrop} onClick={onClose}>
-      <div className={classes.dialog} role="dialog" aria-modal="true" aria-label={`${t("about")} ${name}`} onClick={(event) => event.stopPropagation()}>
+      <div ref={dialogRef} className={classes.dialog} role="dialog" aria-modal="true" aria-label={`${t("about")} ${name}`} onClick={(event) => event.stopPropagation()}>
         <button ref={closeRef} className={classes.close} aria-label={t("close")} title={t("close")} onClick={onClose}>
           <CloseIcon size={20} />
         </button>

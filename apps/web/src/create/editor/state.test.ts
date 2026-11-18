@@ -11,7 +11,7 @@ import {
   markSaved,
   moveMedia,
   redo,
-  referencedKeys,
+  referencedBlobs,
   removeMedia,
   resetEditor,
   setAspect,
@@ -189,11 +189,11 @@ describe("编辑状态：撤销和重做", () => {
 
   it("被删除的素材仍被撤销栈引用；挤出撤销栈后才不再被引用", () => {
     let state = withPhotos("a");
-    const key = currentDoc(state).media[0]!.key;
+    const { key, blob } = currentDoc(state).media[0]!;
     state = removeMedia(state, key);
-    expect(referencedKeys(state).has(key)).toBe(true);
+    expect(referencedBlobs(state).has(blob)).toBe(true);
     for (let i = 1; i <= MAX_HISTORY; i++) state = setSeed(state, 2000 + i);
-    expect(referencedKeys(state).has(key)).toBe(false);
+    expect(referencedBlobs(state).has(blob)).toBe(false);
   });
 
   it("转码开关不在历史里（状态里没有它）", () => {

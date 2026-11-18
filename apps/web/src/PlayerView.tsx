@@ -71,7 +71,8 @@ function formatTime(seconds: number): string {
 
 interface PlayerViewProps {
   controller: PlaybackController;
-  onClose: () => void;
+  /** 缺省时不显示返回按钮（制作器里的内嵌预览） */
+  onClose?: () => void;
 }
 
 /** 播放界面：画面铺满，控制条浮在底部、静止几秒后自动隐藏；空格、方向键、F、M 为快捷键。 */
@@ -185,9 +186,11 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
       <div ref={stageRef} className={classes.stage} onDoubleClick={toggleFullscreen} />
 
       <div className={`${classes.overlay} ${classes.top} ${visible ? "" : classes.hidden}`}>
-        <button className={classes.iconButton} aria-label={t("playerBack")} title={t("playerBack")} onClick={onClose}>
-          <BackIcon />
-        </button>
+        {onClose && (
+          <button className={classes.iconButton} aria-label={t("playerBack")} title={t("playerBack")} onClick={onClose}>
+            <BackIcon />
+          </button>
+        )}
         <div className={classes.title}>{controller.title}</div>
       </div>
 

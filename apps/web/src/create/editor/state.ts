@@ -88,13 +88,13 @@ export const canUndo = (state: EditorState): boolean => state.past.length > 0;
 export const canRedo = (state: EditorState): boolean => state.future.length > 0;
 export const isDirty = (state: EditorState): boolean => state.present.id !== state.savedId;
 
-/** 所有历史快照里还被引用的素材编号；不在其中的素材可以释放缩略图等资源 */
-export function referencedKeys(state: EditorState): Set<number> {
-  const keys = new Set<number>();
+/** 所有历史快照里还被引用的素材文件；不在其中的文件可以释放缩略图等资源 */
+export function referencedBlobs(state: EditorState): Set<Blob> {
+  const blobs = new Set<Blob>();
   for (const entry of [...state.past, state.present, ...state.future]) {
-    for (const media of entry.doc.media) keys.add(media.key);
+    for (const media of entry.doc.media) blobs.add(media.blob);
   }
-  return keys;
+  return blobs;
 }
 
 function commit(state: EditorState, doc: EditorDoc, titleAt: number | null = null): EditorState {
