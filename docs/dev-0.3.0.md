@@ -620,7 +620,7 @@ default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src
 
 | 依赖 | 用途 | 许可 | 加载方式 |
 | --- | --- | --- | --- |
-| mediabunny | 读取视频和音频的元数据与编码字符串；视频转码；导出 MP4 的解码、编码和封装 | MPL-2.0（预期，开发第一步确认） | 制作器按需动态加载；播放器不加载 |
+| mediabunny | 读取视频和音频的元数据与编码字符串；视频转码；导出 MP4 的解码、编码和封装 | MPL-2.0（S0 已确认，1.66.0，见 [s0-report.md](s0-report.md)） | 制作器按需动态加载；播放器不加载 |
 | libheif-js | HEIC/HEIF 解码 | LGPL-3.0 | 制作器在第一次遇到 HEIC 且转码开启时动态加载，WebAssembly 文件单独输出 |
 | exifr | 读取 EXIF 拍摄时间 | MIT | 制作器 |
 
