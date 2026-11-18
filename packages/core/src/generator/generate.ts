@@ -278,8 +278,8 @@ export function generateManifest(options: GenerateOptions): Manifest {
       };
       if (it.clipStart !== undefined) item.clipStart = it.clipStart;
       if (draft.multi) {
-        // PRD 8.3：入场动画在转场结束后开始，多图页内各图依次错开
-        item.enter = pickEnter(template, rng, round3(trSeconds + itemIndex * GENERATOR_LIMITS.enterStaggerSeconds));
+        // PRD 8.3：入场延迟从页开始计时，与转场并行；多图页内各图依次错开
+        item.enter = pickEnter(template, rng, round3(itemIndex * GENERATOR_LIMITS.enterStaggerSeconds));
       }
       return item;
     });

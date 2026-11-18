@@ -278,7 +278,7 @@ describe("F-GEN-05 transitions and entrances", () => {
     }
   });
 
-  it("staggers entrances on multi-photo pages, after the transition has ended", () => {
+  it("staggers entrances on multi-photo pages, counting delays from the page start", () => {
     let multi = 0;
     for (let seed = 1; seed <= 30; seed++) {
       const m = gen({ media: landscapePhotos(40), templateId: "lively", seed });
@@ -290,7 +290,7 @@ describe("F-GEN-05 transitions and entrances", () => {
         multi++;
         const delays = page.items.map((i) => i.enter!.delay!);
         for (let i = 1; i < delays.length; i++) expect(delays[i]!).toBeGreaterThan(delays[i - 1]!);
-        expect(delays[0]!).toBeGreaterThanOrEqual(page.transitionIn!.duration - 1e-9);
+        expect(delays[0]!).toBe(0);
         const last = page.items[page.items.length - 1]!.enter!;
         expect(last.delay! + last.duration).toBeLessThanOrEqual(page.duration);
       }

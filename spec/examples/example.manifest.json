@@ -136,7 +136,7 @@
           "fit": "cover",
           "enter": {
             "type": "fade",
-            "delay": 0.6,
+            "delay": 0,
             "duration": 0.5
           }
         },
@@ -151,7 +151,7 @@
           "fit": "cover",
           "enter": {
             "type": "fade",
-            "delay": 0.75,
+            "delay": 0.15,
             "duration": 0.5
           }
         }
@@ -200,7 +200,7 @@
           "enter": {
             "type": "slide",
             "direction": "right",
-            "delay": 0.6,
+            "delay": 0,
             "duration": 0.5
           }
         },
@@ -215,7 +215,7 @@
           "fit": "cover",
           "enter": {
             "type": "scale",
-            "delay": 0.75,
+            "delay": 0.15,
             "duration": 0.5
           }
         },
@@ -230,7 +230,7 @@
           "fit": "cover",
           "enter": {
             "type": "scale",
-            "delay": 0.9,
+            "delay": 0.3,
             "duration": 0.5
           }
         }

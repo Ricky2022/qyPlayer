@@ -528,13 +528,13 @@ The manifest below matches the directory layout in [7.2](#72-directory-layout): 
           "assetId": "m002",
           "frame": { "x": 0, "y": 0, "w": 0.4972, "h": 1 },
           "fit": "cover",
-          "enter": { "type": "fade", "delay": 0.6, "duration": 0.5 }
+          "enter": { "type": "fade", "delay": 0, "duration": 0.5 }
         },
         {
           "assetId": "m003",
           "frame": { "x": 0.5028, "y": 0, "w": 0.4972, "h": 1 },
           "fit": "cover",
-          "enter": { "type": "fade", "delay": 0.75, "duration": 0.5 }
+          "enter": { "type": "fade", "delay": 0.15, "duration": 0.5 }
         }
       ]
     },
@@ -562,19 +562,19 @@ The manifest below matches the directory layout in [7.2](#72-directory-layout): 
           "assetId": "m005",
           "frame": { "x": 0, "y": 0, "w": 0.4972, "h": 1 },
           "fit": "cover",
-          "enter": { "type": "slide", "direction": "right", "delay": 0.6, "duration": 0.5 }
+          "enter": { "type": "slide", "direction": "right", "delay": 0, "duration": 0.5 }
         },
         {
           "assetId": "m006",
           "frame": { "x": 0.5028, "y": 0, "w": 0.4972, "h": 0.495 },
           "fit": "cover",
-          "enter": { "type": "scale", "delay": 0.75, "duration": 0.5 }
+          "enter": { "type": "scale", "delay": 0.15, "duration": 0.5 }
         },
         {
           "assetId": "m007",
           "frame": { "x": 0.5028, "y": 0.505, "w": 0.4972, "h": 0.495 },
           "fit": "cover",
-          "enter": { "type": "scale", "delay": 0.9, "duration": 0.5 }
+          "enter": { "type": "scale", "delay": 0.3, "duration": 0.5 }
         }
       ]
     }
@@ -624,7 +624,7 @@ Video pages only use the single-item layout.
 | `slide` | Slides into place from outside one side of its cell; four directions | 0.5 s |
 | `scale` | Grows from slightly smaller to normal size while fading in | 0.5 s |
 
-On multi-photo pages the entrances are staggered, tentatively by 0.15 seconds (T-05). Entrance animations start after the transition ends.
+On multi-photo pages the entrances are staggered, tentatively by 0.15 seconds (T-05). Entrance delays are counted from the start of the page and run in parallel with the transition, so the first item starts entering while the new page is still coming in.
 
 ### 8.4 Built-in templates
 
@@ -964,7 +964,7 @@ These values are starting points given so that the document can be discussed. Th
 | O-09 | The license of the package format specification document (Apache-2.0 like the code, or a documentation license). | Before the public repository is created |
 | O-10 | The actual sources and list of built-in tracks. | Phase 1 |
 | O-11 | The actual names and parameters of built-in templates. | Phase 1 design |
-| O-12 | Timing of entrance animations versus transitions: 8.3 says entrances start after the transition ends, which in practice leaves multi-image pages empty during the transition (report 5.1). Leaning towards counting entrance delays from the start of the page. | Before Phase 1 |
+| O-12 | Timing of entrance animations versus transitions: 8.3 says entrances start after the transition ends, which in practice leaves multi-image pages empty during the transition (report 5.1). **Decided**: entrance delays are counted from the start of the page and run in parallel with the transition (8.3 updated). | Decided |
 | O-13 | HEIC decoding route: Chromium's `ImageDecoder` does not support HEIC (measured in Phase 0). Use a libheif-style library (LGPL, see R-06), or call the platform's native decoder inside the shell. | Before Phase 1 |
 
 ### 14.3 Risks

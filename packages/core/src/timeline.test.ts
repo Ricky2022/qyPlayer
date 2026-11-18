@@ -2,7 +2,19 @@ import { describe, expect, it } from "vitest";
 import example from "../../../spec/examples/example.manifest.json";
 import { bgmGainAt, bgmPositionAt, easeInOut, stateAt, type Manifest } from "./index";
 
-const base = example as unknown as Manifest;
+const generated = example as unknown as Manifest;
+
+// 示例清单的入场延迟从页开始计时（与转场并行）。为了把转场和入场分开断言，
+// 基准清单把每个入场延迟推迟一个转场时长，使入场在转场结束后才开始；并行的情形见最后的“parallel”用例。
+const base = (() => {
+  const copy = JSON.parse(JSON.stringify(generated)) as Manifest;
+  for (const page of copy.pages) {
+    for (const item of page.items) {
+      if (item.enter) item.enter.delay = (item.enter.delay ?? 0) + (page.transitionIn?.duration ?? 0);
+    }
+  }
+  return copy;
+})();
 
 function variant(change: (m: any) => void): Manifest {
   const copy = JSON.parse(JSON.stringify(base));
@@ -167,6 +179,21 @@ describe("stateAt: entrance animations on p004", () => {
     });
     expect(stateAt(m, 5.7).layers[0]?.opacity).toBe(0); // pageTime 0.9 < 1
     expect(stateAt(m, 5.9).layers[0]?.opacity).toBe(1); // pageTime 1.1
+  });
+});
+
+describe("stateAt: entrance in parallel with the transition (PRD 8.3)", () => {
+  it("shows the first item entering while the page slides in", () => {
+    // p002 在 4.8 开始，滑入 0.6 秒；enter.delay 为 0 和 0.15，t = 5.1 时页内时间 0.3
+    const [prev, a, b] = stateAt(generated, 5.1).layers as [any, any, any];
+    expect(prev.pageId).toBe("p001");
+    expect(a.opacity).toBeCloseTo(easeInOut(0.3 / 0.5), 6);
+    expect(b.opacity).toBeCloseTo(easeInOut(0.15 / 0.5), 6);
+  });
+
+  it("never leaves the new page empty once its first item has started entering", () => {
+    const s = stateAt(generated, 4.8 + 0.2);
+    expect(s.layers.filter((l) => l.pageId === "p002").some((l) => l.opacity > 0)).toBe(true);
   });
 });
 
