@@ -5,7 +5,7 @@ import {
   KNOWN_DIRECTIONS,
   KNOWN_ENTER_TYPES,
   KNOWN_TRANSITION_TYPES,
-  SUPPORTED_FORMAT_VERSION,
+  SUPPORTED_FORMAT_VERSIONS,
   type Manifest,
 } from "./manifest";
 import { checkPackagePath } from "./paths";
@@ -62,12 +62,12 @@ export function validateManifest(input: unknown): ValidationResult {
   }
 
   const version = (input as { formatVersion?: unknown }).formatVersion;
-  if (typeof version === "string" && version !== SUPPORTED_FORMAT_VERSION) {
+  if (typeof version === "string" && !SUPPORTED_FORMAT_VERSIONS.includes(version)) {
     return fail([
       {
         code: "unsupported-version",
         path: "/formatVersion",
-        message: `format version ${version} is not supported (supported: ${SUPPORTED_FORMAT_VERSION})`,
+        message: `format version ${version} is not supported (supported: ${SUPPORTED_FORMAT_VERSIONS.join(", ")})`,
       },
     ]);
   }
@@ -110,6 +110,23 @@ function checkSemantics(m: Manifest, errors: ValidationIssue[], warnings: Valida
     if (pageIds.has(p.id)) err("duplicate-id", `/pages/${i}/id`, `duplicate page id ${p.id}`);
     pageIds.add(p.id);
   });
+
+  // 素材类型信息（仅 0.2 起；必需字段由 schema 保证存在）
+  if (m.formatVersion === "0.2") {
+    m.assets.forEach((a, i) => {
+      for (const [key, value] of [
+        ["mimeType", a.mimeType],
+        ["source/mimeType", a.source?.mimeType],
+      ] as const) {
+        if (value !== undefined && !value.startsWith(`${a.type}/`)) {
+          err("mime-type-mismatch", `/assets/${i}/${key}`, `${key} "${value}" does not match asset type ${a.type}`);
+        }
+      }
+      if (a.source && !a.source.transcoded && a.source.mimeType !== a.mimeType) {
+        err("source-not-transcoded-mismatch", `/assets/${i}/source`, "source is not transcoded but its mimeType differs from the asset mimeType");
+      }
+    });
+  }
 
   // 路径安全（PRD 7.3）
   m.assets.forEach((a, i) => {

@@ -371,6 +371,8 @@ flowchart LR
 | 声明体积与实际不符（见 7.1） | 新错误 `size-mismatch` |
 | `formatVersion` 为 `"0.3"` | `unsupported-version` |
 
+说明：`size-mismatch` 依赖 7.1 的实际体积断言，对应的包随 S2 加入；其余用例在 S1 完成，包名以 `valid-v02-`、`invalid-v02-` 开头，原有的 0.1 用例保持不变。写入端（生成器）在 S4、S5 接入 `mimeType` 和 `source` 后再改为写 0.2。
+
 ## 5. 制作器（网页制作页和桌面制作器共用同一份代码）
 
 ### 5.1 环境判断

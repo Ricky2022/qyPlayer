@@ -17,7 +17,7 @@
 | 音频 | 维基共享资源 [Piano-phrase.wav](https://commons.wikimedia.org/wiki/File:Piano-phrase.wav)（CC BY 3.0），PCM 16 位，44.1 kHz 单声道，3.85 秒。仅本地测试，不进仓库 |
 | HEVC 替代样本 | 用 Chrome 的 HEVC 编码器生成 MOV：`hvc1.1.2.L120.90`，编码尺寸 540×960，旋转 90°，创建时间 2026-03-04 |
 
-样本放在 `fixtures/downloads/s0/`（已被 `.gitignore` 忽略）。验证页面在 `tmp-s0/`（未提交）。
+样本放在 `fixtures/downloads/s0/`（已被 `.gitignore` 忽略）。验证页面是临时的，验证后已删除，没有进仓库。
 
 ## 逐项结果
 

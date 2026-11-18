@@ -105,8 +105,8 @@ export interface Manifest {
   pages: Page[];
 }
 
-/** 本实现支持的清单格式版本。1.0 之前只接受完全相同的版本（PRD 7.6）。 */
-export const SUPPORTED_FORMAT_VERSION = "0.1";
+/** 本实现支持的清单格式版本。1.0 之前只接受列表里的版本（PRD 7.6）；0.2 起新写入的包用最后一个。 */
+export const SUPPORTED_FORMAT_VERSIONS: readonly string[] = ["0.1", "0.2"];
 
 /** 清单引用的全部包内路径（素材、原片、封面），用于路径安全校验和缺失文件检查。 */
 export function referencedPaths(manifest: Manifest): string[] {

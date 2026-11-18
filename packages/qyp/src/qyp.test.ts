@@ -20,7 +20,7 @@ describe("conformance packages", () => {
     const blob = await testCase.build();
     if (testCase.expect.ok) {
       const pkg = await openPackage(blob);
-      expect(pkg.manifest.formatVersion).toBe("0.1");
+      expect(pkg.manifest.formatVersion).toBe(testCase.name.startsWith("valid-v02") ? "0.2" : "0.1");
       expect(pkg.warnings.map((w) => w.code).sort()).toEqual([...(testCase.expect.warnings ?? [])].sort());
       await pkg.close();
     } else {

@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://qyplayer.invalid/spec/manifest-0.1.schema.json",
-  "title": "qyPlayer package manifest, format version 0.1",
-  "description": "Structural rules of manifest.json inside a .qyp package. Cross-field rules (time continuity, references, path safety) are checked by the validator in @qyplayer/core. Unknown fields are allowed and must be ignored by players (PRD 7.6). Unknown values of transitionIn.type and enter.type are allowed here and degraded by players.",
+  "$id": "https://qyplayer.invalid/spec/manifest-0.2.schema.json",
+  "title": "qyPlayer package manifest, format versions 0.1 and 0.2",
+  "description": "Structural rules of manifest.json inside a .qyp package. Cross-field rules (time continuity, references, path safety) are checked by the validator in @qyplayer/core. Unknown fields are allowed and must be ignored by players (PRD 7.6). Unknown values of transitionIn.type and enter.type are allowed here and degraded by players. Since 0.2 every asset must carry mimeType and source; 0.1 manifests do not have them.",
   "type": "object",
   "required": ["formatVersion", "id", "title", "createdAt", "canvas", "duration", "assets", "pages"],
   "properties": {
@@ -46,7 +46,14 @@
     },
     "pages": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/page" } }
   },
+  "if": { "properties": { "formatVersion": { "const": "0.2" } }, "required": ["formatVersion"] },
+  "then": { "properties": { "assets": { "type": "array", "items": { "type": "object", "required": ["mimeType", "source"] } } } },
   "definitions": {
+    "mimeType": {
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^(image|video|audio)/[a-z0-9.+-]+(; ?codecs=\"[a-z0-9.,+ -]+\")?$"
+    },
     "asset": {
       "type": "object",
       "required": ["id", "type", "src"],
@@ -54,6 +61,15 @@
         "id": { "type": "string", "minLength": 1 },
         "type": { "enum": ["image", "video", "audio"] },
         "src": { "type": "string", "minLength": 1 },
+        "mimeType": { "$ref": "#/definitions/mimeType" },
+        "source": {
+          "type": "object",
+          "required": ["mimeType", "transcoded"],
+          "properties": {
+            "mimeType": { "$ref": "#/definitions/mimeType" },
+            "transcoded": { "type": "boolean" }
+          }
+        },
         "width": { "type": "integer", "minimum": 1 },
         "height": { "type": "integer", "minimum": 1 },
         "duration": { "type": "number", "exclusiveMinimum": 0 },

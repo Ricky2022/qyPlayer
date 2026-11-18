@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import example from "../../../spec/examples/example.manifest.json";
+import example01 from "../../../spec/examples/example-0.1.manifest.json";
 import { checkPackagePath, referencedPaths, validateManifest, type Manifest } from "./index";
 
 /** 深拷贝示例清单后按需改动，得到一个只违反一条规则的不合法样本 */
@@ -19,6 +20,11 @@ describe("validateManifest: valid", () => {
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
     expect(result.manifest?.pages).toHaveLength(4);
+  });
+
+  it("accepts the 0.1 example (PRD 7.7), which has no mimeType or source", () => {
+    expect(validateManifest(example01).errors).toEqual([]);
+    expect(validateManifest(example01).ok).toBe(true);
   });
 
   it("accepts a manifest without optional fields (no bgm, no cover, no generator)", () => {
@@ -52,7 +58,7 @@ describe("validateManifest: valid", () => {
 
 describe("validateManifest: version and structure", () => {
   it("rejects a higher format version with a dedicated code", () => {
-    expect(codes(mutated((m) => (m.formatVersion = "0.2")))).toEqual(["unsupported-version"]);
+    expect(codes(mutated((m) => (m.formatVersion = "0.3")))).toEqual(["unsupported-version"]);
     expect(codes(mutated((m) => (m.formatVersion = "1.0")))).toEqual(["unsupported-version"]);
   });
 
@@ -93,6 +99,64 @@ describe("validateManifest: version and structure", () => {
       m.pages[1].start = 99;
     }));
     expect(new Set(result.errors.map((e) => e.code))).toEqual(new Set(["schema"]));
+  });
+});
+
+describe("validateManifest: 0.2 asset type info", () => {
+  const withAsset = (change: (a: any) => void) => mutated((m) => change(m.assets[0]));
+
+  it("requires mimeType and source on every asset, including audio", () => {
+    expect(codes(withAsset((a) => delete a.mimeType))).toContain("schema");
+    expect(codes(withAsset((a) => delete a.source))).toContain("schema");
+    expect(codes(mutated((m) => delete m.assets[6].source))).toContain("schema");
+    expect(codes(withAsset((a) => delete a.source.transcoded))).toContain("schema");
+    expect(codes(withAsset((a) => delete a.source.mimeType))).toContain("schema");
+  });
+
+  it("does not require them in 0.1, and still accepts them there", () => {
+    expect(validateManifest(example01).ok).toBe(true);
+    const withInfo = JSON.parse(JSON.stringify(example01));
+    withInfo.assets[0].mimeType = "image/jpeg";
+    expect(validateManifest(withInfo).ok).toBe(true);
+  });
+
+  it("accepts HEIC and MOV sources that were not transcoded", () => {
+    const input = mutated((m) => {
+      m.assets[0].src = "media/m001.heic";
+      m.assets[0].mimeType = "image/heic";
+      m.assets[0].source = { mimeType: "image/heic", transcoded: false };
+      m.assets[3].src = "media/m004.mov";
+      m.assets[3].mimeType = 'video/quicktime; codecs="hvc1.2.4.l120.b0, mp4a.40.2"';
+      m.assets[3].source = { mimeType: m.assets[3].mimeType, transcoded: false };
+    });
+    expect(validateManifest(input).errors).toEqual([]);
+  });
+
+  it("rejects mimeType whose top-level type differs from the asset type", () => {
+    expect(codes(mutated((m) => (m.assets[1].mimeType = "video/mp4")))).toEqual(["mime-type-mismatch", "source-not-transcoded-mismatch"]);
+    expect(codes(withAsset((a) => { a.mimeType = "video/mp4"; a.source = { mimeType: "image/heic", transcoded: true }; }))).toEqual(["mime-type-mismatch"]);
+    expect(codes(withAsset((a) => (a.source = { mimeType: "audio/mpeg", transcoded: true })))).toEqual(["mime-type-mismatch"]);
+  });
+
+  it("rejects malformed mimeType values", () => {
+    for (const bad of ["JPEG", "image/JPEG", "image", "image/jpeg;codecs=<x>", 'image/jpeg; codecs="A"', "text/plain", "image/jpeg ", `image/${"a".repeat(200)}`]) {
+      expect(codes(withAsset((a) => { a.mimeType = bad; a.source.mimeType = bad; })), bad).toContain("schema");
+    }
+    expect(codes(withAsset((a) => (a.source.mimeType = "image/jp eg")))).toContain("schema");
+  });
+
+  it("accepts a codecs parameter with or without the space after the semicolon", () => {
+    const input = mutated((m) => {
+      const v = 'video/mp4;codecs="avc1.640028,mp4a.40.2"';
+      m.assets[3].mimeType = v;
+      m.assets[3].source = { mimeType: v, transcoded: false };
+    });
+    expect(validateManifest(input).errors).toEqual([]);
+  });
+
+  it("rejects source.transcoded false when the two mimeTypes differ, and accepts the same type when transcoded", () => {
+    expect(codes(withAsset((a) => (a.source = { mimeType: "image/heic", transcoded: false })))).toEqual(["source-not-transcoded-mismatch"]);
+    expect(codes(withAsset((a) => (a.source = { mimeType: "image/jpeg", transcoded: true })))).toEqual([]);
   });
 });
 
@@ -182,8 +246,8 @@ describe("checkPackagePath", () => {
 });
 
 describe("referencedPaths", () => {
-  it("lists every path the manifest points to, once", () => {
-    const paths = referencedPaths(example as unknown as Manifest).sort();
+  it("lists every path the manifest points to, once (including the legacy original of a 0.1 manifest)", () => {
+    const paths = referencedPaths(example01 as unknown as Manifest).sort();
     expect(paths).toEqual(
       [
         "audio/bgm.m4a",
