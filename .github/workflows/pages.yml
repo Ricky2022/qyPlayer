@@ -1,0 +1,61 @@
+name: Deploy to GitHub Pages
+
+# 推送到 main 或手动触发时：先类型检查和测试，通过后构建网页并发布到 GitHub Pages。
+# 示例包和内置配乐不在仓库里，构建前从 Release samples-v1 的附件下载。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      - name: Download sample packages and built-in music from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download samples-v1 --dir apps/web/public/samples --pattern "*.qyp" --pattern "*.mp3"
+
+      - run: pnpm --filter @qyplayer/web build
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
