@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#b45309"/></linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.22"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="cloud" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fde6b0"/></linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="232" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="232" fill="url(#shine)"/>
+  <g transform="translate(470 468) scale(1.06) translate(-535 -490)" fill="url(#cloud)"><circle cx="372" cy="568" r="140"/><circle cx="528" cy="462" r="196"/><circle cx="706" cy="548" r="152"/><rect x="300" y="560" width="560" height="148" rx="74"/></g>
+  <g transform="translate(470 478) scale(0.8) translate(-400 -500)" fill="none" stroke="#b45309" stroke-width="96" stroke-linecap="round" stroke-linejoin="round"><circle cx="344" cy="470" r="186"/><path d="M404 634C446 682 514 692 566 652"/></g>
+  <circle cx="768" cy="762" r="136" fill="#b45309" stroke="#fff" stroke-width="22"/>
+  <g transform="translate(768 762)"><g transform="rotate(45) scale(1.15)" fill="#fff"><rect x="-15" y="-56" width="30" height="76" rx="7"/><path d="M-15 24H15L0 56Z"/></g></g>
+</svg>
