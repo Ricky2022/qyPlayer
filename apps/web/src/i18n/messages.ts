@@ -39,6 +39,7 @@ export const zh = {
   qypInvalidManifest: "影片清单不合规：\n{detail}",
   qypMissingFile: "压缩包缺少清单引用的文件：{listed}{more}。",
   qypMissingFileMore: " 等 {count} 个",
+  qypSizeMismatch: "文件已损坏或被篡改（素材大小与记录不符）。",
   listSeparator: "、",
 
   // 播放界面
@@ -215,6 +216,7 @@ export const en: Record<MessageKey, string> = {
   qypInvalidManifest: "The film manifest is not valid:\n{detail}",
   qypMissingFile: "The archive is missing files that the manifest refers to: {listed}{more}.",
   qypMissingFileMore: " and {count} in total",
+  qypSizeMismatch: "The file is damaged or has been tampered with (a media file does not match its recorded size).",
   listSeparator: ", ",
 
   playerPlay: "Play",

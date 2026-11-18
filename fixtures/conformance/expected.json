@@ -164,5 +164,13 @@
       "ok": false,
       "code": "invalid-manifest"
     }
+  },
+  {
+    "file": "invalid-size-mismatch.qyp",
+    "description": "manifest.json 在中央目录里记录的大小比实际多 1 字节（声明体积与实际不符）",
+    "expect": {
+      "ok": false,
+      "code": "size-mismatch"
+    }
   }
 ]

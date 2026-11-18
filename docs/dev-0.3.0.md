@@ -569,6 +569,7 @@ videoAudioGain(localTime, pageDuration) =
   - `ajv` 和 `ajv-formats` 从 `packages/core` 的运行时依赖移到开发依赖。
   - `pnpm` 脚本：`schema:build`；在 `lint` 之前运行不要求，由测试保证。
   - 现有校验的全部单元测试和一致性测试包必须原样通过。
+  - 实现说明（S2）：生成脚本拆成 `scripts/validator/generate.ts` 和 `scripts/build-validator.ts`；`date-time` 格式和字符串长度函数放在 `packages/core/src/schemaRuntime.ts`，生成的校验函数从那里引用，因此运行时不依赖 `ajv` 和 `ajv-formats`（它们只留在 `packages/core` 的开发依赖里，用于生成和对照测试）。
 
 ### 7.3 内容安全策略
 

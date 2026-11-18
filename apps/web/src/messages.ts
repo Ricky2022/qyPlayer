@@ -33,5 +33,7 @@ export function describeError(error: unknown, t: Translate): string {
       const more = error.missing.length > MAX_LISTED ? t("qypMissingFileMore", { count: error.missing.length }) : "";
       return t("qypMissingFile", { listed, more });
     }
+    case "size-mismatch":
+      return t("qypSizeMismatch");
   }
 }

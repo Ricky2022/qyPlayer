@@ -3,6 +3,7 @@ import example01 from "../../../spec/examples/example-0.1.manifest.json";
 import { referencedPaths, type Manifest } from "@qyplayer/core";
 import type { QypErrorCode } from "./open";
 import { writeZip, type PackageFile } from "./write";
+import { patchEntry } from "./zipPatch";
 
 /**
  * 格式一致性测试包（PRD N-TEST-02）：任何播放器实现都可以用它们自测。
@@ -198,5 +199,16 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
     description: "格式 0.2：source.transcoded 为 false，但两个 mimeType 不同",
     expect: { ok: false, code: "invalid-manifest" },
     build: validPackage(variant02((m) => (m.assets[1].source = { mimeType: "image/heic", transcoded: false }))),
+  },
+  {
+    name: "invalid-size-mismatch",
+    description: "manifest.json 在中央目录里记录的大小比实际多 1 字节（声明体积与实际不符）",
+    expect: { ok: false, code: "size-mismatch" },
+    build: async () => {
+      const zip = new Uint8Array(await (await validPackage(base02)()).arrayBuffer());
+      const size = bytes(JSON.stringify(base02, null, 2)).length;
+      patchEntry(zip, "manifest.json", { directory: { compressedSize: size + 1, uncompressedSize: size + 1 } });
+      return new Blob([zip]);
+    },
   },
 ];

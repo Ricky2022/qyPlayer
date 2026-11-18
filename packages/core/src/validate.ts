@@ -1,6 +1,3 @@
-import AjvModule from "ajv";
-import addFormatsModule from "ajv-formats";
-import schema from "../../../spec/manifest.schema.json";
 import {
   KNOWN_DIRECTIONS,
   KNOWN_ENTER_TYPES,
@@ -9,6 +6,7 @@ import {
   type Manifest,
 } from "./manifest";
 import { checkPackagePath } from "./paths";
+import validateSchema from "./schemaValidator.generated";
 
 export interface ValidationIssue {
   /** 稳定的问题类别，界面据此显示用户能看懂的说明 */
@@ -31,22 +29,6 @@ export interface ValidationResult {
 /** 时间比较的容差（秒）。生成器输出按毫秒取整。 */
 const TIME_EPSILON = 1e-3;
 const GEOMETRY_EPSILON = 1e-9;
-
-// Ajv / ajv-formats 是 CommonJS 包，兼容不同打包器对默认导出的处理
-const Ajv = ((AjvModule as unknown as { default?: unknown }).default ?? AjvModule) as typeof AjvModule;
-const addFormats = ((addFormatsModule as unknown as { default?: unknown }).default ??
-  addFormatsModule) as typeof addFormatsModule;
-
-let compiled: ReturnType<InstanceType<typeof Ajv>["compile"]> | undefined;
-function schemaValidator() {
-  if (!compiled) {
-    // if/then 分支只写 required，属性定义在外层，因此关闭 strictRequired；其余严格检查保留
-    const ajv = new Ajv({ allErrors: true, strict: true, strictRequired: false });
-    addFormats(ajv);
-    compiled = ajv.compile(schema);
-  }
-  return compiled;
-}
 
 function fail(errors: ValidationIssue[]): ValidationResult {
   return { ok: false, errors, warnings: [] };
@@ -72,10 +54,10 @@ export function validateManifest(input: unknown): ValidationResult {
     ]);
   }
 
-  const validate = schemaValidator();
-  if (!validate(input)) {
+  // 结构校验用预编译的函数（由 spec/manifest.schema.json 生成，见 docs/dev-0.3.0.md 7.2）
+  if (!validateSchema(input)) {
     return fail(
-      (validate.errors ?? []).map((e) => ({
+      (validateSchema.errors ?? []).map((e) => ({
         code: "schema",
         path: e.instancePath,
         message: `${e.instancePath || "/"} ${e.message ?? "is invalid"}`,

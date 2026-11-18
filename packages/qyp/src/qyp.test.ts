@@ -32,7 +32,7 @@ describe("conformance packages", () => {
   it("covers every error category that does not need a huge file", () => {
     const codes = new Set(CONFORMANCE_CASES.flatMap((c) => (c.expect.ok ? [] : [c.expect.code])));
     expect([...codes].sort()).toEqual(
-      ["invalid-json", "invalid-manifest", "missing-file", "missing-manifest", "not-a-zip", "remote-reference", "unsafe-entry", "unsafe-path", "unsupported-version"].sort(),
+      ["invalid-json", "invalid-manifest", "missing-file", "missing-manifest", "not-a-zip", "remote-reference", "size-mismatch", "unsafe-entry", "unsafe-path", "unsupported-version"].sort(),
     );
   });
 });

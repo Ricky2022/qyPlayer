@@ -17,7 +17,8 @@
     "fixtures:build": "tsx scripts/build-fixtures.ts",
     "fixtures:check": "tsx scripts/check-fixtures.ts",
     "fixtures:docs": "tsx scripts/check-fixtures.ts --write",
-    "fixtures:conformance": "tsx scripts/build-conformance.ts"
+    "fixtures:conformance": "tsx scripts/build-conformance.ts",
+    "schema:build": "tsx scripts/build-validator.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
