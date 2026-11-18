@@ -1,409 +1,740 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
-import { GENERATOR_LIMITS, TEMPLATES, defaultAspectRatio, type AspectRatio, type Manifest } from "@qyplayer/core";
-import { PACKAGE_LIMITS, openPackage } from "@qyplayer/qyp";
+import { GENERATOR_LIMITS, TEMPLATES, defaultAspectRatio } from "@qyplayer/core";
+import { PACKAGE_LIMITS, openPackage, writePackage } from "@qyplayer/qyp";
 import { AboutDialog } from "../AboutDialog";
 import { isDesktop, saveBlob } from "../desktop";
-import { useI18n, type Translate } from "../i18n";
-import { PlaybackController } from "../player/PlaybackController";
-import { PlayerView } from "../PlayerView";
+import { LANG_NAMES, otherLang, useI18n, type MessageKey } from "../i18n";
+import { describeError } from "../messages";
 import { LanguageSwitch } from "../ui/LanguageSwitch";
 import { Logo } from "../ui/Logo";
 import { InfoIcon } from "../ui/icons";
 import { theme } from "../ui/theme";
-import { buildPackage, type MusicEntry } from "./buildPackage";
-import { BUILTIN_MUSIC_TITLE, BUILTIN_MUSIC_TITLE_EN } from "./builtinMusicInfo";
-import { loadBuiltinMusic } from "./builtinMusic";
+import { useMatchMedia } from "../ui/useMatchMedia";
+import { AssetPanel, type ImportFailure } from "./AssetPanel";
+import { planPackage, type MusicEntry } from "./buildPackage";
 import { describeBuildError, describeFileError } from "./describe";
-import { formatBytes, formatDuration, moveItem, removeItem, safeFileName, sortByCapturedAt } from "./files";
+import { addCover } from "./cover";
+import { ConfirmDialog, MessageDialog, ProgressDialog } from "./Dialogs";
+import { MOBILE_MAX_BYTES, exceedsMobileLimit, mobileSizeLevel } from "./environment";
+import { classifyDrop } from "./editor/drop";
+import { editorMediaFromImport } from "./editor/fromImport";
+import { DESKTOP_MEDIA_QUERY } from "./editor/layout";
+import { menuStatus } from "./editor/menu";
+import { needsMusicRightsConfirm, resolveMusic } from "./editor/music";
+import { createPreviewPackage } from "./editor/preview";
+import { RestoreError, restorePackage } from "./editor/restore";
+import { commandForShortcut, shortcutLabel } from "./editor/shortcuts";
+import {
+  addMedia,
+  canRedo,
+  canUndo,
+  createEditor,
+  currentDoc,
+  isDirty,
+  loadEditor,
+  markSaved,
+  moveMedia,
+  redo,
+  removeMedia,
+  resetEditor,
+  setAspect,
+  setMusic,
+  setSeed,
+  setTemplate,
+  setTitle,
+  sortMediaByCapturedAt,
+  undo,
+  type EditorMediaInput,
+  type EditorState,
+} from "./editor/state";
+import { browserExportCheckEnv, findUndecodable } from "./export/plan";
+import { exportMp4, type ExportProgress } from "./export/run";
+import { LONG_EXPORT_SECONDS } from "./export/spec";
+import { formatDuration, safeFileName, sortByCapturedAt } from "./files";
 import { ImportError, importMedia, importMusic } from "./importers";
-import { MediaList, type LibraryItem } from "./MediaList";
+import { MenuBar, type BarCommand, type MenuGroup } from "./MenuBar";
+import { EmptyState, PreviewPane } from "./PreviewPane";
+import { SettingsPanel } from "./SettingsPanel";
+import { TranscodeCache } from "./transcode/cache";
+import { isAbortError, transcodeForSave, type TranscodeProgress } from "./transcode/run";
+import { browserWorkers } from "./transcode/workers";
+import { useObjectUrls } from "./useObjectUrls";
+import { usePreview } from "./usePreview";
+import { useTranscode } from "./useTranscode";
 
 const useStyles = createUseStyles({
   "@global": {
-    "html, body, #root": { margin: 0, minHeight: "100%" },
-    body: { background: theme.bg, color: theme.text, fontFamily: theme.font, colorScheme: "dark" },
+    "html, body, #root": { margin: 0, height: "100%" },
+    body: { background: theme.bg, color: theme.text, fontFamily: theme.font, colorScheme: "dark", overflow: "hidden" },
   },
-  page: { maxWidth: 880, margin: "0 auto", padding: "20px 16px 48px", boxSizing: "border-box" },
-  dragging: { outline: `2px dashed ${theme.accent}`, outlineOffset: -8 },
-  header: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" },
-  title: { margin: 0, fontSize: 24, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
-  link: { color: theme.accent, fontSize: 14 },
+  root: { display: "flex", flexDirection: "column", height: "100vh", "@supports (height: 100dvh)": { height: "100dvh" }, position: "relative" },
+  top: { display: "flex", alignItems: "center", gap: 10, height: 48, flex: "none", padding: "0 12px", boxSizing: "border-box", borderBottom: `1px solid ${theme.border}`, background: theme.surface },
+  spacer: { flex: 1 },
+  tabTitle: { flex: 1, textAlign: "center", fontSize: 15, fontWeight: 600 },
+  link: { color: theme.accent, fontSize: 14, textDecoration: "none", "&:hover": { textDecoration: "underline" } },
   tool: {
-    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", border: `1px solid ${theme.border}`, borderRadius: 999,
+    display: "inline-flex", alignItems: "center", gap: 6, minHeight: 34, padding: "4px 12px", border: `1px solid ${theme.border}`, borderRadius: 999,
     background: "transparent", color: theme.text, font: "inherit", fontSize: 14, cursor: "pointer",
     "&:hover": { background: theme.surfaceHover },
     "&:focus-visible": { outline: `2px solid ${theme.accent}` },
   },
-  note: { color: theme.muted, margin: "10px 0 22px" },
-  section: { margin: "0 0 24px", "& h2": { fontSize: 18, margin: "0 0 10px" } },
-  toolbar: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap", color: theme.muted },
-  empty: { padding: "28px 12px", textAlign: "center", border: `2px dashed ${theme.border}`, borderRadius: 10, color: theme.muted },
-  failures: { margin: "10px 0 0", padding: "8px 12px", borderRadius: 8, background: theme.dangerBg, color: theme.danger, fontSize: 14 },
-  failureList: { margin: "4px 0 8px", paddingLeft: 18 },
-  grid: { display: "grid", gridTemplateColumns: "120px 1fr", gap: 12, alignItems: "center", "@media (max-width: 520px)": { gridTemplateColumns: "1fr" } },
-  input: { padding: "6px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, font: "inherit", maxWidth: "100%", boxSizing: "border-box" },
-  choices: { display: "flex", flexDirection: "column", gap: 6 },
-  hint: { fontSize: 13, color: theme.muted },
-  primary: {
-    padding: "10px 28px", border: "none", borderRadius: 999, background: theme.accent, color: theme.onAccent, fontSize: 16, fontWeight: 600, cursor: "pointer",
-    "&:hover:not(:disabled)": { background: "#67d0fb" },
-    "&:disabled": { opacity: 0.4, cursor: "default" },
+  notice: { display: "flex", alignItems: "center", gap: 10, flex: "none", padding: "6px 14px", fontSize: 13, background: "rgba(56, 189, 248, 0.15)", color: theme.text },
+  noticeClose: { padding: "2px 10px", border: `1px solid ${theme.border}`, borderRadius: 999, background: "transparent", color: theme.text, font: "inherit", fontSize: 12, cursor: "pointer" },
+  desktopMain: { flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "300px minmax(0, 1fr) 340px" },
+  cell: { minWidth: 0, minHeight: 0, overflow: "hidden" },
+  cellSide: { borderRight: `1px solid ${theme.border}` },
+  cellRight: { borderLeft: `1px solid ${theme.border}` },
+  mobileMain: { flex: 1, minHeight: 0, overflow: "hidden" },
+  tabs: { display: "flex", flex: "none", borderTop: `1px solid ${theme.border}`, background: theme.surface },
+  tab: {
+    flex: 1, minHeight: 56, minWidth: 44, border: "none", background: "transparent", color: theme.muted, font: "inherit", fontSize: 15, cursor: "pointer",
+    "&[aria-selected=true]": { color: theme.accent, boxShadow: `inset 0 -3px 0 ${theme.accent}` },
+    "&:focus-visible": { outline: `2px solid ${theme.accent}`, outlineOffset: -2 },
   },
-  button: {
-    padding: "6px 14px", border: `1px solid ${theme.border}`, borderRadius: 999, background: theme.surface, color: theme.text, cursor: "pointer", font: "inherit",
-    "&:hover:not(:disabled)": { background: theme.surfaceHover },
-    "&:disabled": { opacity: 0.4, cursor: "default" },
+  dropOverlay: {
+    position: "absolute", inset: 0, zIndex: 18, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none",
+    background: "rgba(7, 11, 18, 0.7)", border: `3px dashed ${theme.accent}`, fontSize: 22, fontWeight: 600, boxSizing: "border-box",
   },
-  error: { margin: "12px 0 0", padding: "10px 14px", borderRadius: 8, background: theme.dangerBg, color: theme.danger, whiteSpace: "pre-line" },
-  preview: { height: "min(68vh, 640px)", borderRadius: 10, overflow: "hidden", border: `1px solid ${theme.border}` },
-  actions: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", margin: "14px 0" },
+  hiddenLive: { position: "absolute", width: 1, height: 1, margin: -1, padding: 0, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 },
 });
 
-type MusicChoice = "none" | "builtin" | "custom";
-type AspectChoice = "auto" | AspectRatio;
+type Tab = "media" | "preview" | "settings";
 
-interface ImportFailure {
-  fileName: string;
-  error: unknown;
+const TAB_LABELS: Record<Tab, MessageKey> = { media: "tabMedia", preview: "tabPreview", settings: "tabSettings" };
+
+interface Confirmation {
+  message: string;
+  confirmLabel: string;
+  onConfirm(): void;
 }
 
-/** 生成、保存、导入音乐时的错误；保存原始错误，显示时再按当前语言翻译 */
-type Problem = { kind: "build" | "save"; error: unknown } | { kind: "music"; fileName: string; error: unknown };
+const randomSeed = (): number => Math.floor(Math.random() * 2 ** 31);
+const createInitialEditor = (): EditorState => createEditor(randomSeed(), TEMPLATES[0]!.id);
 
-function describeProblem(problem: Problem, t: Translate): string {
-  switch (problem.kind) {
-    case "build":
-      return describeBuildError(problem.error, t);
-    case "save":
-      return t("makerSaveFailed", { detail: problem.error instanceof Error ? problem.error.message : String(problem.error) });
-    case "music":
-      return describeFileError(problem.fileName, problem.error, t);
-  }
+const isMac = (): boolean => /Mac|iPhone|iPad/.test(navigator.platform);
+
+/** 焦点是否在文本输入框里（文本框自己处理撤销和重做） */
+function inTextField(target: EventTarget | null): boolean {
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (!(target instanceof HTMLInputElement)) return false;
+  return !["radio", "checkbox", "button", "file", "range", "submit", "reset", "image", "color"].includes(target.type);
 }
 
-interface PreviewResult {
-  controller: PlaybackController;
-  blob: Blob;
-  manifest: Manifest;
-}
-
-/** 制作页：选素材、调顺序、选模板和配乐，生成 .qyp 并在页内预览、保存。所有处理都在本机完成。 */
+/** 制作器：新建或打开 → 添加和调整（预览自动更新）→ 保存。所有处理都在本机完成。 */
 export function CreatorApp() {
   const classes = useStyles();
-  const { lang, t } = useI18n();
-  const [items, setItems] = useState<LibraryItem[]>([]);
+  const { lang, t, setLang } = useI18n();
+  const desktopLayout = useMatchMedia(DESKTOP_MEDIA_QUERY);
+
+  const [editor, setEditor] = useState<EditorState>(createInitialEditor);
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
+  const doc = currentDoc(editor);
+  const urlFor = useObjectUrls(editor);
+  const transcodeSetting = useTranscode();
+  const transcodeRef = useRef(transcodeSetting.transcode);
+  transcodeRef.current = transcodeSetting.transcode;
+
   const [failures, setFailures] = useState<ImportFailure[]>([]);
   const [importing, setImporting] = useState<{ done: number; total: number } | null>(null);
-  const [aspect, setAspect] = useState<AspectChoice>("auto");
-  const [templateId, setTemplateId] = useState(TEMPLATES[0]!.id);
-  const [title, setTitle] = useState("");
-  const [musicChoice, setMusicChoice] = useState<MusicChoice>("none");
+  const [working, setWorking] = useState<"saving" | "opening" | "exporting" | null>(null);
   const [customMusic, setCustomMusic] = useState<MusicEntry | null>(null);
-  const [builtinMusic, setBuiltinMusic] = useState<MusicEntry | null>(null);
-  const [seed, setSeed] = useState(1);
-  const [building, setBuilding] = useState(false);
-  const [problem, setProblem] = useState<Problem | null>(null);
-  const [result, setResult] = useState<PreviewResult | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [layoutMayDiffer, setLayoutMayDiffer] = useState(false);
+  const [tab, setTab] = useState<Tab>("media");
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
+  const [progress, setProgress] = useState<TranscodeProgress | null>(null);
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
+  const saveAbort = useRef<AbortController | null>(null);
+  const transcodeCache = useRef(new TranscodeCache());
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [, bumpTitle] = useState(0);
 
-  const nextKey = useRef(1);
   const mediaInput = useRef<HTMLInputElement>(null);
   const musicInput = useRef<HTMLInputElement>(null);
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
-  const resultRef = useRef(result);
-  resultRef.current = result;
+  const qypInput = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
 
-  // 离开页面时释放缩略图 URL 和播放器
-  useEffect(
-    () => () => {
-      itemsRef.current.forEach((item) => URL.revokeObjectURL(item.url));
-      resultRef.current?.controller.dispose();
-    },
-    [],
-  );
+  const preview = usePreview(doc, t("defaultTitleWord"));
+  const busy = importing !== null || working !== null;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const modalOpen = confirmation !== null || errorMessage !== null || savedNote !== null || progress !== null || exportProgress !== null || aboutOpen;
+  const dirty = isDirty(editor);
 
-  const busy = importing !== null || building;
-  const totalBytes = items.reduce((sum, item) => sum + item.entry.blob.size, 0);
-  const resolvedAspect: AspectRatio = aspect === "auto" ? defaultAspectRatio(items.map((i) => i.entry)) : aspect;
-  const template = TEMPLATES.find((tpl) => tpl.id === templateId)!;
-  const hasVideoSound = items.some((i) => i.entry.type === "video" && i.entry.hasAudio);
-  const problemText = problem ? describeProblem(problem, t) : null;
+  // 转码开关关闭时丢弃转码缓存（5.5）
+  useEffect(() => {
+    if (!transcodeSetting.transcode) transcodeCache.current.clear();
+  }, [transcodeSetting.transcode]);
+
+  const apply = (change: (state: EditorState) => EditorState): void => setEditor(change);
+  const announce = (message: string): void => setAnnouncement(message);
+
+  // 标题改了（包括撤销重做）直接更新预览里的标题，不重新生成
+  const { applyTitle, result } = preview;
+  useEffect(() => {
+    if (applyTitle(doc.title)) bumpTitle((n) => n + 1);
+  }, [applyTitle, doc.title, result]);
+
+  useEffect(() => {
+    if (result) announce(t("previewAnnounce", { pages: result.manifest.pages.length, duration: formatDuration(result.manifest.duration) }));
+    // 只在生成出新的预览时播报
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
+
+  // 有未保存的更改时，关闭或刷新网页由浏览器确认（桌面制作器关闭窗口暂不提示，见开发说明 3A.12）
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent): void => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
+  const status = menuStatus({
+    mediaCount: doc.media.length,
+    busy,
+    canUndo: canUndo(editor),
+    canRedo: canRedo(editor),
+    canExport: !transcodeSetting.mobile && transcodeSetting.capabilities.videoEncode && transcodeSetting.capabilities.audioEncode,
+  });
+
+  const guardDirty = (action: () => void): void => {
+    if (!isDirty(editorRef.current)) {
+      action();
+      return;
+    }
+    setConfirmation({ message: t("discardMessage"), confirmLabel: t("discardContinue"), onConfirm: action });
+  };
 
   const addFiles = async (files: File[]): Promise<void> => {
-    if (files.length === 0 || busy) return;
+    if (files.length === 0 || busyRef.current) return;
+    busyRef.current = true;
     setImporting({ done: 0, total: files.length });
-    const added: LibraryItem[] = [];
+    const added: EditorMediaInput[] = [];
     const failed: ImportFailure[] = [];
-    let count = items.length;
-    let bytes = totalBytes;
+    let count = currentDoc(editorRef.current).media.length;
+    let bytes = currentDoc(editorRef.current).media.reduce((sum, m) => sum + m.blob.size, 0);
+    // 手机的总量按原始文件大小累计；第一个让总量超过 600 MB 的文件及其后的文件都被拒绝（5.3）
+    let originalBytes = currentDoc(editorRef.current).media.reduce((sum, m) => sum + (m.originalBytes ?? m.blob.size), 0);
+    let mobileBlocked = false;
     for (const [index, file] of files.entries()) {
       try {
         if (count >= GENERATOR_LIMITS.maxMedia) throw new ImportError("too-many");
-        const entry = await importMedia(file);
+        if (transcodeSetting.mobile && (mobileBlocked || exceedsMobileLimit(originalBytes, file.size))) {
+          mobileBlocked = true;
+          throw new ImportError("mobile-limit");
+        }
+        const entry = await importMedia(file, { transcode: transcodeRef.current });
         if (bytes + entry.blob.size > PACKAGE_LIMITS.maxUncompressedBytes) throw new ImportError("too-large");
-        added.push({ key: nextKey.current++, entry, url: URL.createObjectURL(entry.blob) });
+        added.push(editorMediaFromImport(entry));
         count++;
         bytes += entry.blob.size;
+        originalBytes += file.size;
       } catch (error) {
         failed.push({ fileName: file.name, error });
       }
       setImporting({ done: index + 1, total: files.length });
     }
     // 只对这一批按拍摄时间排序后接在末尾，已有的手动顺序不动
-    const sortedBatch = sortByCapturedAt(added, (item) => item.entry);
-    setItems((previous) => [...previous, ...sortedBatch]);
+    const sortedBatch = sortByCapturedAt(added, (m) => m);
+    if (sortedBatch.length > 0) {
+      apply((state) => addMedia(state, sortedBatch).state);
+      announce(t("statusAdded", { count: sortedBatch.length }));
+    }
     setFailures((previous) => [...previous, ...failed]);
     setImporting(null);
   };
 
-  const onDrop = (event: DragEvent): void => {
-    event.preventDefault();
-    setDragging(false);
-    void addFiles([...event.dataTransfer.files]);
-  };
+  const serialName = (type: "image" | "video", index: number): string => t(type === "image" ? "serialPhoto" : "serialVideo", { n: index });
 
-  const remove = (index: number): void => {
-    const removed = items[index];
-    if (removed) URL.revokeObjectURL(removed.url);
-    setItems(removeItem(items, index));
-  };
-
-  const pickCustomMusic = async (file: File): Promise<void> => {
+  const openFile = async (file: File): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setWorking("opening");
+    announce(t("statusOpening"));
+    let opened: Awaited<ReturnType<typeof openPackage>> | undefined;
     try {
-      setCustomMusic(await importMusic(file));
-      setMusicChoice("custom");
-      setProblem(null);
+      opened = await openPackage(file);
+      const restored = await restorePackage(opened, { serialName, fallbackSeed: randomSeed(), ...(transcodeSetting.mobile && { maxTotalBytes: MOBILE_MAX_BYTES }) });
+      apply((state) => loadEditor(state, restored.content));
+      const music = restored.content.music;
+      setCustomMusic(music.kind === "custom" ? music.entry : null);
+      setLayoutMayDiffer(restored.layoutMayDiffer);
+      setFailures([]);
+      setNotice(null);
+      setTab("preview");
+      announce(t("statusOpened", { count: restored.content.media.length }));
     } catch (error) {
-      setProblem({ kind: "music", fileName: file.name, error });
+      setErrorMessage(error instanceof RestoreError ? t("importMobileLimit") : describeError(error, t));
+    } finally {
+      await opened?.close();
+      setWorking(null);
     }
   };
 
-  const resolveMusic = async (): Promise<MusicEntry | undefined> => {
-    if (musicChoice === "custom") {
-      if (!customMusic) throw new ImportError("music-not-picked");
-      return customMusic;
-    }
-    if (musicChoice === "builtin") {
-      const music = builtinMusic ?? (await loadBuiltinMusic());
-      setBuiltinMusic(music);
-      return music;
-    }
-    return undefined;
-  };
-
-  const generate = async (useSeed: number): Promise<void> => {
-    setBuilding(true);
-    setProblem(null);
+  const save = async (): Promise<void> => {
+    const current = currentDoc(editorRef.current);
+    if (busyRef.current || current.media.length === 0) return;
+    busyRef.current = true;
+    setWorking("saving");
+    announce(t("statusSaving"));
+    const controller = new AbortController();
+    saveAbort.current = controller;
     try {
-      const music = await resolveMusic();
-      const built = await buildPackage({
-        media: items.map((i) => i.entry),
+      const music = await resolveMusic(current.music);
+      const planned = planPackage({
+        media: current.media,
         ...(music && { music }),
-        ...(aspect !== "auto" && { aspectRatio: aspect }),
-        templateId,
-        seed: useSeed,
-        title,
+        ...(current.aspect !== "auto" && { aspectRatio: current.aspect }),
+        templateId: current.templateId,
+        seed: current.seed,
+        title: current.title,
         defaultTitleWord: t("defaultTitleWord"),
       });
-      const controller = await PlaybackController.create(await openPackage(built.blob));
-      setResult((previous) => {
-        previous?.controller.dispose();
-        return { controller, blob: built.blob, manifest: built.manifest };
-      });
-      setSeed(useSeed);
+      let { manifest, files } = planned;
+      let failedToTranscode: string[] = [];
+      if (transcodeRef.current) {
+        const outcome = await transcodeForSave({
+          manifest,
+          files,
+          media: current.media,
+          ...(music && { music }),
+          audioEncode: transcodeSetting.capabilities.audioEncode,
+          cache: transcodeCache.current,
+          workers: browserWorkers,
+          signal: controller.signal,
+          onProgress: setProgress,
+        });
+        ({ manifest, files } = outcome);
+        failedToTranscode = outcome.failed;
+      }
+      setProgress(null);
+      ({ manifest, files } = await addCover(manifest, files));
+      const blob = await writePackage(manifest, files);
+      const fileName = safeFileName(manifest.title, t("defaultTitleWord"));
+      let saved: boolean;
+      try {
+        saved = await saveBlob(blob, fileName);
+      } catch (error) {
+        setErrorMessage(t("makerSaveFailed", { detail: error instanceof Error ? error.message : String(error) }));
+        return;
+      }
+      if (saved) {
+        apply(markSaved);
+        announce(t("statusSaved", { name: fileName }));
+        if (failedToTranscode.length > 0) {
+          setSavedNote(t("transcodeFailed", { count: failedToTranscode.length, names: failedToTranscode.join("\n") }));
+        }
+      }
     } catch (error) {
-      setProblem({ kind: "build", error });
+      if (isAbortError(error)) announce(t("statusSaveCanceled"));
+      else setErrorMessage(describeBuildError(error, t));
     } finally {
-      setBuilding(false);
+      saveAbort.current = null;
+      setProgress(null);
+      setWorking(null);
     }
   };
 
-  const backToEditing = (): void => {
-    result?.controller.dispose();
-    setResult(null);
+  /** 导出 MP4（10）：用当前编辑内容生成与预览相同的影片，检查素材能解码后逐帧渲染和编码 */
+  const exportMovie = async (confirmedLong = false): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setWorking("exporting");
+    result?.controller.pause();
+    const controller = new AbortController();
+    saveAbort.current = controller;
+    try {
+      const current = currentDoc(editorRef.current);
+      const music = await resolveMusic(current.music);
+      const { opened, manifest } = createPreviewPackage(current, { ...(music && { music }), defaultTitleWord: t("defaultTitleWord") });
+      if (!confirmedLong && manifest.duration > LONG_EXPORT_SECONDS) {
+        setConfirmation({
+          message: t("exportLongMessage", { duration: formatDuration(manifest.duration) }),
+          confirmLabel: t("exportLongContinue"),
+          onConfirm: () => void exportMovie(true),
+        });
+        return;
+      }
+      announce(t("statusExporting"));
+      const undecodable = await findUndecodable(manifest, opened.readBlob, browserExportCheckEnv());
+      if (undecodable.length > 0) {
+        const nameOf = (id: string): string => {
+          const index = /^m(\d+)$/.exec(id)?.[1];
+          return (index !== undefined && current.media[Number(index) - 1]?.fileName) || music?.title || id;
+        };
+        setErrorMessage(t("exportUndecodable", { names: undecodable.map(nameOf).join("\n") }));
+        return;
+      }
+      setExportProgress({ fraction: 0 });
+      const blob = await exportMp4({ manifest, readBlob: opened.readBlob, signal: controller.signal, onProgress: setExportProgress });
+      setExportProgress(null);
+      const fileName = safeFileName(manifest.title, t("defaultTitleWord"), ".mp4");
+      let saved: boolean;
+      try {
+        saved = await saveBlob(blob, fileName);
+      } catch (error) {
+        setErrorMessage(t("makerSaveFailed", { detail: error instanceof Error ? error.message : String(error) }));
+        return;
+      }
+      if (saved) announce(t("statusExported", { name: fileName }));
+    } catch (error) {
+      if (isAbortError(error)) announce(t("statusExportCanceled"));
+      else setErrorMessage(t("exportFailed", { detail: error instanceof Error ? error.message : String(error) }));
+    } finally {
+      saveAbort.current = null;
+      setExportProgress(null);
+      setWorking(null);
+    }
   };
 
-  const header = (
-    <div className={classes.header}>
-      <Logo size={36} kind="maker" />
-      <h1 className={classes.title}>{t("makerName")}</h1>
-      {!isDesktop() && !result && (
-        <a className={classes.link} href="./">
-          {t("makerBackToPlayer")}
-        </a>
-      )}
-      <LanguageSwitch />
-      <button className={classes.tool} onClick={() => setAboutOpen(true)}>
-        <InfoIcon size={18} />
-        {t("about")}
-      </button>
-    </div>
-  );
-  const about = aboutOpen && <AboutDialog kind="maker" onClose={() => setAboutOpen(false)} />;
+  const pickMusic = async (file: File): Promise<void> => {
+    try {
+      const entry = await importMusic(file);
+      setCustomMusic(entry);
+      apply((state) => setMusic(state, { kind: "custom", entry }));
+    } catch (error) {
+      setErrorMessage(describeFileError(file.name, error, t));
+    }
+  };
 
-  if (result) {
-    return (
-      <div className={classes.page}>
-        {header}
-        <p className={classes.note}>
-          {result.manifest.title} ·{" "}
-          {t("makerResultMeta", {
-            duration: formatDuration(result.manifest.duration),
-            pages: result.manifest.pages.length,
-            size: formatBytes(result.blob.size),
-            template: template.name[lang],
-            seed,
-          })}
-        </p>
-        <div className={classes.preview}>
-          <PlayerView controller={result.controller} onClose={backToEditing} />
-        </div>
-        <div className={classes.actions}>
-          <button
-            className={classes.primary}
-            onClick={() => void saveBlob(result.blob, safeFileName(result.manifest.title, t("defaultTitleWord"))).catch((error: unknown) => setProblem({ kind: "save", error }))}
-          >
-            {isDesktop() ? t("makerSave") : t("makerDownload")}
-          </button>
-          <button className={classes.button} disabled={building} onClick={() => void generate(seed + 1)}>
-            {building ? t("makerGenerating") : t("makerAnother")}
-          </button>
-          <button className={classes.button} onClick={backToEditing}>
-            {t("makerBackToEdit")}
-          </button>
-        </div>
-        {problemText && <div className={classes.error} role="alert">{problemText}</div>}
-        {about}
-      </div>
-    );
-  }
+  const startNew = (): void => {
+    apply((state) => resetEditor(state, randomSeed()));
+    setCustomMusic(null);
+    setLayoutMayDiffer(false);
+    setFailures([]);
+    setNotice(null);
+    setTab("media");
+    announce(t("statusNew"));
+  };
+
+  const run = (command: BarCommand): void => {
+    if (command === "language") {
+      setLang(otherLang(lang));
+      return;
+    }
+    if (status[command] !== "enabled") return;
+    switch (command) {
+      case "new":
+        guardDirty(startNew);
+        break;
+      case "open":
+        guardDirty(() => qypInput.current?.click());
+        break;
+      case "save": {
+        // 导入的音乐每次保存前都提示确认使用权，内置曲目不提示（5.6）
+        if (needsMusicRightsConfirm(currentDoc(editorRef.current).music)) {
+          setConfirmation({ message: t("musicRightsMessage"), confirmLabel: t("musicRightsContinue"), onConfirm: () => void save() });
+        } else {
+          void save();
+        }
+        break;
+      }
+      case "exportMp4":
+        // 导入的音乐在导出前同样提示确认使用权（5.6）
+        if (needsMusicRightsConfirm(currentDoc(editorRef.current).music)) {
+          setConfirmation({ message: t("musicRightsMessage"), confirmLabel: t("musicRightsContinueExport"), onConfirm: () => void exportMovie() });
+        } else {
+          void exportMovie();
+        }
+        break;
+      case "undo":
+        apply(undo);
+        announce(t("statusUndo"));
+        break;
+      case "redo":
+        apply(redo);
+        announce(t("statusRedo"));
+        break;
+      case "addMedia":
+        mediaInput.current?.click();
+        break;
+      case "sortByTime":
+        apply(sortMediaByCapturedAt);
+        break;
+      case "about":
+        setAboutOpen(true);
+        break;
+    }
+  };
+
+  // 全局快捷键：对话框打开时不响应；Ctrl+S 等总是阻止浏览器的默认行为
+  const runRef = useRef(run);
+  runRef.current = run;
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const modalRef = useRef(modalOpen);
+  modalRef.current = modalOpen;
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const command = commandForShortcut(event, { isMac: isMac(), inTextField: inTextField(event.target) });
+      if (!command || statusRef.current[command] === "hidden") return;
+      event.preventDefault();
+      if (!modalRef.current) runRef.current(command);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const onDropFiles = (event: DragEvent): void => {
+    event.preventDefault();
+    dragDepth.current = 0;
+    setDragging(false);
+    if (busy || modalOpen) return;
+    const action = classifyDrop([...event.dataTransfer.files]);
+    switch (action.kind) {
+      case "open":
+        guardDirty(() => void openFile(action.file));
+        break;
+      case "add":
+        if (action.ignoredQyp) setNotice(t("noticeIgnoredQyp"));
+        void addFiles(action.files);
+        break;
+      case "multiple-qyp":
+        setNotice(t("noticeMultipleQyp"));
+        break;
+      case "none":
+        break;
+    }
+  };
+
+  const hasFiles = (event: DragEvent): boolean => [...event.dataTransfer.types].includes("Files");
+
+  const menuLabel = (label: MessageKey, command: BarCommand): MenuGroup["entries"][number] => ({
+    command,
+    label: t(label),
+    shortcut: command === "language" ? undefined : shortcutLabel(command, isMac()),
+    status: command === "language" ? "enabled" : status[command],
+  });
+  const groups: MenuGroup[] = [
+    { id: "file", label: t("menuFile"), entries: [menuLabel("cmdNew", "new"), menuLabel("cmdOpen", "open"), menuLabel("cmdSave", "save"), menuLabel("cmdExportMp4", "exportMp4")] },
+    { id: "edit", label: t("menuEdit"), entries: [menuLabel("cmdUndo", "undo"), menuLabel("cmdRedo", "redo"), menuLabel("cmdAddMedia", "addMedia"), menuLabel("cmdSortByTime", "sortByTime")] },
+    {
+      id: "help",
+      label: t("menuHelp"),
+      entries: [
+        menuLabel("about", "about"),
+        ...(desktopLayout ? [] : [{ command: "language" as const, label: `${t("switchLanguage")}: ${LANG_NAMES[otherLang(lang)]}`, status: "enabled" as const }]),
+      ],
+    },
+  ];
+
+  const empty = doc.media.length === 0;
+  const resolvedAspect = empty ? "16:9" : defaultAspectRatio(doc.media);
+  const hasVideoSound = doc.media.some((m) => m.type === "video" && m.hasAudio);
+  const originalTotal = doc.media.reduce((sum, m) => sum + (m.originalBytes ?? m.blob.size), 0);
+
+  const assets = (
+    <AssetPanel
+      media={doc.media}
+      urlFor={urlFor}
+      failures={failures}
+      describeFailure={(failure) => describeFileError(failure.fileName, failure.error, t)}
+      busy={busy}
+      importing={importing}
+      mobile={!desktopLayout}
+      sizeWarning={transcodeSetting.mobile && mobileSizeLevel(originalTotal) === "warn"}
+      onAdd={() => run("addMedia")}
+      onMove={(from, to) => apply((state) => moveMedia(state, from, to))}
+      onRemove={(key) => apply((state) => removeMedia(state, key))}
+      onClearFailures={() => setFailures([])}
+    />
+  );
+  const emptyState = (messageOnly: boolean) => (
+    <EmptyState messageOnly={messageOnly} disabled={busy} onAdd={() => run("addMedia")} onOpen={() => run("open")} />
+  );
+  const previewPane = empty ? (
+    emptyState(!desktopLayout)
+  ) : (
+    <PreviewPane
+      controller={result?.controller ?? null}
+      pages={result?.manifest.pages.length ?? 0}
+      duration={result?.manifest.duration ?? 0}
+      updating={preview.updating}
+      error={preview.error ? describeBuildError(preview.error, t) : null}
+      layoutMayDiffer={layoutMayDiffer}
+    />
+  );
+  const settings = (
+    <SettingsPanel
+      doc={doc}
+      resolvedAspect={resolvedAspect}
+      disabled={empty}
+      hasVideoSound={hasVideoSound}
+      customMusic={customMusic}
+      placeholderTitle={result?.defaultTitle ?? t("makerTitlePlaceholder")}
+      transcode={{ checked: transcodeSetting.transcode, canChange: transcodeSetting.capabilities.videoEncode, note: transcodeSetting.note }}
+      onTranscode={transcodeSetting.setTranscode}
+      onTitle={(title) => apply((state) => setTitle(state, title, Date.now()))}
+      onAspect={(aspect) => apply((state) => setAspect(state, aspect))}
+      onTemplate={(templateId) => apply((state) => setTemplate(state, templateId))}
+      onMusic={(music) => apply((state) => setMusic(state, music))}
+      onPickMusic={() => musicInput.current?.click()}
+      onReroll={() => apply((state) => setSeed(state, randomSeed()))}
+    />
+  );
 
   return (
     <div
-      className={`${classes.page} ${dragging ? classes.dragging : ""}`}
-      onDragOver={(e) => {
-        e.preventDefault();
+      className={classes.root}
+      onDragEnter={(event) => {
+        if (!hasFiles(event)) return;
+        dragDepth.current += 1;
         setDragging(true);
       }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={onDrop}
+      onDragOver={(event) => hasFiles(event) && event.preventDefault()}
+      onDragLeave={(event) => {
+        if (!hasFiles(event)) return;
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDragging(false);
+      }}
+      onDrop={(event) => hasFiles(event) && onDropFiles(event)}
     >
-      {header}
-      <p className={classes.note}>{t("makerNote")}</p>
-
-      <section className={classes.section}>
-        <h2>{t("makerSectionMedia")}</h2>
-        <div className={classes.toolbar}>
-          <button className={classes.button} disabled={busy} onClick={() => mediaInput.current?.click()}>
-            {t("makerAdd")}
-          </button>
-          <input
-            ref={mediaInput}
-            type="file"
-            multiple
-            hidden
-            accept="image/*,.heic,.heif,.mp4,.m4v,video/mp4"
-            onChange={(e) => {
-              const files = [...(e.target.files ?? [])];
-              e.target.value = "";
-              void addFiles(files);
-            }}
-          />
-          <span>{t("makerCount", { count: items.length, max: GENERATOR_LIMITS.maxMedia, size: formatBytes(totalBytes) })}</span>
-          {importing && <span role="status">{t("makerImporting", importing)}</span>}
-        </div>
-        {items.length === 0 ? (
-          <div className={classes.empty}>{t("makerEmpty")}</div>
+      <header className={classes.top}>
+        {desktopLayout ? (
+          <>
+            <Logo size={28} kind="maker" />
+            <MenuBar groups={groups} label={t("menuBarLabel")} onCommand={run} />
+            <div className={classes.spacer} />
+            {!isDesktop() && (
+              <a className={classes.link} href="./">
+                {t("makerBackToPlayer")}
+              </a>
+            )}
+            <LanguageSwitch />
+            <button className={classes.tool} onClick={() => setAboutOpen(true)}>
+              <InfoIcon size={18} />
+              {t("about")}
+            </button>
+          </>
         ) : (
           <>
-            <MediaList items={items} disabled={busy} onMove={(index, delta) => setItems(moveItem(items, index, delta))} onRemove={remove} />
-            <p className={classes.hint}>{t("makerOrderHint")}</p>
+            <MenuBar groups={groups} label={t("menuBarLabel")} onCommand={run} compact={{ label: t("menuMobile") }} />
+            <div className={classes.tabTitle}>{t(TAB_LABELS[tab])}</div>
+            <Logo size={28} kind="maker" />
           </>
         )}
-        {failures.length > 0 && (
-          <div className={classes.failures} role="alert">
-            {t("makerFailedSome", { count: failures.length })}
-            <ul className={classes.failureList}>
-              {failures.map((f, i) => (
-                <li key={i}>{describeFileError(f.fileName, f.error, t)}</li>
-              ))}
-            </ul>
-            <button className={classes.button} onClick={() => setFailures([])}>
-              {t("makerGotIt")}
-            </button>
-          </div>
-        )}
-      </section>
+      </header>
 
-      <section className={classes.section}>
-        <h2>{t("makerSectionSettings")}</h2>
-        <div className={classes.grid}>
-          <label htmlFor="aspect">{t("makerAspect")}</label>
-          <select id="aspect" className={classes.input} value={aspect} onChange={(e) => setAspect(e.target.value as AspectChoice)}>
-            <option value="auto">{t("makerAspectAuto", { ratio: resolvedAspect === "16:9" ? t("makerLandscape") : t("makerPortrait") })}</option>
-            <option value="16:9">{t("makerLandscape")}</option>
-            <option value="9:16">{t("makerPortrait")}</option>
-          </select>
-
-          <label htmlFor="template">{t("makerTemplate")}</label>
-          <div>
-            <select id="template" className={classes.input} value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-              {TEMPLATES.map((tpl) => (
-                <option key={tpl.id} value={tpl.id}>
-                  {tpl.name[lang]}
-                </option>
-              ))}
-            </select>
-            <div className={classes.hint}>{template.description[lang]}</div>
-          </div>
-
-          <label htmlFor="title">{t("makerTitle")}</label>
-          <input id="title" className={classes.input} value={title} maxLength={100} placeholder={t("makerTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
-
-          <span>{t("makerMusic")}</span>
-          <div className={classes.choices}>
-            <label>
-              <input type="radio" name="music" checked={musicChoice === "none"} onChange={() => setMusicChoice("none")} /> {t("makerMusicNone")}
-            </label>
-            <label>
-              <input type="radio" name="music" checked={musicChoice === "builtin"} onChange={() => setMusicChoice("builtin")} />{" "}
-              {t("makerMusicBuiltin", { title: lang === "zh" ? BUILTIN_MUSIC_TITLE : BUILTIN_MUSIC_TITLE_EN })}
-            </label>
-            <label>
-              <input type="radio" name="music" checked={musicChoice === "custom"} disabled={!customMusic} onChange={() => setMusicChoice("custom")} /> {t("makerMusicCustom")}
-              {customMusic ? t("makerMusicCustomPicked", { title: customMusic.title ?? "", duration: formatDuration(customMusic.duration) }) : ""}
-            </label>
-            <div>
-              <button className={classes.button} onClick={() => musicInput.current?.click()}>
-                {t("makerPickMusic")}
-              </button>
-              <input
-                ref={musicInput}
-                type="file"
-                hidden
-                accept=".mp3,.m4a,audio/mpeg,audio/mp4"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = "";
-                  if (file) void pickCustomMusic(file);
-                }}
-              />
-            </div>
-            {musicChoice !== "none" && hasVideoSound && <div className={classes.hint}>{t("makerMuteNote")}</div>}
-          </div>
+      {notice && (
+        <div className={classes.notice} role="status">
+          <span style={{ flex: 1 }}>{notice}</span>
+          <button className={classes.noticeClose} onClick={() => setNotice(null)}>
+            {t("close")}
+          </button>
         </div>
-      </section>
+      )}
 
-      <div className={classes.actions}>
-        <button className={classes.primary} disabled={items.length === 0 || busy} onClick={() => void generate(seed)}>
-          {building ? t("makerGenerating") : t("makerGenerate")}
-        </button>
+      {desktopLayout ? (
+        <main className={classes.desktopMain}>
+          <section className={`${classes.cell} ${classes.cellSide}`} aria-label={t("tabMedia")}>
+            {assets}
+          </section>
+          <section className={classes.cell} aria-label={t("tabPreview")}>
+            {previewPane}
+          </section>
+          <section className={`${classes.cell} ${classes.cellRight}`} aria-label={t("tabSettings")}>
+            {settings}
+          </section>
+        </main>
+      ) : (
+        <>
+          <main className={classes.mobileMain}>
+            {tab === "media" && (empty ? <div style={{ height: "100%" }}>{emptyState(false)}</div> : assets)}
+            {tab === "preview" && previewPane}
+            {tab === "settings" && (empty ? emptyState(true) : settings)}
+          </main>
+          <nav className={classes.tabs} role="tablist" aria-label={t("tabsLabel")}>
+            {(Object.keys(TAB_LABELS) as Tab[]).map((key) => (
+              <button key={key} className={classes.tab} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>
+                {t(TAB_LABELS[key])}
+              </button>
+            ))}
+          </nav>
+        </>
+      )}
+
+      <div className={classes.hiddenLive} aria-live="polite" role="status">
+        {announcement}
       </div>
-      {problemText && <div className={classes.error} role="alert">{problemText}</div>}
-      {about}
+      {dragging && <div className={classes.dropOverlay}>{t("dropHere")}</div>}
+
+      <input
+        ref={mediaInput}
+        type="file"
+        multiple
+        hidden
+        accept="image/*,.heic,.heif,.mp4,.m4v,video/mp4"
+        onChange={(event) => {
+          const files = [...(event.target.files ?? [])];
+          event.target.value = "";
+          void addFiles(files);
+        }}
+      />
+      <input
+        ref={musicInput}
+        type="file"
+        hidden
+        accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void pickMusic(file);
+        }}
+      />
+      <input
+        ref={qypInput}
+        type="file"
+        hidden
+        accept=".qyp"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void openFile(file);
+        }}
+      />
+
+      {confirmation && (
+        <ConfirmDialog
+          message={confirmation.message}
+          confirmLabel={confirmation.confirmLabel}
+          onCancel={() => setConfirmation(null)}
+          onConfirm={() => {
+            const { onConfirm } = confirmation;
+            setConfirmation(null);
+            onConfirm();
+          }}
+        />
+      )}
+      {errorMessage && <MessageDialog message={errorMessage} onClose={() => setErrorMessage(null)} />}
+      {savedNote && <MessageDialog title={t("dialogNoticeTitle")} message={savedNote} onClose={() => setSavedNote(null)} />}
+      {progress && (
+        <ProgressDialog
+          message={t("transcodeProgress", { index: progress.index, total: progress.total, percent: Math.round(progress.fraction * 100) })}
+          fraction={progress.fraction}
+          onCancel={() => saveAbort.current?.abort()}
+        />
+      )}
+      {exportProgress && (
+        <ProgressDialog
+          message={
+            exportProgress.remainingSeconds === undefined
+              ? t("exportProgress", { percent: Math.round(exportProgress.fraction * 100) })
+              : t("exportProgressRemaining", { percent: Math.round(exportProgress.fraction * 100), remaining: formatDuration(exportProgress.remainingSeconds) })
+          }
+          fraction={exportProgress.fraction}
+          onCancel={() => saveAbort.current?.abort()}
+        />
+      )}
+      {aboutOpen && <AboutDialog kind="maker" onClose={() => setAboutOpen(false)} />}
     </div>
   );
 }

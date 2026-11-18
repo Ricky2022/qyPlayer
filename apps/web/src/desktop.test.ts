@@ -52,11 +52,17 @@ describe("readInitialFile", () => {
 describe("saveBlob（桌面）", () => {
   it("把字节体和百分号编码的文件名交给 save_file", async () => {
     setDesktop(true);
-    invoke.mockResolvedValueOnce(undefined);
-    await saveBlob(new Blob([new Uint8Array([9, 8])]), "我的 影片.qyp");
+    invoke.mockResolvedValueOnce(true);
+    await expect(saveBlob(new Blob([new Uint8Array([9, 8])]), "我的 影片.qyp")).resolves.toBe(true);
     const [command, body, options] = invoke.mock.calls[0]!;
     expect(command).toBe("save_file");
     expect([...(body as Uint8Array)]).toEqual([9, 8]);
     expect(decodeURIComponent((options as { headers: Record<string, string> }).headers["x-file-name"]!)).toBe("我的 影片.qyp");
+  });
+
+  it("用户在另存为对话框里取消时返回 false", async () => {
+    setDesktop(true);
+    invoke.mockResolvedValueOnce(false);
+    await expect(saveBlob(new Blob(["x"]), "a.qyp")).resolves.toBe(false);
   });
 });

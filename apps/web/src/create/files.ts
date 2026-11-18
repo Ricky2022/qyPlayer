@@ -11,10 +11,10 @@ export type UnsupportedReason = "video-format" | "audio-format" | "unsupported";
 export type Classification = { kind: FileKind } | { kind: "unsupported"; reason: UnsupportedReason };
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "bmp", "avif", "heic", "heif"];
-const VIDEO_EXTENSIONS = ["mp4", "m4v"];
-const AUDIO_EXTENSIONS = ["mp3", "m4a"];
-const OTHER_VIDEO_EXTENSIONS = ["mov", "mkv", "webm", "avi", "wmv", "flv", "3gp", "mpg", "mpeg"];
-const OTHER_AUDIO_EXTENSIONS = ["wav", "flac", "ogg", "opus", "aac", "wma", "aiff"];
+const VIDEO_EXTENSIONS = ["mp4", "m4v", "mov"];
+const AUDIO_EXTENSIONS = ["mp3", "m4a", "wav"];
+const OTHER_VIDEO_EXTENSIONS = ["mkv", "webm", "avi", "wmv", "flv", "3gp", "mpg", "mpeg"];
+const OTHER_AUDIO_EXTENSIONS = ["flac", "ogg", "opus", "aac", "wma", "aiff"];
 
 function extensionOf(name: string): string {
   const dot = name.lastIndexOf(".");

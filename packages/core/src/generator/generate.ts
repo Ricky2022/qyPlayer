@@ -1,5 +1,5 @@
 import { CANVAS_SIZE, cellAspect, coverCropLoss, layoutFrames } from "../layout";
-import type { Asset, AspectRatio, Bgm, Direction, Enter, Item, Manifest, Page, TransitionIn } from "../manifest";
+import type { Asset, AssetSource, AspectRatio, Bgm, Direction, Enter, Item, Manifest, Page, TransitionIn } from "../manifest";
 import { createRng, type Rng } from "./rng";
 import { findTemplate, type Template } from "./templates";
 
@@ -31,6 +31,10 @@ export interface MediaInput {
   type: "image" | "video";
   /** 包内播放版本的路径 */
   src: string;
+  /** 播放文件的类型（格式 0.2，写法见 docs/dev-0.3.0.md 4.3） */
+  mimeType: string;
+  /** 用户选的原始文件的类型，以及播放文件是否由它转码得到 */
+  source: AssetSource;
   /** 排序时用作同时刻的次级键 */
   fileName: string;
   width: number;
@@ -46,6 +50,8 @@ export interface MediaInput {
 export interface MusicInput {
   id: string;
   src: string;
+  mimeType: string;
+  source: AssetSource;
   duration: number;
   title?: string;
   license?: string;
@@ -298,7 +304,7 @@ export function generateManifest(options: GenerateOptions): Manifest {
 
   // 4. 素材表与背景音乐
   const assets: Asset[] = ordered.map((m) => {
-    const asset: Asset = { id: m.id, type: m.type, src: m.src, width: m.width, height: m.height };
+    const asset: Asset = { id: m.id, type: m.type, src: m.src, mimeType: m.mimeType, source: m.source, width: m.width, height: m.height };
     if (m.type === "video") {
       asset.duration = m.duration;
       asset.hasAudio = m.hasAudio ?? false;
@@ -315,6 +321,8 @@ export function generateManifest(options: GenerateOptions): Manifest {
       id: music.id,
       type: "audio",
       src: music.src,
+      mimeType: music.mimeType,
+      source: music.source,
       duration: music.duration,
       ...(music.title !== undefined && { title: music.title }),
       ...(music.license !== undefined && { license: music.license }),
@@ -335,7 +343,7 @@ export function generateManifest(options: GenerateOptions): Manifest {
   const defaultTitle = earliest ? `${earliest.slice(0, 10)} ${titleWord}` : titleWord;
 
   return {
-    formatVersion: "0.1",
+    formatVersion: "0.2",
     id: options.id ?? randomId(),
     title: options.title ?? defaultTitle,
     createdAt: options.createdAt ?? new Date().toISOString(),

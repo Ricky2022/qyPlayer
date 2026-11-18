@@ -84,3 +84,33 @@ export const CloseIcon = (p: IconProps) => (
     <path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z" />
   </Svg>
 );
+
+export const MenuIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" />
+  </Svg>
+);
+
+export const DragHandleIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM9 10.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM9 16a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
+  </Svg>
+);
+
+export const ArrowUpIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7.4 14.6 12 10l4.6 4.6L18 13.2l-6-6-6 6z" />
+  </Svg>
+);
+
+export const ArrowDownIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7.4 9.4 12 14l4.6-4.6L18 10.8l-6 6-6-6z" />
+  </Svg>
+);
+
+export const AddIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z" />
+  </Svg>
+);

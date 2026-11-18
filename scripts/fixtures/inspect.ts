@@ -1,5 +1,6 @@
 import { imageSize } from "image-size";
 import { inspectAudio, inspectVideo } from "@qyplayer/qyp/inspect";
+import { probeVideo } from "../../apps/web/src/create/probeVideo";
 import type { SourceRecord } from "./records";
 
 export interface MediaInfo {
@@ -7,6 +8,8 @@ export interface MediaInfo {
   height?: number;
   duration?: number;
   hasAudio?: boolean;
+  /** 格式 0.2 的 mimeType（docs/dev-0.3.0.md 4.3）；视频带编码字符串 */
+  mimeType: string;
 }
 
 /**
@@ -18,9 +21,16 @@ export async function inspectMedia(record: SourceRecord, bytes: Uint8Array): Pro
   if (record.kind === "image") {
     const { width, height, type } = imageSize(bytes);
     if (type !== "jpg") throw new Error(`${record.file}：示例包只收 JPEG，实际是 ${type}`);
-    return { width, height };
+    return { width, height, mimeType: "image/jpeg" };
   }
 
   const blob = new Blob([bytes as BlobPart]);
-  return record.kind === "audio" ? inspectAudio(blob, record.file) : inspectVideo(blob, record.file);
+  if (record.kind === "audio") {
+    const { duration } = await inspectAudio(blob, record.file);
+    return { duration, mimeType: record.file.toLowerCase().endsWith(".m4a") ? 'audio/mp4; codecs="mp4a.40.2"' : "audio/mpeg" };
+  }
+  // inspectVideo 确认是 H.264 + AAC；类型和编码字符串用与制作页相同的 probeVideo 读取
+  await inspectVideo(blob, record.file);
+  const probe = await probeVideo(blob, record.file);
+  return { width: probe.width, height: probe.height, duration: probe.duration, hasAudio: probe.hasAudio, mimeType: probe.mimeType };
 }

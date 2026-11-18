@@ -103,5 +103,74 @@
       "ok": false,
       "code": "remote-reference"
     }
+  },
+  {
+    "file": "valid-v02-basic.qyp",
+    "description": "格式 0.2 的完整示例：每个素材都有 mimeType 和 source，第一张图由 HEIC 转码为 JPEG",
+    "expect": {
+      "ok": true
+    }
+  },
+  {
+    "file": "valid-v02-heic-mov.qyp",
+    "description": "格式 0.2：未转码的 HEIC 图片和 iPhone 的 MOV 视频（素材内容是占位字节）",
+    "expect": {
+      "ok": true
+    }
+  },
+  {
+    "file": "valid-v02-transcoded.qyp",
+    "description": "格式 0.2：视频由 MOV 转码为 MP4，两个 mimeType 不同且 transcoded 为 true",
+    "expect": {
+      "ok": true
+    }
+  },
+  {
+    "file": "invalid-v02-missing-mimetype.qyp",
+    "description": "格式 0.2：素材缺少 mimeType",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
+    "file": "invalid-v02-missing-source.qyp",
+    "description": "格式 0.2：素材缺少 source",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
+    "file": "invalid-v02-mimetype-type-mismatch.qyp",
+    "description": "格式 0.2：图片素材的 mimeType 是 video/mp4",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
+    "file": "invalid-v02-mimetype-bad-chars.qyp",
+    "description": "格式 0.2：mimeType 含大写字母和非法字符",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
+    "file": "invalid-v02-not-transcoded-mismatch.qyp",
+    "description": "格式 0.2：source.transcoded 为 false，但两个 mimeType 不同",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
+    "file": "invalid-size-mismatch.qyp",
+    "description": "manifest.json 在中央目录里记录的大小比实际多 1 字节（声明体积与实际不符）",
+    "expect": {
+      "ok": false,
+      "code": "size-mismatch"
+    }
   }
 ]

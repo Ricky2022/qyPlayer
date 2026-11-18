@@ -1,7 +1,9 @@
 import example from "../../../spec/examples/example.manifest.json";
+import example01 from "../../../spec/examples/example-0.1.manifest.json";
 import { referencedPaths, type Manifest } from "@qyplayer/core";
 import type { QypErrorCode } from "./open";
 import { writeZip, type PackageFile } from "./write";
+import { patchEntry } from "./zipPatch";
 
 /**
  * 格式一致性测试包（PRD N-TEST-02）：任何播放器实现都可以用它们自测。
@@ -16,13 +18,18 @@ export interface ConformanceCase {
   build(): Promise<Blob>;
 }
 
-const base = example as unknown as Manifest;
+/** 格式 0.1 的示例：下面沿用的全部用例都以它为基础，保证 0.1 的包仍能打开 */
+const base = example01 as unknown as Manifest;
+/** 格式 0.2 的示例：新增的 v02 用例以它为基础 */
+const base02 = example as unknown as Manifest;
 
-function variant(change: (m: any) => void): any {
-  const copy = JSON.parse(JSON.stringify(base));
+function copyOf(manifest: Manifest, change: (m: any) => void): any {
+  const copy = JSON.parse(JSON.stringify(manifest));
   change(copy);
   return copy;
 }
+const variant = (change: (m: any) => void) => copyOf(base, change);
+const variant02 = (change: (m: any) => void) => copyOf(base02, change);
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
@@ -98,7 +105,7 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
     name: "invalid-version-too-high",
     description: "格式版本高于播放器支持的版本",
     expect: { ok: false, code: "unsupported-version" },
-    build: validPackage(variant((m) => (m.formatVersion = "0.2"))),
+    build: validPackage(variant((m) => (m.formatVersion = "0.3"))),
   },
   {
     name: "invalid-missing-file",
@@ -123,5 +130,85 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
     description: "清单引用远程地址",
     expect: { ok: false, code: "remote-reference" },
     build: validPackage(variant((m) => (m.assets[0].src = "https://example.com/a.jpg")), ["https://example.com/a.jpg"]),
+  },
+  {
+    name: "valid-v02-basic",
+    description: "格式 0.2 的完整示例：每个素材都有 mimeType 和 source，第一张图由 HEIC 转码为 JPEG",
+    expect: { ok: true },
+    build: validPackage(base02),
+  },
+  {
+    name: "valid-v02-heic-mov",
+    description: "格式 0.2：未转码的 HEIC 图片和 iPhone 的 MOV 视频（素材内容是占位字节）",
+    expect: { ok: true },
+    build: validPackage(
+      variant02((m) => {
+        const heic = "image/heic";
+        const mov = 'video/quicktime; codecs="hvc1.2.4.l120.b0, mp4a.40.2"';
+        Object.assign(m.assets[0], { src: "media/m001.heic", mimeType: heic, source: { mimeType: heic, transcoded: false } });
+        Object.assign(m.assets[3], { src: "media/m004.mov", mimeType: mov, source: { mimeType: mov, transcoded: false } });
+      }),
+    ),
+  },
+  {
+    name: "valid-v02-transcoded",
+    description: "格式 0.2：视频由 MOV 转码为 MP4，两个 mimeType 不同且 transcoded 为 true",
+    expect: { ok: true },
+    build: validPackage(
+      variant02((m) => {
+        m.assets[3].source = { mimeType: 'video/quicktime; codecs="hvc1.2.4.l120.b0, mp4a.40.2"', transcoded: true };
+      }),
+    ),
+  },
+  {
+    name: "invalid-v02-missing-mimetype",
+    description: "格式 0.2：素材缺少 mimeType",
+    expect: { ok: false, code: "invalid-manifest" },
+    build: validPackage(variant02((m) => delete m.assets[0].mimeType)),
+  },
+  {
+    name: "invalid-v02-missing-source",
+    description: "格式 0.2：素材缺少 source",
+    expect: { ok: false, code: "invalid-manifest" },
+    build: validPackage(variant02((m) => delete m.assets[0].source)),
+  },
+  {
+    name: "invalid-v02-mimetype-type-mismatch",
+    description: "格式 0.2：图片素材的 mimeType 是 video/mp4",
+    expect: { ok: false, code: "invalid-manifest" },
+    build: validPackage(
+      variant02((m) => {
+        m.assets[1].mimeType = "video/mp4";
+        m.assets[1].source.mimeType = "video/mp4";
+      }),
+    ),
+  },
+  {
+    name: "invalid-v02-mimetype-bad-chars",
+    description: "格式 0.2：mimeType 含大写字母和非法字符",
+    expect: { ok: false, code: "invalid-manifest" },
+    build: validPackage(
+      variant02((m) => {
+        m.assets[1].mimeType = "image/JPEG<x>";
+        m.assets[1].source.mimeType = "image/JPEG<x>";
+      }),
+    ),
+  },
+  {
+    name: "invalid-v02-not-transcoded-mismatch",
+    description: "格式 0.2：source.transcoded 为 false，但两个 mimeType 不同",
+    expect: { ok: false, code: "invalid-manifest" },
+    build: validPackage(variant02((m) => (m.assets[1].source = { mimeType: "image/heic", transcoded: false }))),
+  },
+  {
+    name: "invalid-size-mismatch",
+    description: "manifest.json 在中央目录里记录的大小比实际多 1 字节（声明体积与实际不符）",
+    expect: { ok: false, code: "size-mismatch" },
+    build: async () => {
+      const zip = new Uint8Array(await (await validPackage(base02)()).arrayBuffer());
+      const size = bytes(JSON.stringify(base02, null, 2)).length;
+      patchEntry(zip, "manifest.json", { directory: { compressedSize: size + 1, uncompressedSize: size + 1 } });
+      return new Blob([zip]);
+    },
   },
 ];

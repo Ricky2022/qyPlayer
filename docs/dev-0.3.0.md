@@ -371,6 +371,8 @@ flowchart LR
 | 声明体积与实际不符（见 7.1） | 新错误 `size-mismatch` |
 | `formatVersion` 为 `"0.3"` | `unsupported-version` |
 
+说明：`size-mismatch` 依赖 7.1 的实际体积断言，对应的包随 S2 加入；其余用例在 S1 完成，包名以 `valid-v02-`、`invalid-v02-` 开头，原有的 0.1 用例保持不变。写入端（生成器）在 S4、S5 接入 `mimeType` 和 `source` 后再改为写 0.2。
+
 ## 5. 制作器（网页制作页和桌面制作器共用同一份代码）
 
 ### 5.1 环境判断
@@ -490,6 +492,24 @@ flowchart LR
 
 ### 5.8 保存和导出的文件名
 
+### 10.7 实现说明与验证记录（S7）
+
+- 代码在 `apps/web/src/create/export/`：`spec.ts`（规格常量和纯计算）、`plan.ts`（前置检查）、`frames.ts`（逐帧取素材）、`audio.ts`（混音）、`run.ts`（编码主循环）。入口是 `CreatorApp` 的 `exportMovie`，用当前编辑内容重新生成与预览相同的清单，不依赖预览是否刚刚更新完。
+- 前置检查先做 6.1 的播放预检，再对视频问一次 WebCodecs 的 `canDecode()`。背景音乐和视频的列表名称取自编辑器里的文件名。
+- 取帧：先按 `stateAt` 算出每个视频素材要取的全部时间点，再让 mediabunny 的 `canvasesAtTimestamps` 从头到尾顺序解码，不反复定位。素材只在用到的页里保持打开，页过去就释放；视频帧缩到长边 1920 以内。
+- 混音：按 10 秒一段分别用 `OfflineAudioContext` 渲染，渲染完交给编码器就释放。增益曲线是分段线性的，直接用 `bgmGainAt`、`videoAudioGain` 的折点交给 `linearRampToValueAtTime`，两条渐变重叠时按 0.05 秒采样。视频的音轨解不了时按静音处理（预览里这样的视频也没有声音）。
+- 视频和音频两路同时编码，互相等对方跟上，否则 mediabunny 的写入端会因为另一路没有数据而一直等待。
+- 超过 10 分钟的影片，导出前弹确认框（文件较大、占内存多），确认后照常导出，不设硬上限。导出结果先全部放在内存里，更彻底的办法是流式写盘，留待以后。
+- 桌面制作器的“另存为”按文件扩展名选类型过滤（`.mp4` 或 `.qyp`）。
+- 编码器写入的 H.264 Level 由编码器决定：Chrome 的硬件编码器写 5.0（`avc1.640032`），软件编码器写 4.0。码流本身不超过 Level 4.0 的限制（1080p、30 帧、约 8 Mbps），任何支持 4.0 的解码器都能播放。我们没有强制软件编码，因为那会明显变慢。
+- 验证记录（真实 Chrome，临时页已删除）：
+  - V3-09：示例包导出 1920×1080（竖屏示例 1080×1920）、30 帧每秒（750 个包，25 秒）、AAC-LC 48 kHz 立体声、顶层盒顺序 `ftyp, moov, mdat`（faststart）、时长与清单一致（相差不到一帧）；首帧、中间帧、末帧与直接用 `renderFrame` 画出的画面平均绝对差最大 2.1/255（要求小于 8）；Chrome 的 `<video>` 能播放。Windows 自带播放器仍待你确认。
+  - V3-10：导出到 1.5 秒时取消，抛出 `AbortError`，没有产生结果；界面里取消不下载文件。
+  - V3-11：用 440 Hz 的视频原声和 880 Hz 的配乐生成测试影片。有配乐时视频页内只有 880 Hz（440 Hz 的能量低于万分之二）；没有配乐时只有 440 Hz；无配乐时页尾 0.1 秒的音量明显低于页中间（淡出生效）。
+  - V3-32：电脑环境里“导出 MP4…”出现；把用户代理改成手机后整项隐藏。
+  - 界面：3 张照片从菜单导出，进度框显示百分比和剩余时间，完成后下载 `2026-11-18 Memories.mp4`（284 KB）。
+  - 速度：25 到 40 秒、1080p 的影片，在本机 5 到 7 秒完成。
+
 - 保存包：`safeFileName(标题)` 加 `.qyp`（已有，不改）。
 - 导出 MP4：同一函数，扩展名 `.mp4`。该函数把 `\ / : * ? " < > |` 和控制字符替换成下划线，去掉首尾空白，最长 80 个字符，空白结果用默认标题的词。
 
@@ -533,6 +553,8 @@ videoAudioGain(localTime, pageDuration) =
 
 - 播放时视频元素的音量 = 用户音量 × `videoAudioGain`；拖动定位到页中间时直接按函数取值，不产生跳变。
 - 验收：连续两个视频页在无配乐时切换，在两页边界前后各 0.1 秒内音量连续变化，没有从非零直接跳到零。
+- 实现说明（S3）：预检在 `apps/web/src/player/preflight.ts`，由 `PlaybackController.create` 调用；背景音乐无法播放时沿用原有的 `bgm-decode` 提示，不计入 `assets-unsupported` 的个数和页码；预检读取素材失败（包损坏）直接报错，只有解码失败才算“本设备不支持”。
+- 验证记录（S3）：本机 Chrome 的 `canPlayType('video/mp4; codecs="hvc1…"')` 为空，HEIC 无法解码，V3-05、V3-06 的占位画面和提示均出现，播放不中断，时间线不变；V3-07 用两个连续视频页（无配乐）逐帧采样，边界处音量 1 → 0.47 → 0.03 → 0.53 → 1，连续。真机 iPhone 素材仍待 S8 验收。
 
 ### 6.4 读取包内文件
 
@@ -543,6 +565,16 @@ videoAudioGain(localTime, pageDuration) =
 - 对压缩的条目（只可能是 `manifest.json` 和旧包），仍然用 `getData` 解压。
 - 切片读取不重新计算 CRC32，其余条目仍然检查签名。这一点是有意的取舍：对几百 MB 的视频逐字节算 CRC 会在手机上卡很久。
 - 包里的视频、音频和图片都使用 `store` 方式写入（7.1 已规定），所以实际上所有素材都走切片。
+
+### 6.4A 快速读取概要信息（peekPackage）
+
+用途：影片库列表、打开前预览、拖入文件时的卡片，只需要标题、时长、封面这类信息，不需要播放。
+
+- 接口：`peekPackage(blob)`（`packages/qyp/src/open.ts`），返回 `PackageSummary`：`title`、`duration`、`createdAt`、`aspectRatio`、`pageCount`、`photoCount`、`videoCount`、`hasMusic`、`formatVersion`、`totalBytes`、`cover?`。
+- 不需要解压，也不需要读完整个文件。包内素材都是存储方式 0 的条目，ZIP 目录在文件尾，`manifest.json` 写在最前，`cover.jpg` 写在最后。`peekPackage` 只读三小段：文件尾的中央目录、`manifest.json`、封面，用 `Blob.slice` 取出，不读素材。
+- 不改包格式，不加冗余字段（zip 注释摘要、缩略图副本）。理由：场景只有本机文件，上述三次小读取在本机是毫秒级；冗余字段会让摘要和清单可能不一致。所有字段都从清单现算：`photoCount`、`videoCount` 按素材类型统计（不含音频），`hasMusic` 是清单有 `bgm`。
+- 不做完整校验：不检查素材是否缺失、大小是否一致，不算 CRC。清单本身仍要通过校验；不是 ZIP 或清单无效时抛 `QypError`，类别同 `openPackage`。因此能 `peekPackage` 成功的包，不保证能 `openPackage` 成功。
+- 封面：清单没有声明 `cover`（例如 0.1 的旧包），或包里读不出封面时，`cover` 为 `undefined`，由调用方显示默认占位图。不做取素材第一张图或视频帧的兜底，保证读取量固定。
 
 ### 6.5 手机播放
 
@@ -567,6 +599,7 @@ videoAudioGain(localTime, pageDuration) =
   - `ajv` 和 `ajv-formats` 从 `packages/core` 的运行时依赖移到开发依赖。
   - `pnpm` 脚本：`schema:build`；在 `lint` 之前运行不要求，由测试保证。
   - 现有校验的全部单元测试和一致性测试包必须原样通过。
+  - 实现说明（S2）：生成脚本拆成 `scripts/validator/generate.ts` 和 `scripts/build-validator.ts`；`date-time` 格式和字符串长度函数放在 `packages/core/src/schemaRuntime.ts`，生成的校验函数从那里引用，因此运行时不依赖 `ajv` 和 `ajv-formats`（它们只留在 `packages/core` 的开发依赖里，用于生成和对照测试）。
 
 ### 7.3 内容安全策略
 
@@ -620,7 +653,7 @@ default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src
 
 | 依赖 | 用途 | 许可 | 加载方式 |
 | --- | --- | --- | --- |
-| mediabunny | 读取视频和音频的元数据与编码字符串；视频转码；导出 MP4 的解码、编码和封装 | MPL-2.0（预期，开发第一步确认） | 制作器按需动态加载；播放器不加载 |
+| mediabunny | 读取视频和音频的元数据与编码字符串；视频转码；导出 MP4 的解码、编码和封装 | MPL-2.0（S0 已确认，1.66.0，见 [s0-report.md](s0-report.md)） | 制作器按需动态加载；播放器不加载 |
 | libheif-js | HEIC/HEIF 解码 | LGPL-3.0 | 制作器在第一次遇到 HEIC 且转码开启时动态加载，WebAssembly 文件单独输出 |
 | exifr | 读取 EXIF 拍摄时间 | MIT | 制作器 |
 
@@ -842,6 +875,6 @@ default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src
 | R-C | 播放设备不支持某种编码 | 预检并占位（D-04），不静默失败 |
 | R-D | 转码在某些设备上不可用或失败 | 能力探测禁用开关；单个素材失败回退并明确提示 |
 | R-E | CSP 过严导致功能失效 | 7.3 的验收标准；允许微调但不得加 `unsafe-eval` |
-| R-F | 导出 MP4 在低端电脑上很慢或内存不足 | 进度、取消、失败提示；不设时长上限，导出时间长是预期 |
+| R-F | 导出 MP4 在低端电脑上很慢或内存不足 | 进度、取消、失败提示；不设时长上限，超过 10 分钟导出前提示文件较大、占内存多；导出时间长是预期 |
 | R-G | 0.2 包在 0.2.x 播放器上打不开 | 发布说明写明；这是 0.x 阶段的预期不兼容（PRD 7.6） |
 | R-H | 没有可再分发的 HEIC、HEVC 样本，不能把它们放进仓库做自动测试 | 自动测试用占位字节和桩函数；真实样本只用于手动验收（11.2、11.3） |

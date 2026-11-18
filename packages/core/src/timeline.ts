@@ -235,3 +235,16 @@ export function bgmPositionAt(manifest: Manifest, t: number): number | null {
   if (bgm.loop) return time % asset.duration;
   return time < asset.duration ? time : null;
 }
+
+/** 视频原声每页开头淡入、结尾淡出的时长（秒，docs/dev-0.3.0.md T-21） */
+export const VIDEO_AUDIO_FADE_SECONDS = 0.1;
+
+/**
+ * 没有背景音乐时，视频页原声的增益系数（A-05）：页开头 FADE 秒内线性淡入，结尾 FADE 秒内线性淡出。
+ * `localTime` 是相对该页开始的秒数；结果在 0 到 1 之间。预览和导出共用。
+ */
+export function videoAudioGain(localTime: number, pageDuration: number): number {
+  const fade = VIDEO_AUDIO_FADE_SECONDS;
+  const gain = Math.min(1, localTime / fade) * Math.min(1, (pageDuration - localTime) / fade);
+  return Math.min(1, Math.max(0, gain));
+}

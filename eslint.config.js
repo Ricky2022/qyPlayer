@@ -5,7 +5,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  globalIgnores(["**/dist/", "**/dist-*/", "**/node_modules/", "fixtures/downloads/", "fixtures/build/", "apps/web/public/samples/"]),
+  globalIgnores(["**/dist/", "**/dist-*/", "**/node_modules/", "fixtures/downloads/", "fixtures/build/", "apps/web/public/samples/", "packages/core/src/schemaValidator.generated.js"]),
 
   js.configs.recommended,
   tseslint.configs.recommended,

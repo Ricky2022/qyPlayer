@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import { openPackage } from "@qyplayer/qyp";
 import { buildPackage, type MediaEntry } from "./buildPackage";
 
+const original = (mimeType: string) => ({ mimeType, source: { mimeType, transcoded: false } });
+const MP4 = 'video/mp4; codecs="avc1.640028, mp4a.40.2"';
+
 function photo(name: string, width: number, height: number, capturedAt?: string): MediaEntry {
-  return { fileName: name, type: "image", blob: new Blob([name]), width, height, ...(capturedAt && { capturedAt }) };
+  return { fileName: name, type: "image", ...original("image/jpeg"), blob: new Blob([name]), width, height, ...(capturedAt && { capturedAt }) };
 }
 
-const video: MediaEntry = { fileName: "clip.mp4", type: "video", blob: new Blob(["video"]), width: 1920, height: 1080, duration: 12, hasAudio: true };
+const video: MediaEntry = { fileName: "clip.mp4", type: "video", ...original(MP4), blob: new Blob(["video"]), width: 1920, height: 1080, duration: 12, hasAudio: true };
 
 describe("buildPackage", () => {
   it("builds a package that opens, with sequential in-package paths instead of user file names", async () => {
@@ -50,7 +53,7 @@ describe("buildPackage", () => {
   it("adds the music file and a matching bgm entry", async () => {
     const { blob, manifest } = await buildPackage({
       media: [photo("a.jpg", 1600, 1067), photo("b.jpg", 1600, 1067)],
-      music: { blob: new Blob(["music"]), extension: ".m4a", duration: 20, title: "song", license: "CC0" },
+      music: { blob: new Blob(["music"]), mimeType: 'audio/mp4; codecs="mp4a.40.2"', duration: 20, title: "song", license: "CC0" },
       templateId: "clean",
       seed: 1,
     });

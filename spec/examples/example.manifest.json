@@ -1,5 +1,5 @@
 {
-  "formatVersion": "0.1",
+  "formatVersion": "0.2",
   "id": "8d0c6a52-3f0e-4c1b-9a39-5a1d2f7b6c10",
   "title": "2026-10-01 回忆",
   "createdAt": "2026-10-08T20:30:00+08:00",
@@ -22,15 +22,24 @@
       "id": "m001",
       "type": "image",
       "src": "media/m001.jpg",
+      "mimeType": "image/jpeg",
+      "source": {
+        "mimeType": "image/heic",
+        "transcoded": true
+      },
       "width": 2560,
       "height": 1707,
-      "capturedAt": "2026-10-01T09:12:30+08:00",
-      "original": "originals/IMG_0001.HEIC"
+      "capturedAt": "2026-10-01T09:12:30+08:00"
     },
     {
       "id": "m002",
       "type": "image",
       "src": "media/m002.jpg",
+      "mimeType": "image/jpeg",
+      "source": {
+        "mimeType": "image/jpeg",
+        "transcoded": false
+      },
       "width": 1707,
       "height": 2560,
       "capturedAt": "2026-10-01T10:03:11+08:00"
@@ -39,6 +48,11 @@
       "id": "m003",
       "type": "image",
       "src": "media/m003.jpg",
+      "mimeType": "image/jpeg",
+      "source": {
+        "mimeType": "image/jpeg",
+        "transcoded": false
+      },
       "width": 1707,
       "height": 2560,
       "capturedAt": "2026-10-01T10:05:42+08:00"
@@ -47,6 +61,11 @@
       "id": "m004",
       "type": "video",
       "src": "media/m004.mp4",
+      "mimeType": "video/mp4; codecs=\"avc1.640028, mp4a.40.2\"",
+      "source": {
+        "mimeType": "video/mp4; codecs=\"avc1.640028, mp4a.40.2\"",
+        "transcoded": false
+      },
       "width": 1920,
       "height": 1080,
       "duration": 8.0,
@@ -57,6 +76,11 @@
       "id": "m005",
       "type": "image",
       "src": "media/m005.jpg",
+      "mimeType": "image/jpeg",
+      "source": {
+        "mimeType": "image/jpeg",
+        "transcoded": false
+      },
       "width": 1707,
       "height": 2560,
       "capturedAt": "2026-10-01T15:40:00+08:00"
@@ -65,6 +89,11 @@
       "id": "m006",
       "type": "image",
       "src": "media/m006.jpg",
+      "mimeType": "image/jpeg",
+      "source": {
+        "mimeType": "image/jpeg",
+        "transcoded": false
+      },
       "width": 2560,
       "height": 1707,
       "capturedAt": "2026-10-01T15:41:18+08:00"
@@ -73,6 +102,11 @@
       "id": "m007",
       "type": "image",
       "src": "media/m007.jpg",
+      "mimeType": "image/jpeg",
+      "source": {
+        "mimeType": "image/jpeg",
+        "transcoded": false
+      },
       "width": 2560,
       "height": 1707,
       "capturedAt": "2026-10-01T15:44:52+08:00"
@@ -81,6 +115,11 @@
       "id": "a001",
       "type": "audio",
       "src": "audio/bgm.m4a",
+      "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"",
+      "source": {
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"",
+        "transcoded": false
+      },
       "duration": 142.5,
       "title": "Sample Track",
       "license": "CC0-1.0"

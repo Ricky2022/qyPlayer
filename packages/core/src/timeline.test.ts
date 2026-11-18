@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import example from "../../../spec/examples/example.manifest.json";
-import { bgmGainAt, bgmPositionAt, easeInOut, stateAt, type Manifest } from "./index";
+import { VIDEO_AUDIO_FADE_SECONDS, bgmGainAt, bgmPositionAt, easeInOut, stateAt, videoAudioGain, type Manifest } from "./index";
 
 const generated = example as unknown as Manifest;
 
@@ -289,5 +289,52 @@ describe("bgm helpers", () => {
     });
     expect(bgmPositionAt(shortNoLoop, 25)).toBeNull();
     expect(bgmPositionAt(shortNoLoop, 9)).toBe(9);
+  });
+});
+
+describe("videoAudioGain (A-05)", () => {
+  const FADE = VIDEO_AUDIO_FADE_SECONDS;
+  const duration = 8;
+
+  it("淡入淡出时长是 0.1 秒", () => {
+    expect(FADE).toBe(0.1);
+  });
+
+  it("页开头和结尾为 0，淡入淡出中点为 0.5，中段为 1", () => {
+    expect(videoAudioGain(0, duration)).toBe(0);
+    expect(videoAudioGain(FADE / 2, duration)).toBeCloseTo(0.5, 9);
+    expect(videoAudioGain(FADE, duration)).toBe(1);
+    expect(videoAudioGain(duration / 2, duration)).toBe(1);
+    expect(videoAudioGain(duration - FADE, duration)).toBeCloseTo(1, 9);
+    expect(videoAudioGain(duration - FADE / 2, duration)).toBeCloseTo(0.5, 9);
+    expect(videoAudioGain(duration, duration)).toBe(0);
+  });
+
+  it("在淡入淡出区间内连续、单调", () => {
+    let previous = -1;
+    for (let i = 0; i <= 100; i++) {
+      const gain = videoAudioGain((FADE * i) / 100, duration);
+      expect(gain).toBeGreaterThanOrEqual(previous);
+      previous = gain;
+    }
+    previous = 2;
+    for (let i = 0; i <= 100; i++) {
+      const gain = videoAudioGain(duration - FADE + (FADE * i) / 100, duration);
+      expect(gain).toBeLessThanOrEqual(previous);
+      previous = gain;
+    }
+  });
+
+  it("范围外的时间被限制在 0 到 1；很短的页淡入淡出重叠，最大值小于 1", () => {
+    expect(videoAudioGain(-1, duration)).toBe(0);
+    expect(videoAudioGain(duration + 1, duration)).toBe(0);
+    expect(videoAudioGain(0.05, 0.1)).toBeCloseTo(0.25, 9);
+  });
+
+  it("连续两个视频页：边界两侧的增益都降到 0，不会从非零直接跳到零", () => {
+    expect(videoAudioGain(duration, duration)).toBe(0);
+    expect(videoAudioGain(0, duration)).toBe(0);
+    expect(videoAudioGain(duration - 0.001, duration)).toBeLessThan(0.02);
+    expect(videoAudioGain(0.001, duration)).toBeLessThan(0.02);
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createUseStyles } from "react-jss";
 import { useI18n, type MessageKey } from "./i18n";
 import type { PlaybackController, PlayerWarning, PlayState } from "./player/PlaybackController";
+import { MAX_LISTED_PAGES } from "./player/preflight";
 import { Slider } from "./ui/Slider";
 import { theme } from "./ui/theme";
 import { useAutoHide } from "./ui/useAutoHide";
@@ -25,6 +26,7 @@ const WARNING_MESSAGES: Record<PlayerWarning["code"], MessageKey> = {
   "bgm-read": "warnBgmRead",
   "asset-failed": "warnAssetFailed",
   "autoplay-blocked": "warnAutoplay",
+  "assets-unsupported": "warnAssetsUnsupported",
 };
 
 const useStyles = createUseStyles({
@@ -64,6 +66,16 @@ const useStyles = createUseStyles({
   },
 });
 
+function describeWarning(warning: PlayerWarning, t: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+  const pages = warning.pages ?? [];
+  const listed = pages.slice(0, MAX_LISTED_PAGES).join(t("listSeparator"));
+  return t(WARNING_MESSAGES[warning.code], {
+    src: warning.src ?? "",
+    count: warning.count ?? 0,
+    pages: pages.length > MAX_LISTED_PAGES ? `${listed}${t("warnPagesMore")}` : listed,
+  });
+}
+
 function formatTime(seconds: number): string {
   const s = Math.floor(seconds);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -71,7 +83,8 @@ function formatTime(seconds: number): string {
 
 interface PlayerViewProps {
   controller: PlaybackController;
-  onClose: () => void;
+  /** 缺省时不显示返回按钮（制作器里的内嵌预览） */
+  onClose?: () => void;
 }
 
 /** 播放界面：画面铺满，控制条浮在底部、静止几秒后自动隐藏；空格、方向键、F、M 为快捷键。 */
@@ -117,6 +130,10 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
       canvas.remove();
     };
   }, [controller, classes.canvas]);
+
+  useEffect(() => {
+    controller.setPlaceholderText(t("placeholderCantPlay"));
+  }, [controller, t]);
 
   useEffect(() => {
     const onChange = (): void => setFullscreen(document.fullscreenElement === rootRef.current);
@@ -185,15 +202,17 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
       <div ref={stageRef} className={classes.stage} onDoubleClick={toggleFullscreen} />
 
       <div className={`${classes.overlay} ${classes.top} ${visible ? "" : classes.hidden}`}>
-        <button className={classes.iconButton} aria-label={t("playerBack")} title={t("playerBack")} onClick={onClose}>
-          <BackIcon />
-        </button>
+        {onClose && (
+          <button className={classes.iconButton} aria-label={t("playerBack")} title={t("playerBack")} onClick={onClose}>
+            <BackIcon />
+          </button>
+        )}
         <div className={classes.title}>{controller.title}</div>
       </div>
 
       {warnings.length > 0 && (
         <div className={classes.warning} role="status">
-          {warnings.map((w) => t(WARNING_MESSAGES[w.code], { src: w.src ?? "" })).join("\n")}
+          {warnings.map((w) => describeWarning(w, t)).join("\n")}
         </div>
       )}
 

@@ -5,9 +5,9 @@ use tauri::ipc::{InvokeBody, Request};
 use tauri_plugin_dialog::DialogExt;
 
 /// 弹出系统「另存为」对话框，把请求体（原始字节）写到用户选的位置。
-/// 文件名在请求头 x-file-name 里，经过百分号编码。用户取消时直接返回成功。
+/// 文件名在请求头 x-file-name 里，经过百分号编码。用户取消时返回 false，写入成功返回 true。
 #[tauri::command]
-async fn save_file(app: tauri::AppHandle, request: Request<'_>) -> Result<(), String> {
+async fn save_file(app: tauri::AppHandle, request: Request<'_>) -> Result<bool, String> {
     let InvokeBody::Raw(data) = request.body() else {
         return Err("缺少文件内容".into());
     };
@@ -18,17 +18,24 @@ async fn save_file(app: tauri::AppHandle, request: Request<'_>) -> Result<(), St
         .map(|encoded| percent_encoding::percent_decode_str(encoded).decode_utf8_lossy().into_owned())
         .unwrap_or_else(|| "film.qyp".into());
 
+    // 保存影片包和导出 MP4 共用这个命令，按扩展名选对话框的文件类型
+    let (label, extensions): (&str, &[&str]) = if name.to_lowercase().ends_with(".mp4") {
+        ("MP4 视频", &["mp4"])
+    } else {
+        ("qyp 影片", &["qyp"])
+    };
     let picked = app
         .dialog()
         .file()
         .set_file_name(name)
-        .add_filter("qyp 影片", &["qyp"])
+        .add_filter(label, extensions)
         .blocking_save_file();
     let Some(target) = picked else {
-        return Ok(());
+        return Ok(false);
     };
     let path = target.into_path().map_err(|e| e.to_string())?;
-    std::fs::write(path, data).map_err(|e| format!("保存失败：{e}"))
+    std::fs::write(path, data).map_err(|e| format!("保存失败：{e}"))?;
+    Ok(true)
 }
 
 fn main() {
