@@ -1,14 +1,17 @@
-// 用下载的素材构建示例包到 fixtures/build（不入库）。
+// 用下载的素材构建示例包到 fixtures/build（不入库），并复制到 apps/web/public/samples（同样不入库）。
 //   pnpm fixtures:build
 // 需要先 pnpm fixtures:fetch 下载素材。一致性测试包由 pnpm fixtures:conformance 单独生成。构建用的随机种子、id 和时间都固定，相同素材得到逐字节相同的包。
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { generateManifest, type AspectRatio, type MediaInput, type MusicInput } from "@qyplayer/core";
 import { openPackage, writePackage, type PackageFile } from "@qyplayer/qyp";
-import { BUILD_DIR, DOWNLOADS_DIR, loadRecords, type SourceRecord } from "./fixtures/records";
+import { BUILD_DIR, DOWNLOADS_DIR, ROOT, loadRecords, type SourceRecord } from "./fixtures/records";
 import { inspectMedia } from "./fixtures/inspect";
 
 const CREATED_AT = "2026-11-18T00:00:00+08:00";
+
+/** 网页开发和发布时从这里读取示例包与内置配乐（不入库；部署时从 GitHub Release 取回） */
+const SITE_SAMPLES_DIR = resolve(ROOT, "apps/web/public/samples");
 
 interface SampleSpec {
   name: string;
@@ -93,3 +96,10 @@ for (const spec of SAMPLES) {
   await writeFile(path, Buffer.from(await blob.arrayBuffer()));
   console.log(`${spec.name}.qyp  ${(blob.size / 1024 / 1024).toFixed(1)} MB  ${manifest.duration}s  ${manifest.pages.length} 页`);
 }
+
+// 复制一份到网页的 public/samples：本地开发的“试看示例”和制作页的内置配乐都读这里
+await mkdir(SITE_SAMPLES_DIR, { recursive: true });
+for (const spec of SAMPLES) await copyFile(resolve(BUILD_DIR, `${spec.name}.qyp`), resolve(SITE_SAMPLES_DIR, `${spec.name}.qyp`));
+const musicRecord = records.find((r) => r.kind === "audio")!;
+await copyFile(resolve(DOWNLOADS_DIR, musicRecord.file), resolve(SITE_SAMPLES_DIR, musicRecord.file));
+console.log(`已复制到 ${SITE_SAMPLES_DIR}`);
