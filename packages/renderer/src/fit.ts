@@ -43,11 +43,3 @@ export function computeFit(fit: "cover" | "contain", assetW: number, assetH: num
     dest: { ...target },
   };
 }
-
-/** cover 裁切会丢掉素材画面的比例（0..1），供生成器判断是否改用 contain（PRD F-GEN-04）。 */
-export function coverCropLoss(assetW: number, assetH: number, cellAspect: number): number {
-  const assetAspect = assetW / assetH;
-  if (assetAspect <= 0 || cellAspect <= 0) return 0;
-  const ratio = assetAspect > cellAspect ? cellAspect / assetAspect : assetAspect / cellAspect;
-  return 1 - ratio;
-}

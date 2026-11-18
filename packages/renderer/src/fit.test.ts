@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeFit, coverCropLoss } from "./fit";
+import { computeFit } from "./fit";
 
 const target16x9 = { x: 0, y: 0, w: 1920, h: 1080 };
 
@@ -68,23 +68,5 @@ describe("computeFit degenerate input", () => {
       expect(Number.isNaN(r.source.w)).toBe(false);
       expect(computeFit(fit, 100, 100, { x: 0, y: 0, w: 0, h: 10 }).dest.w).toBe(0);
     }
-  });
-});
-
-describe("coverCropLoss", () => {
-  it("is 0 for a matching aspect ratio", () => {
-    expect(coverCropLoss(1920, 1080, 16 / 9)).toBeCloseTo(0, 10);
-  });
-
-  it("is about 0.16 for a 3:2 photo in a 16:9 cell", () => {
-    expect(coverCropLoss(3000, 2000, 16 / 9)).toBeCloseTo(1 - 1.5 / (16 / 9), 6);
-  });
-
-  it("exceeds 0.4 for a portrait photo in a 16:9 cell (PRD T-20)", () => {
-    expect(coverCropLoss(2000, 3000, 16 / 9)).toBeGreaterThan(0.4);
-  });
-
-  it("is symmetric between wider and taller than the cell", () => {
-    expect(coverCropLoss(1000, 500, 1)).toBeCloseTo(coverCropLoss(500, 1000, 1), 10);
   });
 });
