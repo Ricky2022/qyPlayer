@@ -29,7 +29,7 @@
     "fileAssociations": [
       {
         "ext": ["qyp"],
-        "name": "qyPlayer 影片",
+        "name": "qyPlayer.Film",
         "description": "qyPlayer 回忆影片",
         "mimeType": "application/x-qyp"
       }
