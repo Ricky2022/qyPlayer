@@ -1,5 +1,5 @@
 import { defaultAspectRatio, generateManifest, type AspectRatio, type Manifest, type MediaInput } from "@qyplayer/core";
-import { writePackage, type PackageFile } from "@qyplayer/qyp";
+import { writePackage } from "@qyplayer/qyp";
 
 /** 已导入、可以放进影片的图片或视频。图片已重新编码为 JPEG，视频是原文件。 */
 export interface MediaEntry {
@@ -39,6 +39,12 @@ export interface BuildOptions {
   defaultTitleWord?: string;
 }
 
+/** 要放进包里的一个文件 */
+export interface BlobFile {
+  path: string;
+  data: Blob;
+}
+
 export interface BuiltPackage {
   blob: Blob;
   manifest: Manifest;
@@ -52,9 +58,9 @@ function extensionFor(entry: MediaEntry): string {
   return entry.type === "image" ? ".jpg" : ".mp4";
 }
 
-/** 按列表顺序生成清单并打成 .qyp。素材统一重命名为 media/m001.jpg 这样的包内路径，不把用户的文件名带进路径。 */
-export async function buildPackage(options: BuildOptions): Promise<BuiltPackage> {
-  const files: PackageFile[] = [];
+/** 按列表顺序生成清单，并列出要放进包里的文件。素材统一重命名为 media/m001.jpg 这样的包内路径，不把用户的文件名带进路径。 */
+export function planPackage(options: BuildOptions): { manifest: Manifest; files: BlobFile[] } {
+  const files: BlobFile[] = [];
   const media: MediaInput[] = options.media.map((entry, index) => {
     const id = idFor(index);
     const src = `media/${id}${extensionFor(entry)}`;
@@ -97,5 +103,11 @@ export async function buildPackage(options: BuildOptions): Promise<BuiltPackage>
     ...(music && { music }),
     generator: { name: "qyPlayer web", version: "0.0.0" },
   });
+  return { manifest, files };
+}
+
+/** 按列表顺序生成清单并打成 .qyp */
+export async function buildPackage(options: BuildOptions): Promise<BuiltPackage> {
+  const { manifest, files } = planPackage(options);
   return { blob: await writePackage(manifest, files), manifest };
 }

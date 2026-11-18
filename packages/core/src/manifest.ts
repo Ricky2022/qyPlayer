@@ -31,10 +31,19 @@ export interface Canvas {
   background: string;
 }
 
+/** 素材转码前的类型；包格式 0.2 起每个素材都记录（见 docs/dev-0.3.0.md 4.2） */
+export interface AssetSource {
+  mimeType: string;
+  transcoded: boolean;
+}
+
 export interface Asset {
   id: string;
   type: AssetType;
   src: string;
+  /** 包格式 0.2 起必填；0.1 的包没有 */
+  mimeType?: string;
+  source?: AssetSource;
   width?: number;
   height?: number;
   duration?: number;
