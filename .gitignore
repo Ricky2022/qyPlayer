@@ -11,3 +11,7 @@ fixtures/downloads/
 
 # 示例包和内置配乐：由 fixtures:build 复制或部署时从 Release 下载
 apps/web/public/samples/
+
+# Rust / Tauri 构建产物
+/target/
+apps/*/src-tauri/gen/

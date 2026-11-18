@@ -1,0 +1,12 @@
+[package]
+name = "qyplayer"
+version = "0.1.0"
+description = "qyPlayer 播放器：本机播放 .qyp 回忆影片"
+license = "Apache-2.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = "2"
+
+[dependencies]
+tauri = "2"
