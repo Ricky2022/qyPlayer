@@ -38,11 +38,11 @@ All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/release
 
 ## Status
 
-This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps and AI-assisted editing have not been started (MP4 export is on the 0.3.0 development branch).
+This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps and AI-assisted editing have not been started (MP4 export is included in the 0.3.0 preview).
 
-### 0.3.0 progress (development branch `release/0.3.0`, not released yet)
+### 0.3.0 preview (not officially released yet)
 
-0.3.0 is under development; the detailed plan is in [`docs/dev-0.3.0.md`](./docs/dev-0.3.0.md) (in Chinese). The download links and the online demo above are still the released 0.2.1. Files built by GitHub Actions from the development branch are preview builds (the version in their file names is still 0.2.1). They have not been fully tested, so do not treat them as a release.
+The contents of this repository are already the 0.3.0 preview; the detailed plan is in [`docs/dev-0.3.0.md`](./docs/dev-0.3.0.md) (in Chinese). The online demo is already the 0.3.0 preview; the Windows download table above is still the released 0.2.1. Windows preview installers for 0.3.0 are available from [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml): open the latest successful run and download `windows-apps` at the bottom of the page. Their file names still say 0.2.1 (the version is only raised to 0.3.0 at the official release), and they have not been fully tested, so do not treat them as a release.
 
 Done:
 
