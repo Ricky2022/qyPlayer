@@ -5,7 +5,10 @@ export const IMAGE_MAX_SIDE = 2560;
 
 export type FileKind = "image" | "video" | "audio";
 
-export type Classification = { kind: FileKind } | { kind: "unsupported"; reason: string };
+/** 不支持的原因代码；界面按代码翻译成当前语言 */
+export type UnsupportedReason = "video-format" | "audio-format" | "unsupported";
+
+export type Classification = { kind: FileKind } | { kind: "unsupported"; reason: UnsupportedReason };
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "bmp", "avif", "heic", "heif"];
 const VIDEO_EXTENSIONS = ["mp4", "m4v"];
@@ -24,13 +27,9 @@ export function classifyFile(name: string, mime: string): Classification {
   if (IMAGE_EXTENSIONS.includes(ext) || mime.startsWith("image/")) return { kind: "image" };
   if (VIDEO_EXTENSIONS.includes(ext)) return { kind: "video" };
   if (AUDIO_EXTENSIONS.includes(ext)) return { kind: "audio" };
-  if (OTHER_VIDEO_EXTENSIONS.includes(ext) || mime.startsWith("video/")) {
-    return { kind: "unsupported", reason: "目前只支持 H.264 编码的 MP4 视频，请先转换格式" };
-  }
-  if (OTHER_AUDIO_EXTENSIONS.includes(ext) || mime.startsWith("audio/")) {
-    return { kind: "unsupported", reason: "目前只支持 MP3 或 M4A（AAC）音乐，请先转换格式" };
-  }
-  return { kind: "unsupported", reason: "不是支持的图片、视频或音乐文件" };
+  if (OTHER_VIDEO_EXTENSIONS.includes(ext) || mime.startsWith("video/")) return { kind: "unsupported", reason: "video-format" };
+  if (OTHER_AUDIO_EXTENSIONS.includes(ext) || mime.startsWith("audio/")) return { kind: "unsupported", reason: "audio-format" };
+  return { kind: "unsupported", reason: "unsupported" };
 }
 
 /** 等比缩小到长边不超过 maxSide；本来就够小则原样返回，不放大 */
@@ -43,15 +42,18 @@ export function fitWithin(width: number, height: number, maxSide: number = IMAGE
 
 const MAX_FILE_NAME_LENGTH = 100;
 
-/** 把标题变成可用的文件名（PRD F-PKG-08）：替换不能用于文件名的字符，不留空，不以点或空格结尾 */
-export function safeFileName(title: string, extension = ".qyp"): string {
+/**
+ * 把标题变成可用的文件名（PRD F-PKG-08）：替换不能用于文件名的字符，不留空，不以点或空格结尾。
+ * fallback 是标题清理后为空时用的名字，由界面按语言传入。
+ */
+export function safeFileName(title: string, fallback = "回忆", extension = ".qyp"): string {
   const cleaned = title
     // eslint-disable-next-line no-control-regex
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
     .trim()
     .replace(/[. ]+$/, "")
     .slice(0, MAX_FILE_NAME_LENGTH);
-  const stem = cleaned === "" ? "回忆" : cleaned;
+  const stem = cleaned === "" ? fallback : cleaned;
   // Windows 的保留设备名不能当文件名
   const safeStem = /^(con|prn|aux|nul|com\d|lpt\d)$/i.test(stem) ? `_${stem}` : stem;
   return safeStem + extension;

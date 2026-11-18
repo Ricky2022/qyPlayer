@@ -38,6 +38,7 @@ describe("buildPackage", () => {
     expect((await buildPackage({ ...base, title: "  春游  " })).manifest.title).toBe("春游");
     expect((await buildPackage({ ...base, title: "   " })).manifest.title).toBe("2026-03-04 回忆");
     expect((await buildPackage(base)).manifest.title).toBe("2026-03-04 回忆");
+    expect((await buildPackage({ ...base, defaultTitleWord: "Memories" })).manifest.title).toBe("2026-03-04 Memories");
   });
 
   it("picks the aspect ratio from the media unless one is given", async () => {

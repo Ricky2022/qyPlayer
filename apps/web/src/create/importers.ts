@@ -5,10 +5,28 @@ import type { MediaEntry, MusicEntry } from "./buildPackage";
 
 const JPEG_QUALITY = 0.85;
 
-/** 导入失败，message 可直接显示给用户 */
+export type ImportErrorCode =
+  | "decode"
+  | "canvas"
+  | "audio-in-media"
+  | "need-audio"
+  | "too-many"
+  | "too-large"
+  | "video-format"
+  | "audio-format"
+  | "unsupported"
+  | "music-not-picked"
+  | "builtin-network"
+  | "builtin-http";
+
+/** 导入失败。message 是英文，界面按 code 和 params 翻译（见 describe.ts） */
 export class ImportError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
+  constructor(
+    readonly code: ImportErrorCode,
+    readonly params: Readonly<Record<string, string | number>> = {},
+    options?: ErrorOptions,
+  ) {
+    super(`import failed: ${code}`, options);
     this.name = "ImportError";
   }
 }
@@ -23,13 +41,13 @@ async function importImage(file: File): Promise<MediaEntry> {
     // 默认按图片自带的方向信息旋转
     bitmap = await createImageBitmap(file);
   } catch (error) {
-    throw new ImportError("浏览器无法解码这张图片（HEIC 等格式请先转成 JPEG 或 PNG）", { cause: error });
+    throw new ImportError("decode", {}, { cause: error });
   }
   try {
     const { width, height } = fitWithin(bitmap.width, bitmap.height, IMAGE_MAX_SIDE);
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new ImportError("浏览器不支持 Canvas 2D，无法处理图片");
+    if (!ctx) throw new ImportError("canvas");
     // 透明部分在 JPEG 里会变成黑色，与影片的黑色背景一致
     ctx.drawImage(bitmap, 0, 0, width, height);
     const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: JPEG_QUALITY });
@@ -55,11 +73,11 @@ async function importVideo(file: File): Promise<MediaEntry> {
   };
 }
 
-/** 导入一个图片或视频文件。不支持或读取失败时抛出 ImportError（或带用户可读说明的 MediaFormatError） */
+/** 导入一个图片或视频文件。不支持或读取失败时抛出 ImportError 或 MediaFormatError */
 export async function importMedia(file: File): Promise<MediaEntry> {
   const classification = classifyFile(file.name, file.type);
   if (classification.kind === "unsupported") throw new ImportError(classification.reason);
-  if (classification.kind === "audio") throw new ImportError("音乐请在“配乐”里选择，不能放进素材列表");
+  if (classification.kind === "audio") throw new ImportError("audio-in-media");
   return classification.kind === "image" ? importImage(file) : importVideo(file);
 }
 
@@ -67,7 +85,7 @@ export async function importMedia(file: File): Promise<MediaEntry> {
 export async function importMusic(file: File): Promise<MusicEntry> {
   const classification = classifyFile(file.name, file.type);
   if (classification.kind === "unsupported") throw new ImportError(classification.reason);
-  if (classification.kind !== "audio") throw new ImportError("请选择 MP3 或 M4A 音乐文件");
+  if (classification.kind !== "audio") throw new ImportError("need-audio");
   const info = await inspectAudio(file, file.name);
   return { blob: file, extension: file.name.toLowerCase().endsWith(".m4a") ? ".m4a" : ".mp3", duration: info.duration, title: file.name };
 }

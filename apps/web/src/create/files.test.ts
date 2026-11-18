@@ -13,16 +13,13 @@ describe("classifyFile", () => {
     expect(classifyFile(name, mime)).toEqual({ kind });
   });
 
-  it("explains why other videos and audio are unsupported", () => {
-    const mov = classifyFile("a.mov", "video/quicktime");
-    expect(mov.kind).toBe("unsupported");
-    expect(mov.kind === "unsupported" && mov.reason).toContain("MP4");
-    const flac = classifyFile("a.flac", "");
-    expect(flac.kind === "unsupported" && flac.reason).toContain("MP3");
+  it("gives a reason code for other videos and audio", () => {
+    expect(classifyFile("a.mov", "video/quicktime")).toEqual({ kind: "unsupported", reason: "video-format" });
+    expect(classifyFile("a.flac", "")).toEqual({ kind: "unsupported", reason: "audio-format" });
   });
 
   it("rejects unknown files", () => {
-    expect(classifyFile("notes.txt", "text/plain").kind).toBe("unsupported");
+    expect(classifyFile("notes.txt", "text/plain")).toEqual({ kind: "unsupported", reason: "unsupported" });
     expect(classifyFile("archive", "").kind).toBe("unsupported");
   });
 });
@@ -57,6 +54,7 @@ describe("safeFileName", () => {
     expect(safeFileName("")).toBe("回忆.qyp");
     expect(safeFileName("  ... ")).toBe("回忆.qyp");
     expect(safeFileName("春游. ")).toBe("春游.qyp");
+    expect(safeFileName("", "Memories")).toBe("Memories.qyp");
   });
 
   it("avoids Windows reserved names and limits the length", () => {

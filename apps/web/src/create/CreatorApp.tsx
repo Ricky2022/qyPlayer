@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
-import { GENERATOR_LIMITS, GenerateError, TEMPLATES, defaultAspectRatio, type AspectRatio, type Manifest } from "@qyplayer/core";
-import { MediaFormatError } from "@qyplayer/qyp/inspect";
-import { PACKAGE_LIMITS, QypError, openPackage } from "@qyplayer/qyp";
+import { GENERATOR_LIMITS, TEMPLATES, defaultAspectRatio, type AspectRatio, type Manifest } from "@qyplayer/core";
+import { PACKAGE_LIMITS, openPackage } from "@qyplayer/qyp";
+import { AboutDialog } from "../AboutDialog";
 import { isDesktop, saveBlob } from "../desktop";
-import { describeError } from "../messages";
+import { useI18n, type Translate } from "../i18n";
 import { PlaybackController } from "../player/PlaybackController";
 import { PlayerView } from "../PlayerView";
+import { LanguageSwitch } from "../ui/LanguageSwitch";
+import { Logo } from "../ui/Logo";
+import { InfoIcon } from "../ui/icons";
+import { theme } from "../ui/theme";
 import { buildPackage, type MusicEntry } from "./buildPackage";
-import { BUILTIN_MUSIC_TITLE, loadBuiltinMusic } from "./builtinMusic";
+import { BUILTIN_MUSIC_TITLE, BUILTIN_MUSIC_TITLE_EN } from "./builtinMusicInfo";
+import { loadBuiltinMusic } from "./builtinMusic";
+import { describeBuildError, describeFileError } from "./describe";
 import { formatBytes, formatDuration, moveItem, removeItem, safeFileName, sortByCapturedAt } from "./files";
 import { ImportError, importMedia, importMusic } from "./importers";
 import { MediaList, type LibraryItem } from "./MediaList";
@@ -16,29 +22,41 @@ import { MediaList, type LibraryItem } from "./MediaList";
 const useStyles = createUseStyles({
   "@global": {
     "html, body, #root": { margin: 0, minHeight: "100%" },
-    body: { background: "#0b0b0d", color: "#eee", fontFamily: "system-ui, 'Microsoft YaHei', sans-serif" },
+    body: { background: theme.bg, color: theme.text, fontFamily: theme.font, colorScheme: "dark" },
   },
-  page: { maxWidth: 880, margin: "0 auto", padding: "24px 16px 48px", boxSizing: "border-box" },
-  dragging: { outline: "2px dashed #6ea8ff", outlineOffset: -8 },
-  header: { display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap", "& h1": { margin: 0, fontSize: 26 }, "& a": { color: "#6ea8ff" } },
-  note: { color: "#aaa", margin: "6px 0 20px" },
+  page: { maxWidth: 880, margin: "0 auto", padding: "20px 16px 48px", boxSizing: "border-box" },
+  dragging: { outline: `2px dashed ${theme.accent}`, outlineOffset: -8 },
+  header: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" },
+  title: { margin: 0, fontSize: 24, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
+  link: { color: theme.accent, fontSize: 14 },
+  tool: {
+    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", border: `1px solid ${theme.border}`, borderRadius: 999,
+    background: "transparent", color: theme.text, font: "inherit", fontSize: 14, cursor: "pointer",
+    "&:hover": { background: theme.surfaceHover },
+    "&:focus-visible": { outline: `2px solid ${theme.accent}` },
+  },
+  note: { color: theme.muted, margin: "10px 0 22px" },
   section: { margin: "0 0 24px", "& h2": { fontSize: 18, margin: "0 0 10px" } },
-  toolbar: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap", color: "#aaa" },
-  empty: { padding: "28px 12px", textAlign: "center", border: "2px dashed #444", borderRadius: 8, color: "#aaa" },
-  failures: { margin: "10px 0 0", padding: "8px 12px", borderRadius: 6, background: "rgba(220, 60, 60, 0.15)", color: "#ff9a9a", fontSize: 14 },
-  failureList: { margin: "4px 0 0", paddingLeft: 18 },
+  toolbar: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap", color: theme.muted },
+  empty: { padding: "28px 12px", textAlign: "center", border: `2px dashed ${theme.border}`, borderRadius: 10, color: theme.muted },
+  failures: { margin: "10px 0 0", padding: "8px 12px", borderRadius: 8, background: theme.dangerBg, color: theme.danger, fontSize: 14 },
+  failureList: { margin: "4px 0 8px", paddingLeft: 18 },
   grid: { display: "grid", gridTemplateColumns: "120px 1fr", gap: 12, alignItems: "center", "@media (max-width: 520px)": { gridTemplateColumns: "1fr" } },
-  input: { padding: "6px 8px", borderRadius: 4, border: "1px solid #444", background: "#17171b", color: "#eee", font: "inherit", maxWidth: "100%", boxSizing: "border-box" },
+  input: { padding: "6px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, font: "inherit", maxWidth: "100%", boxSizing: "border-box" },
   choices: { display: "flex", flexDirection: "column", gap: 6 },
-  hint: { fontSize: 13, color: "#999" },
-  primary: { padding: "10px 28px", border: "none", borderRadius: 6, background: "#3b82f6", color: "#fff", fontSize: 16, cursor: "pointer", "&:disabled": { opacity: 0.4, cursor: "default" } },
-  button: {
-    padding: "6px 14px", border: "1px solid #444", borderRadius: 4, background: "#222", color: "#eee", cursor: "pointer", font: "inherit",
-    "&:hover:not(:disabled)": { background: "#333" },
+  hint: { fontSize: 13, color: theme.muted },
+  primary: {
+    padding: "10px 28px", border: "none", borderRadius: 999, background: theme.accent, color: theme.onAccent, fontSize: 16, fontWeight: 600, cursor: "pointer",
+    "&:hover:not(:disabled)": { background: "#67d0fb" },
     "&:disabled": { opacity: 0.4, cursor: "default" },
   },
-  error: { margin: "12px 0 0", padding: "10px 14px", borderRadius: 6, background: "rgba(220, 60, 60, 0.15)", color: "#ff9a9a", whiteSpace: "pre-line" },
-  preview: { height: "min(68vh, 640px)", borderRadius: 8, overflow: "hidden", border: "1px solid #222" },
+  button: {
+    padding: "6px 14px", border: `1px solid ${theme.border}`, borderRadius: 999, background: theme.surface, color: theme.text, cursor: "pointer", font: "inherit",
+    "&:hover:not(:disabled)": { background: theme.surfaceHover },
+    "&:disabled": { opacity: 0.4, cursor: "default" },
+  },
+  error: { margin: "12px 0 0", padding: "10px 14px", borderRadius: 8, background: theme.dangerBg, color: theme.danger, whiteSpace: "pre-line" },
+  preview: { height: "min(68vh, 640px)", borderRadius: 10, overflow: "hidden", border: `1px solid ${theme.border}` },
   actions: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", margin: "14px 0" },
 });
 
@@ -47,7 +65,21 @@ type AspectChoice = "auto" | AspectRatio;
 
 interface ImportFailure {
   fileName: string;
-  message: string;
+  error: unknown;
+}
+
+/** 生成、保存、导入音乐时的错误；保存原始错误，显示时再按当前语言翻译 */
+type Problem = { kind: "build" | "save"; error: unknown } | { kind: "music"; fileName: string; error: unknown };
+
+function describeProblem(problem: Problem, t: Translate): string {
+  switch (problem.kind) {
+    case "build":
+      return describeBuildError(problem.error, t);
+    case "save":
+      return t("makerSaveFailed", { detail: problem.error instanceof Error ? problem.error.message : String(problem.error) });
+    case "music":
+      return describeFileError(problem.fileName, problem.error, t);
+  }
 }
 
 interface PreviewResult {
@@ -56,31 +88,10 @@ interface PreviewResult {
   manifest: Manifest;
 }
 
-/** 导入出错时给用户看的说明；MediaFormatError 的消息已带文件名 */
-function describeImportError(file: File, error: unknown): ImportFailure {
-  if (error instanceof MediaFormatError) return { fileName: file.name, message: error.message };
-  const reason = error instanceof Error ? error.message : String(error);
-  return { fileName: file.name, message: `${file.name}：${reason}` };
-}
-
-function describeBuildError(error: unknown): string {
-  if (error instanceof GenerateError) {
-    switch (error.code) {
-      case "no-media":
-        return "请先添加至少一个照片或视频。";
-      case "too-many-media":
-        return `一部影片最多 ${GENERATOR_LIMITS.maxMedia} 个素材，请删除一些。`;
-      default:
-        return `生成失败：${error.message}`;
-    }
-  }
-  if (error instanceof QypError) return describeError(error);
-  return `生成失败：${error instanceof Error ? error.message : String(error)}`;
-}
-
-/** 制作页：选素材、调顺序、选模板和配乐，生成 .qyp 并在页内预览、下载。所有处理都在本机完成。 */
+/** 制作页：选素材、调顺序、选模板和配乐，生成 .qyp 并在页内预览、保存。所有处理都在本机完成。 */
 export function CreatorApp() {
   const classes = useStyles();
+  const { lang, t } = useI18n();
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [failures, setFailures] = useState<ImportFailure[]>([]);
   const [importing, setImporting] = useState<{ done: number; total: number } | null>(null);
@@ -92,9 +103,10 @@ export function CreatorApp() {
   const [builtinMusic, setBuiltinMusic] = useState<MusicEntry | null>(null);
   const [seed, setSeed] = useState(1);
   const [building, setBuilding] = useState(false);
-  const [buildError, setBuildError] = useState<string | null>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
   const [result, setResult] = useState<PreviewResult | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const nextKey = useRef(1);
   const mediaInput = useRef<HTMLInputElement>(null);
@@ -116,8 +128,9 @@ export function CreatorApp() {
   const busy = importing !== null || building;
   const totalBytes = items.reduce((sum, item) => sum + item.entry.blob.size, 0);
   const resolvedAspect: AspectRatio = aspect === "auto" ? defaultAspectRatio(items.map((i) => i.entry)) : aspect;
-  const template = TEMPLATES.find((t) => t.id === templateId)!;
+  const template = TEMPLATES.find((tpl) => tpl.id === templateId)!;
   const hasVideoSound = items.some((i) => i.entry.type === "video" && i.entry.hasAudio);
+  const problemText = problem ? describeProblem(problem, t) : null;
 
   const addFiles = async (files: File[]): Promise<void> => {
     if (files.length === 0 || busy) return;
@@ -128,14 +141,14 @@ export function CreatorApp() {
     let bytes = totalBytes;
     for (const [index, file] of files.entries()) {
       try {
-        if (count >= GENERATOR_LIMITS.maxMedia) throw new ImportError(`一部影片最多 ${GENERATOR_LIMITS.maxMedia} 个素材`);
+        if (count >= GENERATOR_LIMITS.maxMedia) throw new ImportError("too-many");
         const entry = await importMedia(file);
-        if (bytes + entry.blob.size > PACKAGE_LIMITS.maxUncompressedBytes) throw new ImportError("素材总大小超过上限（2 GB）");
+        if (bytes + entry.blob.size > PACKAGE_LIMITS.maxUncompressedBytes) throw new ImportError("too-large");
         added.push({ key: nextKey.current++, entry, url: URL.createObjectURL(entry.blob) });
         count++;
         bytes += entry.blob.size;
       } catch (error) {
-        failed.push(describeImportError(file, error));
+        failed.push({ fileName: file.name, error });
       }
       setImporting({ done: index + 1, total: files.length });
     }
@@ -162,15 +175,15 @@ export function CreatorApp() {
     try {
       setCustomMusic(await importMusic(file));
       setMusicChoice("custom");
-      setBuildError(null);
+      setProblem(null);
     } catch (error) {
-      setBuildError(error instanceof MediaFormatError ? error.message : `${file.name}：${error instanceof Error ? error.message : String(error)}`);
+      setProblem({ kind: "music", fileName: file.name, error });
     }
   };
 
   const resolveMusic = async (): Promise<MusicEntry | undefined> => {
     if (musicChoice === "custom") {
-      if (!customMusic) throw new Error("请先选择要导入的音乐文件");
+      if (!customMusic) throw new ImportError("music-not-picked");
       return customMusic;
     }
     if (musicChoice === "builtin") {
@@ -183,7 +196,7 @@ export function CreatorApp() {
 
   const generate = async (useSeed: number): Promise<void> => {
     setBuilding(true);
-    setBuildError(null);
+    setProblem(null);
     try {
       const music = await resolveMusic();
       const built = await buildPackage({
@@ -193,6 +206,7 @@ export function CreatorApp() {
         templateId,
         seed: useSeed,
         title,
+        defaultTitleWord: t("defaultTitleWord"),
       });
       const controller = await PlaybackController.create(await openPackage(built.blob));
       setResult((previous) => {
@@ -201,7 +215,7 @@ export function CreatorApp() {
       });
       setSeed(useSeed);
     } catch (error) {
-      setBuildError(describeBuildError(error));
+      setProblem({ kind: "build", error });
     } finally {
       setBuilding(false);
     }
@@ -212,30 +226,57 @@ export function CreatorApp() {
     setResult(null);
   };
 
+  const header = (
+    <div className={classes.header}>
+      <Logo size={36} kind="maker" />
+      <h1 className={classes.title}>{t("makerName")}</h1>
+      {!isDesktop() && !result && (
+        <a className={classes.link} href="./">
+          {t("makerBackToPlayer")}
+        </a>
+      )}
+      <LanguageSwitch />
+      <button className={classes.tool} onClick={() => setAboutOpen(true)}>
+        <InfoIcon size={18} />
+        {t("about")}
+      </button>
+    </div>
+  );
+  const about = aboutOpen && <AboutDialog kind="maker" onClose={() => setAboutOpen(false)} />;
+
   if (result) {
     return (
       <div className={classes.page}>
-        <div className={classes.header}>
-          <h1>{result.manifest.title}</h1>
-        </div>
+        {header}
         <p className={classes.note}>
-          {formatDuration(result.manifest.duration)} · {result.manifest.pages.length} 页 · {formatBytes(result.blob.size)} · 模板“{template.name.zh}”· 第 {seed} 版
+          {result.manifest.title} ·{" "}
+          {t("makerResultMeta", {
+            duration: formatDuration(result.manifest.duration),
+            pages: result.manifest.pages.length,
+            size: formatBytes(result.blob.size),
+            template: template.name[lang],
+            seed,
+          })}
         </p>
         <div className={classes.preview}>
           <PlayerView controller={result.controller} onClose={backToEditing} />
         </div>
         <div className={classes.actions}>
-          <button className={classes.primary} onClick={() => void saveBlob(result.blob, safeFileName(result.manifest.title)).catch((e: unknown) => setBuildError(`保存失败：${e instanceof Error ? e.message : String(e)}`))}>
-            下载 .qyp
+          <button
+            className={classes.primary}
+            onClick={() => void saveBlob(result.blob, safeFileName(result.manifest.title, t("defaultTitleWord"))).catch((error: unknown) => setProblem({ kind: "save", error }))}
+          >
+            {isDesktop() ? t("makerSave") : t("makerDownload")}
           </button>
           <button className={classes.button} disabled={building} onClick={() => void generate(seed + 1)}>
-            {building ? "正在生成…" : "换一版"}
+            {building ? t("makerGenerating") : t("makerAnother")}
           </button>
           <button className={classes.button} onClick={backToEditing}>
-            返回修改
+            {t("makerBackToEdit")}
           </button>
         </div>
-        {buildError && <div className={classes.error} role="alert">{buildError}</div>}
+        {problemText && <div className={classes.error} role="alert">{problemText}</div>}
+        {about}
       </div>
     );
   }
@@ -250,17 +291,14 @@ export function CreatorApp() {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <div className={classes.header}>
-        <h1>制作影片</h1>
-        {!isDesktop() && <a href="./">← 回到播放器</a>}
-      </div>
-      <p className={classes.note}>选好照片和视频，自动生成回忆影片并保存为 .qyp 文件。文件只在本机处理，不会上传。</p>
+      {header}
+      <p className={classes.note}>{t("makerNote")}</p>
 
       <section className={classes.section}>
-        <h2>1. 素材</h2>
+        <h2>{t("makerSectionMedia")}</h2>
         <div className={classes.toolbar}>
           <button className={classes.button} disabled={busy} onClick={() => mediaInput.current?.click()}>
-            添加照片或视频
+            {t("makerAdd")}
           </button>
           <input
             ref={mediaInput}
@@ -274,74 +312,73 @@ export function CreatorApp() {
               void addFiles(files);
             }}
           />
-          <span>
-            {items.length} / {GENERATOR_LIMITS.maxMedia} 个 · {formatBytes(totalBytes)}
-          </span>
-          {importing && <span role="status">正在处理 {importing.done} / {importing.total}…</span>}
+          <span>{t("makerCount", { count: items.length, max: GENERATOR_LIMITS.maxMedia, size: formatBytes(totalBytes) })}</span>
+          {importing && <span role="status">{t("makerImporting", importing)}</span>}
         </div>
         {items.length === 0 ? (
-          <div className={classes.empty}>把照片或视频拖到这里，或点上面的按钮添加。照片支持浏览器能打开的格式，视频仅支持 H.264 编码的 MP4。</div>
+          <div className={classes.empty}>{t("makerEmpty")}</div>
         ) : (
           <>
             <MediaList items={items} disabled={busy} onMove={(index, delta) => setItems(moveItem(items, index, delta))} onRemove={remove} />
-            <p className={classes.hint}>影片按这个顺序生成。新添加的素材按文件修改时间排在末尾。</p>
+            <p className={classes.hint}>{t("makerOrderHint")}</p>
           </>
         )}
         {failures.length > 0 && (
           <div className={classes.failures} role="alert">
-            有 {failures.length} 个文件没能添加：
+            {t("makerFailedSome", { count: failures.length })}
             <ul className={classes.failureList}>
               {failures.map((f, i) => (
-                <li key={i}>{f.message}</li>
+                <li key={i}>{describeFileError(f.fileName, f.error, t)}</li>
               ))}
             </ul>
             <button className={classes.button} onClick={() => setFailures([])}>
-              知道了
+              {t("makerGotIt")}
             </button>
           </div>
         )}
       </section>
 
       <section className={classes.section}>
-        <h2>2. 设置</h2>
+        <h2>{t("makerSectionSettings")}</h2>
         <div className={classes.grid}>
-          <label htmlFor="aspect">画面比例</label>
+          <label htmlFor="aspect">{t("makerAspect")}</label>
           <select id="aspect" className={classes.input} value={aspect} onChange={(e) => setAspect(e.target.value as AspectChoice)}>
-            <option value="auto">自动（当前：{resolvedAspect === "16:9" ? "横屏 16:9" : "竖屏 9:16"}）</option>
-            <option value="16:9">横屏 16:9</option>
-            <option value="9:16">竖屏 9:16</option>
+            <option value="auto">{t("makerAspectAuto", { ratio: resolvedAspect === "16:9" ? t("makerLandscape") : t("makerPortrait") })}</option>
+            <option value="16:9">{t("makerLandscape")}</option>
+            <option value="9:16">{t("makerPortrait")}</option>
           </select>
 
-          <label htmlFor="template">风格模板</label>
+          <label htmlFor="template">{t("makerTemplate")}</label>
           <div>
             <select id="template" className={classes.input} value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-              {TEMPLATES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name.zh}
+              {TEMPLATES.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.name[lang]}
                 </option>
               ))}
             </select>
-            <div className={classes.hint}>{template.description.zh}</div>
+            <div className={classes.hint}>{template.description[lang]}</div>
           </div>
 
-          <label htmlFor="title">标题</label>
-          <input id="title" className={classes.input} value={title} maxLength={100} placeholder="留空则用“最早拍摄日期 + 回忆”" onChange={(e) => setTitle(e.target.value)} />
+          <label htmlFor="title">{t("makerTitle")}</label>
+          <input id="title" className={classes.input} value={title} maxLength={100} placeholder={t("makerTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
 
-          <span>配乐</span>
+          <span>{t("makerMusic")}</span>
           <div className={classes.choices}>
             <label>
-              <input type="radio" name="music" checked={musicChoice === "none"} onChange={() => setMusicChoice("none")} /> 不用配乐（视频播放自带声音）
+              <input type="radio" name="music" checked={musicChoice === "none"} onChange={() => setMusicChoice("none")} /> {t("makerMusicNone")}
             </label>
             <label>
-              <input type="radio" name="music" checked={musicChoice === "builtin"} onChange={() => setMusicChoice("builtin")} /> 内置配乐：{BUILTIN_MUSIC_TITLE}，CC0
+              <input type="radio" name="music" checked={musicChoice === "builtin"} onChange={() => setMusicChoice("builtin")} />{" "}
+              {t("makerMusicBuiltin", { title: lang === "zh" ? BUILTIN_MUSIC_TITLE : BUILTIN_MUSIC_TITLE_EN })}
             </label>
             <label>
-              <input type="radio" name="music" checked={musicChoice === "custom"} disabled={!customMusic} onChange={() => setMusicChoice("custom")} /> 导入音乐
-              {customMusic ? `：${customMusic.title}（${formatDuration(customMusic.duration)}）` : ""}
+              <input type="radio" name="music" checked={musicChoice === "custom"} disabled={!customMusic} onChange={() => setMusicChoice("custom")} /> {t("makerMusicCustom")}
+              {customMusic ? t("makerMusicCustomPicked", { title: customMusic.title ?? "", duration: formatDuration(customMusic.duration) }) : ""}
             </label>
             <div>
               <button className={classes.button} onClick={() => musicInput.current?.click()}>
-                选择 MP3 或 M4A 文件
+                {t("makerPickMusic")}
               </button>
               <input
                 ref={musicInput}
@@ -355,17 +392,18 @@ export function CreatorApp() {
                 }}
               />
             </div>
-            {musicChoice !== "none" && hasVideoSound && <div className={classes.hint}>选了配乐后，视频的原声会静音。</div>}
+            {musicChoice !== "none" && hasVideoSound && <div className={classes.hint}>{t("makerMuteNote")}</div>}
           </div>
         </div>
       </section>
 
       <div className={classes.actions}>
         <button className={classes.primary} disabled={items.length === 0 || busy} onClick={() => void generate(seed)}>
-          {building ? "正在生成…" : "生成影片"}
+          {building ? t("makerGenerating") : t("makerGenerate")}
         </button>
       </div>
-      {buildError && <div className={classes.error} role="alert">{buildError}</div>}
+      {problemText && <div className={classes.error} role="alert">{problemText}</div>}
+      {about}
     </div>
   );
 }

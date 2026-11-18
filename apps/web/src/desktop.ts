@@ -5,6 +5,17 @@ export function isDesktop(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+/** 桌面程序：同步原生窗口的标题（网页里用 document.title，不需要它） */
+export async function setWindowTitle(title: string): Promise<void> {
+  if (isDesktop()) await invoke("set_title", { title });
+}
+
+/** 在系统浏览器里打开外部链接。桌面程序里由 Rust 端只放行本项目的网址 */
+export async function openExternal(url: string): Promise<void> {
+  if (isDesktop()) await invoke("open_url", { url });
+  else window.open(url, "_blank", "noopener,noreferrer");
+}
+
 /** 桌面播放器：取出用户双击打开的 .qyp 文件（命令行参数）。没有则返回 null */
 export async function readInitialFile(): Promise<File | null> {
   if (!isDesktop()) return null;

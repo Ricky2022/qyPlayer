@@ -1,5 +1,8 @@
 node_modules/
 dist/
+dist-player/
+dist-maker/
+dist-release/
 coverage/
 *.log
 .DS_Store

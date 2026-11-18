@@ -35,6 +35,8 @@ export interface BuildOptions {
   seed: number;
   /** 缺省或空白时用生成器的默认标题 */
   title?: string;
+  /** 默认标题里“日期 + 词”的词，界面按语言传入 */
+  defaultTitleWord?: string;
 }
 
 export interface BuiltPackage {
@@ -91,6 +93,7 @@ export async function buildPackage(options: BuildOptions): Promise<BuiltPackage>
     seed: options.seed,
     keepOrder: true,
     ...(title && { title }),
+    ...(options.defaultTitleWord && { defaultTitleWord: options.defaultTitleWord }),
     ...(music && { music }),
     generator: { name: "qyPlayer web", version: "0.0.0" },
   });

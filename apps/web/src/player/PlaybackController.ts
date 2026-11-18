@@ -5,10 +5,17 @@ import { Clock, distance } from "./timing";
 
 export type PlayState = "paused" | "playing" | "ended";
 
+/** 不影响继续播放的提示。只给代码，文字由界面按语言翻译 */
+export interface PlayerWarning {
+  code: "bgm-decode" | "bgm-read" | "asset-failed" | "autoplay-blocked";
+  /** asset-failed 时是出问题的包内路径 */
+  src?: string;
+}
+
 export interface PlayerEvents {
   onTime(time: number): void;
   onState(state: PlayState): void;
-  onWarning(message: string): void;
+  onWarning(warning: PlayerWarning): void;
 }
 
 /** 解码后的位图最长边上限：1080p 画布用不到更大的图，省内存 */
@@ -40,7 +47,7 @@ interface VideoSlot {
 export class PlaybackController {
   readonly canvas: HTMLCanvasElement;
   /** 打开期间累计的、不影响播放的提示（素材无法解码等） */
-  readonly warnings: string[] = [];
+  readonly warnings: PlayerWarning[] = [];
 
   private readonly manifest: Manifest;
   private readonly ctx: CanvasRenderingContext2D;
@@ -86,7 +93,7 @@ export class PlaybackController {
       this.audio = new Audio();
       this.audio.preload = "auto";
       this.audio.loop = bgm.loop === true;
-      this.audio.addEventListener("error", () => this.warn("背景音乐无法解码，将静音播放"));
+      this.audio.addEventListener("error", () => this.warn({ code: "bgm-decode" }));
     }
     document.addEventListener("visibilitychange", this.onVisibility);
   }
@@ -209,7 +216,7 @@ export class PlaybackController {
           this.audioUrl = URL.createObjectURL(await this.pkg.readBlob(asset.src));
           this.audio.src = this.audioUrl;
         } catch {
-          this.warn("背景音乐读取失败，将静音播放");
+          this.warn({ code: "bgm-read" });
         }
       }
     }
@@ -223,9 +230,9 @@ export class PlaybackController {
     this.events?.onState(state);
   }
 
-  private warn(message: string): void {
-    this.warnings.push(message);
-    this.events?.onWarning(message);
+  private warn(warning: PlayerWarning): void {
+    this.warnings.push(warning);
+    this.events?.onWarning(warning);
   }
 
   /** 按页窗口加载将要用到的素材，释放用不到的。只在页变化时执行。 */
@@ -264,7 +271,7 @@ export class PlaybackController {
   private fail(asset: Asset): void {
     if (this.failed.has(asset.id)) return;
     this.failed.add(asset.id);
-    this.warn(`素材 ${asset.src} 无法读取或解码，已跳过`);
+    this.warn({ code: "asset-failed", src: asset.src });
   }
 
   private async loadImage(asset: Asset): Promise<void> {
@@ -390,7 +397,7 @@ export class PlaybackController {
         // 被浏览器策略拦截时停下来让用户再点一次；被 pause() 打断（AbortError）是正常的
         if (error instanceof DOMException && error.name === "NotAllowedError") {
           this.pause();
-          this.warn("浏览器阻止了音频自动播放，请再点一次播放");
+          this.warn({ code: "autoplay-blocked" });
         }
       });
     } else if (!this.audioIsMaster) {

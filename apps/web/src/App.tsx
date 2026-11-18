@@ -1,43 +1,67 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
 import { openPackage } from "@qyplayer/qyp";
+import { AboutDialog } from "./AboutDialog";
 import { isDesktop, readInitialFile } from "./desktop";
+import { useI18n, type MessageKey } from "./i18n";
 import { describeError } from "./messages";
 import { PlaybackController } from "./player/PlaybackController";
 import { PlayerView } from "./PlayerView";
+import { LanguageSwitch } from "./ui/LanguageSwitch";
+import { Logo } from "./ui/Logo";
+import { InfoIcon } from "./ui/icons";
+import { theme } from "./ui/theme";
 
 const useStyles = createUseStyles({
   "@global": {
     "html, body, #root": { height: "100%", margin: 0 },
-    body: { background: "#0b0b0d", color: "#eee", fontFamily: "system-ui, 'Microsoft YaHei', sans-serif" },
+    body: { background: theme.bg, color: theme.text, fontFamily: theme.font, colorScheme: "dark" },
   },
-  home: { height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, boxSizing: "border-box" },
-  drop: {
-    width: "min(560px, 100%)", padding: "56px 24px", textAlign: "center", border: "2px dashed #555", borderRadius: 12,
-    "& h1": { margin: "0 0 8px", fontSize: 28 },
-    "& p": { margin: "6px 0", color: "#aaa" },
+  home: {
+    position: "relative", height: "100%", display: "flex", flexDirection: "column", boxSizing: "border-box", overflow: "auto",
+    background: "radial-gradient(900px 520px at 50% 28%, rgba(56, 189, 248, 0.13), transparent 70%), " + theme.bg,
   },
-  dragging: { borderColor: "#6ea8ff", background: "rgba(110, 168, 255, 0.08)" },
-  pick: {
-    marginTop: 16, padding: "8px 20px", border: "none", borderRadius: 6, background: "#3b82f6", color: "#fff",
-    fontSize: 15, cursor: "pointer",
+  topbar: { display: "flex", justifyContent: "flex-end", gap: 8, padding: "14px 18px" },
+  tool: {
+    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", border: `1px solid ${theme.border}`, borderRadius: 999,
+    background: "transparent", color: theme.text, font: "inherit", fontSize: 14, cursor: "pointer",
+    "&:hover": { background: theme.surfaceHover },
+    "&:focus-visible": { outline: `2px solid ${theme.accent}` },
   },
-  samples: { marginTop: 24, color: "#aaa", fontSize: 14, "& button": { margin: "0 4px" } },
+  hero: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 24px 56px", textAlign: "center" },
+  name: { margin: "20px 0 6px", fontSize: 38, fontWeight: 700, letterSpacing: 0.5 },
+  tagline: { margin: 0, color: theme.muted, fontSize: 17 },
+  open: {
+    marginTop: 32, padding: "14px 40px", border: "none", borderRadius: 999, background: theme.accent, color: theme.onAccent,
+    font: "inherit", fontSize: 17, fontWeight: 600, cursor: "pointer", boxShadow: "0 8px 28px rgba(14, 165, 233, 0.35)", transition: "transform 0.12s, background 0.12s",
+    "&:hover:not(:disabled)": { background: "#67d0fb", transform: "translateY(-1px)" },
+    "&:focus-visible": { outline: `3px solid #fff`, outlineOffset: 3 },
+    "&:disabled": { opacity: 0.6, cursor: "default" },
+  },
+  hint: { margin: "18px 0 0", color: theme.muted, fontSize: 14 },
+  privacy: { margin: "4px 0 0", color: theme.muted, fontSize: 13 },
+  samples: { marginTop: 28, color: theme.muted, fontSize: 14, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 8 },
   sample: {
-    padding: "4px 12px", border: "1px solid #444", borderRadius: 4, background: "#222", color: "#eee", fontSize: 14, cursor: "pointer",
-    "&:hover:not(:disabled)": { background: "#333" },
+    padding: "5px 14px", border: `1px solid ${theme.border}`, borderRadius: 999, background: theme.surface, color: theme.text, font: "inherit", fontSize: 14, cursor: "pointer",
+    "&:hover:not(:disabled)": { background: theme.surfaceHover },
     "&:disabled": { opacity: 0.5, cursor: "default" },
   },
-  create: { marginTop: 16, "& a": { color: "#6ea8ff" } },
-  error: { marginTop: 16, padding: "10px 14px", borderRadius: 6, background: "rgba(220, 60, 60, 0.15)", color: "#ff9a9a", textAlign: "left", whiteSpace: "pre-line" },
+  make: { marginTop: 16, color: theme.muted, fontSize: 14, "& a": { color: theme.accent } },
+  error: {
+    maxWidth: 520, marginTop: 20, padding: "10px 14px", borderRadius: 8, background: theme.dangerBg, color: theme.danger, textAlign: "left", whiteSpace: "pre-line", fontSize: 14,
+  },
+  dropOverlay: {
+    position: "absolute", inset: 12, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "center", border: `2px dashed ${theme.accent}`, borderRadius: 18,
+    background: "rgba(7, 11, 18, 0.82)", color: theme.accent, fontSize: 22, fontWeight: 600, pointerEvents: "none",
+  },
 });
 
 /** 随站点发布在 samples/ 下的示例包（由 fixtures:build 生成，部署时从 GitHub Release 取回） */
-const SAMPLE_PACKAGES = [
-  { file: "sample-16x9.qyp", label: "横屏，配乐" },
-  { file: "sample-9x16.qyp", label: "竖屏，配乐" },
-  { file: "sample-video-sound-16x9.qyp", label: "横屏，视频原声" },
-] as const;
+const SAMPLE_PACKAGES: readonly { file: string; label: MessageKey }[] = [
+  { file: "sample-16x9.qyp", label: "sampleLandscape" },
+  { file: "sample-9x16.qyp", label: "samplePortrait" },
+  { file: "sample-video-sound-16x9.qyp", label: "sampleVideo" },
+];
 
 interface AppProps {
   /** 开发用：启动时自动打开的包（如 ?demo） */
@@ -46,15 +70,20 @@ interface AppProps {
 
 export function App({ initialSource }: AppProps) {
   const classes = useStyles();
+  const { t } = useI18n();
   const [controller, setController] = useState<PlaybackController | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // 错误在显示时才翻译，这样切换语言后说明也跟着变
+  const [error, setError] = useState<unknown>(null);
+  const [sampleError, setSampleError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const open = useCallback(async (source: Blob) => {
     setBusy(true);
     setError(null);
+    setSampleError(null);
     try {
       const next = await PlaybackController.create(await openPackage(source));
       // 开发时在控制台和自动化测试里检查内部状态用
@@ -64,33 +93,38 @@ export function App({ initialSource }: AppProps) {
         return next;
       });
     } catch (e) {
-      setError(describeError(e));
+      setError(e);
     } finally {
       setBusy(false);
     }
   }, []);
 
   useEffect(() => {
-    if (initialSource) void initialSource().then(open, (e: unknown) => setError(describeError(e)));
+    if (initialSource) void initialSource().then(open, (e: unknown) => setError(e));
   }, [initialSource, open]);
 
   // 桌面程序：双击 .qyp 启动时，直接打开命令行里带的文件
   useEffect(() => {
     void readInitialFile().then(
       (file) => (file ? open(file) : undefined),
-      (e: unknown) => setError(describeError(e)),
+      (e: unknown) => setError(e),
     );
   }, [open]);
 
   const openSample = async (file: string): Promise<void> => {
     setBusy(true);
     setError(null);
+    setSampleError(null);
     try {
       const response = await fetch(new URL(`samples/${file}`, document.baseURI));
-      if (!response.ok) throw new Error(`示例文件不可用（HTTP ${response.status}）`);
+      if (!response.ok) {
+        setSampleError(t("sampleHttp", { status: response.status }));
+        setBusy(false);
+        return;
+      }
       await open(await response.blob());
-    } catch (e) {
-      setError(e instanceof Error && !(e instanceof TypeError) ? e.message : "示例文件下载失败，请检查网络");
+    } catch {
+      setSampleError(t("sampleDownloadFailed"));
       setBusy(false);
     }
   };
@@ -109,12 +143,25 @@ export function App({ initialSource }: AppProps) {
 
   if (controller) return <PlayerView controller={controller} onClose={close} />;
 
+  const message = sampleError ?? (error ? describeError(error, t) : null);
   return (
-    <div className={classes.home} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
-      <div className={`${classes.drop} ${dragging ? classes.dragging : ""}`}>
-        <h1>qyPlayer</h1>
-        <p>把 .qyp 文件拖到这里，或点击下方按钮选择文件。</p>
-        <p>文件只在本机读取，不会上传。</p>
+    <div
+      className={classes.home}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={(e) => { if (e.currentTarget === e.target) setDragging(false); }}
+      onDrop={onDrop}
+    >
+      <div className={classes.topbar}>
+        <LanguageSwitch />
+        <button className={classes.tool} onClick={() => setAboutOpen(true)}>
+          <InfoIcon size={18} />
+          {t("about")}
+        </button>
+      </div>
+      <main className={classes.hero}>
+        <Logo size={96} kind="player" />
+        <h1 className={classes.name}>{t("appName")}</h1>
+        <p className={classes.tagline}>{t("homeTagline")}</p>
         <input
           ref={inputRef}
           type="file"
@@ -126,27 +173,31 @@ export function App({ initialSource }: AppProps) {
             if (file) void open(file);
           }}
         />
-        <button className={classes.pick} disabled={busy} onClick={() => inputRef.current?.click()}>
-          {busy ? "正在打开…" : "选择 .qyp 文件"}
+        <button className={classes.open} disabled={busy} onClick={() => inputRef.current?.click()}>
+          {busy ? t("homeOpening") : t("homeOpen")}
         </button>
+        <p className={classes.hint}>{t("homeDrop")}</p>
+        <p className={classes.privacy}>{t("homePrivacy")}</p>
         {/* 示例和制作页只在网页版提供，桌面播放器里没有这两样 */}
         {!isDesktop() && (
           <>
             <div className={classes.samples}>
-              没有 .qyp 文件？试看示例：
+              {t("homeSamples")}
               {SAMPLE_PACKAGES.map((sample) => (
                 <button key={sample.file} className={classes.sample} disabled={busy} onClick={() => void openSample(sample.file)}>
-                  {sample.label}
+                  {t(sample.label)}
                 </button>
               ))}
             </div>
-            <div className={classes.create}>
-              想自己做一个？<a href="create.html">制作影片</a>
+            <div className={classes.make}>
+              {t("homeMakeIntro")} <a href="create.html">{t("homeMakeLink")}</a>
             </div>
           </>
         )}
-        {error && <div className={classes.error} role="alert">{error}</div>}
-      </div>
+        {message && <div className={classes.error} role="alert">{message}</div>}
+      </main>
+      {dragging && <div className={classes.dropOverlay}>{t("homeDropRelease")}</div>}
+      {aboutOpen && <AboutDialog kind="player" onClose={() => setAboutOpen(false)} />}
     </div>
   );
 }
