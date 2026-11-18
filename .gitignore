@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+
+# 构建产物（可由脚本重新生成）
+fixtures/build/
+fixtures/downloads/
