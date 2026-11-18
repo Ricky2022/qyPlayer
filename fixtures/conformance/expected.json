@@ -1,0 +1,107 @@
+[
+  {
+    "file": "valid-basic.qyp",
+    "description": "PRD 7.7 的完整示例：4 页、背景音乐、原片",
+    "expect": {
+      "ok": true
+    }
+  },
+  {
+    "file": "valid-unknown-types.qyp",
+    "description": "含未知的转场和入场类型：必须能打开并完整播放（降级为 fade / none）",
+    "expect": {
+      "ok": true,
+      "warnings": [
+        "unknown-transition-type",
+        "unknown-enter-type"
+      ]
+    }
+  },
+  {
+    "file": "valid-unknown-fields.qyp",
+    "description": "含未知字段：必须忽略",
+    "expect": {
+      "ok": true
+    }
+  },
+  {
+    "file": "invalid-not-a-zip.qyp",
+    "description": "文件内容不是 ZIP",
+    "expect": {
+      "ok": false,
+      "code": "not-a-zip"
+    }
+  },
+  {
+    "file": "invalid-missing-manifest.qyp",
+    "description": "根目录没有 manifest.json",
+    "expect": {
+      "ok": false,
+      "code": "missing-manifest"
+    }
+  },
+  {
+    "file": "invalid-json.qyp",
+    "description": "manifest.json 不是合法 JSON",
+    "expect": {
+      "ok": false,
+      "code": "invalid-json"
+    }
+  },
+  {
+    "file": "invalid-manifest-schema.qyp",
+    "description": "清单缺少必需字段 pages",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
+    "file": "invalid-manifest-timeline.qyp",
+    "description": "页的时间不连续",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
+    "file": "invalid-version-too-high.qyp",
+    "description": "格式版本高于播放器支持的版本",
+    "expect": {
+      "ok": false,
+      "code": "unsupported-version"
+    }
+  },
+  {
+    "file": "invalid-missing-file.qyp",
+    "description": "清单引用的 media/m003.jpg 不在包内",
+    "expect": {
+      "ok": false,
+      "code": "missing-file"
+    }
+  },
+  {
+    "file": "invalid-path-escape-manifest.qyp",
+    "description": "清单中的素材路径含 ../",
+    "expect": {
+      "ok": false,
+      "code": "unsafe-path"
+    }
+  },
+  {
+    "file": "invalid-path-escape-entry.qyp",
+    "description": "清单合法，但压缩包里有一个名为 ../evil.jpg 的条目",
+    "expect": {
+      "ok": false,
+      "code": "unsafe-entry"
+    }
+  },
+  {
+    "file": "invalid-remote-reference.qyp",
+    "description": "清单引用远程地址",
+    "expect": {
+      "ok": false,
+      "code": "remote-reference"
+    }
+  }
+]

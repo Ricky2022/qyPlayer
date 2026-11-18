@@ -10,11 +10,21 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
-    "test": "vitest run"
+    "typecheck": "pnpm -r typecheck && tsc -p scripts/tsconfig.json",
+    "test": "vitest run",
+    "fixtures:fetch": "tsx scripts/fetch-fixtures.ts",
+    "fixtures:build": "tsx scripts/build-fixtures.ts",
+    "fixtures:check": "tsx scripts/check-fixtures.ts",
+    "fixtures:docs": "tsx scripts/check-fixtures.ts --write",
+    "fixtures:conformance": "tsx scripts/build-conformance.ts"
   },
   "devDependencies": {
+    "@qyplayer/core": "workspace:*",
+    "@qyplayer/qyp": "workspace:*",
     "@types/node": "^26.6.6",
+    "image-size": "^2.1.0",
+    "music-metadata": "^12.7.0",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }

@@ -19,6 +19,8 @@ const KEEP_PAGES = 2;
 /** 视频与影片时间的允许偏差（秒）：播放中 / 暂停拖动中 */
 const VIDEO_DRIFT_PLAYING = 0.3;
 const VIDEO_DRIFT_PAUSED = 0.1;
+/** 预先定位下一页视频时，已在起点附近就不再重复 seek */
+const VIDEO_PRIME_TOLERANCE = 0.05;
 /** 无音乐循环时，音频偏离应有位置多少秒就硬校正 */
 const AUDIO_DRIFT = 0.25;
 /** 音频做主时钟时，影片时间偏离音频多少秒就被拉回 */
@@ -109,12 +111,12 @@ export class PlaybackController {
     return this.clock.time(performance.now());
   }
   /** 内部状态快照，仅供开发和自动化测试检查同步情况 */
-  debugInfo(): { time: number; audioTime: number | null; audioPaused: boolean | null; videos: { id: string; time: number; paused: boolean }[] } {
+  debugInfo(): { time: number; audioTime: number | null; audioPaused: boolean | null; videos: { id: string; time: number; paused: boolean; muted: boolean }[] } {
     return {
       time: this.currentTime,
       audioTime: this.audio ? this.audio.currentTime : null,
       audioPaused: this.audio ? this.audio.paused : null,
-      videos: [...this.videos].map(([id, v]) => ({ id, time: v.element.currentTime, paused: v.element.paused })),
+      videos: [...this.videos].map(([id, v]) => ({ id, time: v.element.currentTime, paused: v.element.paused, muted: v.element.muted })),
     };
   }
   get volume(): number {
@@ -392,6 +394,12 @@ export class PlaybackController {
     }
   }
 
+  /** 紧接着的下一页若用到这段视频，返回它的起始位置（素材时间，秒） */
+  private nextVideoStart(assetId: string, pageIndex: number): number | undefined {
+    const item = this.manifest.pages[pageIndex + 1]?.items.find((i) => i.assetId === assetId);
+    return item && (item.clipStart ?? 0);
+  }
+
   private syncVideos(state: FrameState, playing: boolean): void {
     const currentPageId = this.manifest.pages[state.pageIndex]?.id;
     const active = new Map<string, Layer>();
@@ -401,6 +409,9 @@ export class PlaybackController {
       const layer = active.get(id);
       if (!layer || layer.videoTime === undefined) {
         if (!element.paused) element.pause();
+        // 下一页要用这段视频时先停在起点，页一开始就能出画面，避免 seek 耗时造成的滞后和空白
+        const start = this.nextVideoStart(id, state.pageIndex);
+        if (start !== undefined && Math.abs(element.currentTime - start) > VIDEO_PRIME_TOLERANCE) element.currentTime = start;
         continue;
       }
       // 转场中上一页的视频停在末帧；暂停时一律停在目标帧
