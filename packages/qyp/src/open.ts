@@ -166,6 +166,40 @@ function classify(issues: ValidationIssue[]): QypErrorCode {
   return "invalid-manifest";
 }
 
+/** 读出 ZIP 的中央目录（只读文件尾部）。不是 ZIP 或条目名不安全时抛 QypError */
+async function listEntries(reader: ZipReader<Blob>): Promise<Entry[]> {
+  try {
+    return await reader.getEntries();
+  } catch (cause) {
+    // zip.js 自己也会拒绝 ../ 之类的条目名，这是第二层防线；按消息归类，不认识的一律当作不是 ZIP
+    const unsafe = cause instanceof Error && /unsafe filename/i.test(cause.message);
+    throw new QypError(unsafe ? "unsafe-entry" : "not-a-zip", `cannot read ZIP: ${String(cause)}`);
+  }
+}
+
+/** 读出并校验 manifest.json（openPackage 和 peekPackage 共用） */
+async function readManifest(source: Blob, files: Map<string, FileEntry>): Promise<{ manifest: Manifest; warnings: ValidationIssue[] }> {
+  const manifestEntry = files.get("manifest.json");
+  if (!manifestEntry) throw new QypError("missing-manifest", "manifest.json not found at the package root");
+  if (manifestEntry.uncompressedSize > PACKAGE_LIMITS.maxManifestBytes) {
+    throw new QypError("invalid-manifest", "manifest.json is too large");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await (await readEntry(source, manifestEntry, "application/json")).text());
+  } catch (cause) {
+    if (cause instanceof QypError) throw cause;
+    throw new QypError("invalid-json", `manifest.json is not valid JSON: ${String(cause)}`);
+  }
+
+  const result = validateManifest(parsed);
+  if (!result.ok || !result.manifest) {
+    throw new QypError(classify(result.errors), `manifest rejected: ${result.errors[0]?.message ?? "invalid"}`, result.errors);
+  }
+  return { manifest: result.manifest, warnings: result.warnings };
+}
+
 /**
  * 打开 .qyp 包并完成全部校验（PRD F-PKG-05、F-PKG-06）。
  * 只读取 ZIP 的中央目录和 manifest.json，素材在 readBlob 被调用时才读取（PRD N-PERF-04）。
@@ -176,14 +210,7 @@ export async function openPackage(source: Blob, options: OpenOptions = {}): Prom
   const reader = new ZipReader(new BlobReader(source));
 
   try {
-    let entries: Entry[];
-    try {
-      entries = await reader.getEntries();
-    } catch (cause) {
-      // zip.js 自己也会拒绝 ../ 之类的条目名，这是第二层防线；按消息归类，不认识的一律当作不是 ZIP
-      const unsafe = cause instanceof Error && /unsafe filename/i.test(cause.message);
-      throw new QypError(unsafe ? "unsafe-entry" : "not-a-zip", `cannot read ZIP: ${String(cause)}`);
-    }
+    const entries = await listEntries(reader);
 
     const files = new Map<string, FileEntry>();
     let total = 0;
@@ -199,25 +226,7 @@ export async function openPackage(source: Blob, options: OpenOptions = {}): Prom
       if (total > maxBytes) throw new QypError("too-large", `uncompressed size exceeds the limit of ${maxBytes} bytes`);
     }
 
-    const manifestEntry = files.get("manifest.json");
-    if (!manifestEntry) throw new QypError("missing-manifest", "manifest.json not found at the package root");
-    if (manifestEntry.uncompressedSize > PACKAGE_LIMITS.maxManifestBytes) {
-      throw new QypError("invalid-manifest", "manifest.json is too large");
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(await (await readEntry(source, manifestEntry, "application/json")).text());
-    } catch (cause) {
-      if (cause instanceof QypError) throw cause;
-      throw new QypError("invalid-json", `manifest.json is not valid JSON: ${String(cause)}`);
-    }
-
-    const result = validateManifest(parsed);
-    if (!result.ok || !result.manifest) {
-      throw new QypError(classify(result.errors), `manifest rejected: ${result.errors[0]?.message ?? "invalid"}`, result.errors);
-    }
-    const manifest = result.manifest;
+    const { manifest, warnings } = await readManifest(source, files);
 
     const missing = referencedPaths(manifest).filter((p) => !files.has(p));
     if (missing.length > 0) {
@@ -226,7 +235,7 @@ export async function openPackage(source: Blob, options: OpenOptions = {}): Prom
 
     return {
       manifest,
-      warnings: result.warnings,
+      warnings,
       async readBlob(path: string): Promise<Blob> {
         const entry = files.get(path);
         if (!entry) throw new QypError("missing-file", `no such file in package: ${path}`, [], [path]);
@@ -237,5 +246,60 @@ export async function openPackage(source: Blob, options: OpenOptions = {}): Prom
   } catch (error) {
     await reader.close().catch(() => undefined);
     throw error;
+  }
+}
+
+/** 不打开整个包就能得到的概要信息，字段全部来自清单（docs/dev-0.3.0.md 6.4 的 peekPackage 小节） */
+export interface PackageSummary {
+  title: string;
+  /** 影片时长（秒） */
+  duration: number;
+  createdAt: string;
+  aspectRatio: Manifest["canvas"]["aspectRatio"];
+  pageCount: number;
+  photoCount: number;
+  videoCount: number;
+  hasMusic: boolean;
+  formatVersion: string;
+  /** 包文件本身的字节数 */
+  totalBytes: number;
+  /** 封面。清单没有声明封面，或包里读不出封面时为 undefined */
+  cover?: Blob;
+}
+
+/**
+ * 快速读取概要信息，用于影片库列表、打开前预览（PRD F-PKG 的“不解压也能预览”）。
+ * 只读三小段：文件尾的中央目录、manifest.json、封面。不读素材，不检查素材是否缺失、大小是否一致。
+ * 清单本身仍会校验；包不是 ZIP 或清单无效时抛 QypError。想播放请用 openPackage。
+ */
+export async function peekPackage(source: Blob): Promise<PackageSummary> {
+  const reader = new ZipReader(new BlobReader(source));
+  try {
+    const files = new Map<string, FileEntry>();
+    for (const entry of await listEntries(reader)) if (isFile(entry)) files.set(entry.filename, entry);
+    const { manifest } = await readManifest(source, files);
+
+    let cover: Blob | undefined;
+    const coverEntry = manifest.cover ? files.get(manifest.cover) : undefined;
+    if (manifest.cover && coverEntry) {
+      cover = await readEntry(source, coverEntry, mimeForPath(manifest.cover)).catch(() => undefined);
+    }
+
+    const count = (type: string): number => manifest.assets.filter((a) => a.type === type).length;
+    return {
+      title: manifest.title,
+      duration: manifest.duration,
+      createdAt: manifest.createdAt,
+      aspectRatio: manifest.canvas.aspectRatio,
+      pageCount: manifest.pages.length,
+      photoCount: count("image"),
+      videoCount: count("video"),
+      hasMusic: manifest.bgm !== undefined,
+      formatVersion: manifest.formatVersion,
+      totalBytes: source.size,
+      cover,
+    };
+  } finally {
+    await reader.close().catch(() => undefined);
   }
 }

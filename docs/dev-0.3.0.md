@@ -548,6 +548,16 @@ videoAudioGain(localTime, pageDuration) =
 - 切片读取不重新计算 CRC32，其余条目仍然检查签名。这一点是有意的取舍：对几百 MB 的视频逐字节算 CRC 会在手机上卡很久。
 - 包里的视频、音频和图片都使用 `store` 方式写入（7.1 已规定），所以实际上所有素材都走切片。
 
+### 6.4A 快速读取概要信息（peekPackage）
+
+用途：影片库列表、打开前预览、拖入文件时的卡片，只需要标题、时长、封面这类信息，不需要播放。
+
+- 接口：`peekPackage(blob)`（`packages/qyp/src/open.ts`），返回 `PackageSummary`：`title`、`duration`、`createdAt`、`aspectRatio`、`pageCount`、`photoCount`、`videoCount`、`hasMusic`、`formatVersion`、`totalBytes`、`cover?`。
+- 不需要解压，也不需要读完整个文件。包内素材都是存储方式 0 的条目，ZIP 目录在文件尾，`manifest.json` 写在最前，`cover.jpg` 写在最后。`peekPackage` 只读三小段：文件尾的中央目录、`manifest.json`、封面，用 `Blob.slice` 取出，不读素材。
+- 不改包格式，不加冗余字段（zip 注释摘要、缩略图副本）。理由：场景只有本机文件，上述三次小读取在本机是毫秒级；冗余字段会让摘要和清单可能不一致。所有字段都从清单现算：`photoCount`、`videoCount` 按素材类型统计（不含音频），`hasMusic` 是清单有 `bgm`。
+- 不做完整校验：不检查素材是否缺失、大小是否一致，不算 CRC。清单本身仍要通过校验；不是 ZIP 或清单无效时抛 `QypError`，类别同 `openPackage`。因此能 `peekPackage` 成功的包，不保证能 `openPackage` 成功。
+- 封面：清单没有声明 `cover`（例如 0.1 的旧包），或包里读不出封面时，`cover` 为 `undefined`，由调用方显示默认占位图。不做取素材第一张图或视频帧的兜底，保证读取量固定。
+
 ### 6.5 手机播放
 
 - 手机播放使用同一个网页播放器，不转码，不做任何额外处理。

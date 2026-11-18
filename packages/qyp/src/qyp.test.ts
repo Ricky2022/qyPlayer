@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import example from "../../../spec/examples/example.manifest.json";
 import type { Manifest } from "@qyplayer/core";
-import { CONFORMANCE_CASES, QypError, openPackage, writePackage, writeZip, mimeForPath } from "./index";
+import { CONFORMANCE_CASES, QypError, openPackage, peekPackage, writePackage, writeZip, mimeForPath } from "./index";
 
 const manifest = example as unknown as Manifest;
 
@@ -110,6 +110,65 @@ describe("openPackage", () => {
       const blob = await writeZip([{ path: "manifest.json", data: m }, { path: name, data: m }]);
       expect((await errorOf(openPackage(blob))).code, name).toBe("unsafe-entry");
     }
+  });
+});
+
+describe("peekPackage", () => {
+  const PATHS = ["media/m001.jpg", "media/m002.jpg", "media/m003.jpg", "media/m004.mp4", "media/m005.jpg", "media/m006.jpg", "media/m007.jpg", "audio/bgm.m4a", "originals/IMG_0001.HEIC"];
+
+  it("returns the summary and the cover straight from the manifest", async () => {
+    const files = [...PATHS.map((path) => ({ path, data: new TextEncoder().encode(path) })), { path: "cover.jpg", data: new Uint8Array([7, 7, 7]) }];
+    const blob = await writePackage(manifest, files);
+    const summary = await peekPackage(blob);
+    expect(summary).toMatchObject({
+      title: manifest.title,
+      duration: manifest.duration,
+      createdAt: manifest.createdAt,
+      aspectRatio: "16:9",
+      pageCount: 4,
+      photoCount: 6,
+      videoCount: 1,
+      hasMusic: true,
+      formatVersion: "0.2",
+      totalBytes: blob.size,
+    });
+    expect(new Uint8Array(await summary.cover!.arrayBuffer())).toEqual(new Uint8Array([7, 7, 7]));
+    expect(summary.cover!.type).toBe("image/jpeg");
+  });
+
+  it("leaves the cover empty when the manifest has none or the entry is missing", async () => {
+    const noCover = JSON.parse(JSON.stringify(manifest)) as Manifest;
+    delete noCover.cover;
+    const files = PATHS.map((path) => ({ path, data: new Uint8Array([1]) }));
+    expect((await peekPackage(await writePackage(noCover, files))).cover).toBeUndefined();
+    expect((await peekPackage(await writePackage(manifest, files))).cover).toBeUndefined();
+  });
+
+  it("does not check that referenced files exist", async () => {
+    const summary = await peekPackage(await writePackage(manifest, [{ path: "media/m001.jpg", data: new Uint8Array([1]) }]));
+    expect(summary.pageCount).toBe(4);
+  });
+
+  it("reads only the directory, the manifest and the cover, not the media", async () => {
+    const big = new Uint8Array(8 * 1024 * 1024);
+    const files = [...PATHS.map((path) => ({ path, data: path === "media/m004.mp4" ? big : new Uint8Array([1]) })), { path: "cover.jpg", data: new Uint8Array(1000) }];
+    const blob = await writePackage(manifest, files);
+    let read = 0;
+    const slice = blob.slice.bind(blob);
+    blob.slice = (start?: number, end?: number, type?: string): Blob => {
+      read += Math.min(end ?? blob.size, blob.size) - (start ?? 0);
+      return slice(start, end, type);
+    };
+    await peekPackage(blob);
+    expect(blob.size).toBeGreaterThan(big.length);
+    expect(read).toBeLessThan(256 * 1024); // 目录读尾部一块（约 64 KB），加清单和封面；素材有 8 MB
+  });
+
+  it("rejects what is not a package", async () => {
+    expect((await errorOf(peekPackage(new Blob(["nope"])))).code).toBe("not-a-zip");
+    expect((await errorOf(peekPackage(await writeZip([])))).code).toBe("missing-manifest");
+    const bad = await writeZip([{ path: "manifest.json", data: new TextEncoder().encode("{not json") }]);
+    expect((await errorOf(peekPackage(bad))).code).toBe("invalid-json");
   });
 });
 
