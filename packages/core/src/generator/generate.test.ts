@@ -482,6 +482,12 @@ describe("generated manifests are valid", () => {
     expect(gen({ media: [photo("a", 100, 100)], title: "我的旅行" }).title).toBe("我的旅行");
   });
 
+  it("uses the given word in the default title, so the UI can pick the language", () => {
+    const m = gen({ media: [photo("a", 100, 100, "2026-10-01T09:00:00+08:00")], defaultTitleWord: "Memories" });
+    expect(m.title).toBe("2026-10-01 Memories");
+    expect(gen({ media: [photo("a", 100, 100)], defaultTitleWord: "Memories" }).title).toBe("Memories");
+  });
+
   it("canvas matches the chosen ratio", () => {
     expect(gen({ media: landscapePhotos(2), aspectRatio: "9:16" }).canvas).toEqual({ aspectRatio: "9:16", width: 1080, height: 1920, background: "#000000" });
     expect(gen({ media: landscapePhotos(2) }).canvas).toMatchObject({ aspectRatio: "16:9", width: 1920, height: 1080 });

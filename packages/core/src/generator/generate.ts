@@ -61,6 +61,8 @@ export interface GenerateOptions {
   /** 为 true 时保持 media 的传入顺序，不按拍摄时间排序（用户手动调整过顺序） */
   keepOrder?: boolean;
   title?: string;
+  /** 没给标题时，默认标题里“日期 + 词”的那个词，让界面按语言传入；缺省为“回忆” */
+  defaultTitleWord?: string;
   /** 缺省时随机生成 */
   id?: string;
   /** 缺省时取当前时间 */
@@ -329,7 +331,8 @@ export function generateManifest(options: GenerateOptions): Manifest {
   }
 
   const earliest = ordered.map((m) => m.capturedAt).filter((t): t is string => !!t).sort()[0];
-  const defaultTitle = earliest ? `${earliest.slice(0, 10)} 回忆` : "回忆";
+  const titleWord = options.defaultTitleWord ?? "回忆";
+  const defaultTitle = earliest ? `${earliest.slice(0, 10)} ${titleWord}` : titleWord;
 
   return {
     formatVersion: "0.1",
