@@ -1,0 +1,87 @@
+name: Release Windows apps
+
+# 推送 v* 标签时：检查通过后在 Windows 机器上构建播放器和制作器，发布 GitHub Release。
+# 手动触发只构建并把文件作为 Actions 附件保存，不发布 Release，用来在打标签前验证构建。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # 创建 Release 需要
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      - name: Check tag matches app version
+        if: github.ref_type == 'tag'
+        run: |
+          foreach ($app in "desktop-player", "desktop-maker") {
+            $version = (Get-Content "apps/$app/src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
+            if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "$app version v$version does not match tag $env:GITHUB_REF_NAME" }
+          }
+
+      # 制作器的内置配乐从网页的 samples/ 目录取，所以只把配乐放进网页构建产物
+      - name: Download built-in music
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download samples-v1 --dir apps/web/public/samples --pattern "*.mp3"
+
+      - run: pnpm --filter @qyplayer/web build
+
+      - run: pnpm --filter @qyplayer/desktop-player bundle
+
+      - name: Collect player files
+        run: |
+          New-Item -ItemType Directory -Force dist-release, stage-player | Out-Null
+          $setup = Get-ChildItem target/release/bundle/nsis -Filter "*-setup.exe" | Select-Object -First 1
+          Copy-Item $setup.FullName dist-release/qyPlayer-Setup-x64.exe
+          Copy-Item target/release/qyplayer.exe stage-player/qyPlayer.exe
+          Compress-Archive stage-player/qyPlayer.exe dist-release/qyPlayer-x64-portable.zip
+
+      - run: pnpm --filter @qyplayer/desktop-maker bundle
+
+      - name: Collect maker files
+        run: |
+          New-Item -ItemType Directory -Force stage-maker | Out-Null
+          # 此时 nsis 目录里有两个安装包，播放器那个以 qyPlayer_ 开头，另一个就是制作器
+          $setup = Get-ChildItem target/release/bundle/nsis -Filter "*-setup.exe" | Where-Object Name -notlike "qyPlayer_*" | Select-Object -First 1
+          Copy-Item $setup.FullName dist-release/qyMaker-Setup-x64.exe
+          Copy-Item target/release/qymaker.exe stage-maker/qyMaker.exe
+          Compress-Archive stage-maker/qyMaker.exe dist-release/qyMaker-x64-portable.zip
+          Get-ChildItem dist-release | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-apps
+          path: dist-release/*
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME dist-release/* --title $env:GITHUB_REF_NAME --notes-file .github/release-notes.md
