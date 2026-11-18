@@ -955,15 +955,17 @@ These values are starting points given so that the document can be discussed. Th
 | --- | --- | --- |
 | O-01 | Whether the first release includes the film library (6.8). This document includes it as P1 for now. | PRD review |
 | O-02 | The meaning of "Keep originals". This document reads it as "originals are additionally stored in the package and playback versions are generated as usual". The other reading is "store originals only, without transcoding", in which case a package may not play on some devices. | PRD review |
-| O-03 | Whether the mobile shell is Tauri or Capacitor. | Phase 0 |
-| O-04 | Minimum supported version of each platform. | Phase 0 |
-| O-05 | Reference device models for performance acceptance. | Phase 0 |
+| O-03 | Whether the mobile shell is Tauri or Capacitor. | Phase 0 covered Web only (no Rust toolchain, no iOS build on this machine). **Undecided**; decide before Phase 1 (see the [Phase 0 report](./phase0-report.md), in Chinese) |
+| O-04 | Minimum supported version of each platform. | Not evaluated in Phase 0; needs a real device list. **Undecided** |
+| O-05 | Reference device models for performance acceptance. | Phase 0 measured one desktop machine only (report section 2). Mobile reference devices **undecided** |
 | O-06 | Whether desktop supports Linux. | PRD review |
 | O-07 | Distribution channels: app stores, direct installer downloads, or both. App stores involve developer account fees and review. | Before Phase 1 starts |
 | O-08 | Whether the name qyPlayer clashes with an existing project or trademark. This has not been searched. | Before the public repository is created |
 | O-09 | The license of the package format specification document (Apache-2.0 like the code, or a documentation license). | Before the public repository is created |
 | O-10 | The actual sources and list of built-in tracks. | Phase 1 |
 | O-11 | The actual names and parameters of built-in templates. | Phase 1 design |
+| O-12 | Timing of entrance animations versus transitions: 8.3 says entrances start after the transition ends, which in practice leaves multi-image pages empty during the transition (report 5.1). Leaning towards counting entrance delays from the start of the page. | Before Phase 1 |
+| O-13 | HEIC decoding route: Chromium's `ImageDecoder` does not support HEIC (measured in Phase 0). Use a libheif-style library (LGPL, see R-06), or call the platform's native decoder inside the shell. | Before Phase 1 |
 
 ### 14.3 Risks
 

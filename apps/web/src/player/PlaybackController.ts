@@ -110,6 +110,11 @@ export class PlaybackController {
   get currentTime(): number {
     return this.clock.time(performance.now());
   }
+  /** 当前时刻的素材都已就绪：没有加载在途，视频都已定位完成。用于测量拖动定位耗时 */
+  isSettled(): boolean {
+    return this.pending.size === 0 && [...this.videos.values()].every((v) => !v.element.seeking && v.element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA);
+  }
+
   /** 内部状态快照，仅供开发和自动化测试检查同步情况 */
   debugInfo(): { time: number; audioTime: number | null; audioPaused: boolean | null; videos: { id: string; time: number; paused: boolean; muted: boolean }[] } {
     return {

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>qyPlayer 实测页（开发用）</title>
+    <style>
+      body { font: 14px/1.6 system-ui, 'Microsoft YaHei', sans-serif; margin: 16px; background: #111; color: #ddd; }
+      pre { background: #000; padding: 12px; overflow: auto; }
+      button, input { font: inherit; }
+    </style>
+  </head>
+  <body>
+    <h1>qyPlayer 实测页</h1>
+    <p>检测本浏览器的编解码能力，并对一个 .qyp 包测量 1080p 播放帧率和拖动定位耗时。结果会同时写入 <code>window.__bench</code>。</p>
+    <p>
+      <input id="file" type="file" accept=".qyp,application/zip" />
+      <button id="run">运行</button>
+      <span id="status"></span>
+    </p>
+    <pre id="out">尚未运行</pre>
+    <script type="module" src="/src/dev/bench.ts"></script>
+  </body>
+</html>
