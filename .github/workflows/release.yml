@@ -31,6 +31,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Read app version
+        run: |
+          $version = (Get-Content apps/desktop-player/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          "APP_VERSION=$version" >> $env:GITHUB_ENV
+
       - run: pnpm lint
 
       - run: pnpm typecheck
@@ -63,9 +68,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist-release, stage-player | Out-Null
           $setup = Get-ChildItem target/release/bundle/nsis -Filter "qyPlayer_*-setup.exe" | Select-Object -First 1
-          Copy-Item $setup.FullName dist-release/qyPlayer-Setup-x64.exe
+          Copy-Item $setup.FullName "dist-release/qyPlayer-${env:APP_VERSION}-Setup-x64.exe"
           Copy-Item target/release/qyplayer.exe stage-player/qyPlayer.exe
-          Compress-Archive stage-player/qyPlayer.exe dist-release/qyPlayer-x64-portable.zip
+          Compress-Archive stage-player/qyPlayer.exe "dist-release/qyPlayer-${env:APP_VERSION}-x64-portable.zip"
 
       - run: pnpm --filter @qyplayer/web build:maker
 
@@ -75,9 +80,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force stage-maker | Out-Null
           $setup = Get-ChildItem target/release/bundle/nsis -Filter "qyMaker_*-setup.exe" | Select-Object -First 1
-          Copy-Item $setup.FullName dist-release/qyMaker-Setup-x64.exe
+          Copy-Item $setup.FullName "dist-release/qyMaker-${env:APP_VERSION}-Setup-x64.exe"
           Copy-Item target/release/qymaker.exe stage-maker/qyMaker.exe
-          Compress-Archive stage-maker/qyMaker.exe dist-release/qyMaker-x64-portable.zip
+          Compress-Archive stage-maker/qyMaker.exe "dist-release/qyMaker-${env:APP_VERSION}-x64-portable.zip"
           Get-ChildItem dist-release | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v7

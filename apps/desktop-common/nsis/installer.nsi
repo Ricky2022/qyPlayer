@@ -182,7 +182,7 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 ; 2. License Page (if defined)
 !if "${LICENSE}" != ""
   !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-  !insertmacro MUI_PAGE_LICENSE "${LICENSE}"
+  !insertmacro MUI_PAGE_LICENSE "$(QyLicense)" ; qy: 中文安装显示中文说明加英文原文，其他语言显示英文原文
 !endif
 
 ; 3. Install mode (if it is set to `both`)
@@ -526,6 +526,10 @@ LangString QyOverwriteInstall ${LANG_SIMPCHINESE} "直接覆盖安装（推荐�
 LangString QyOverwriteInstall ${LANG_ENGLISH} "Install over the existing version (recommended, keeps your settings)"
 LangString QyUpgradeLong ${LANG_SIMPCHINESE} "系统里已安装${QY_NAME_ZH}的$R4版本。选择要执行的操作，然后点“下一步”继续。"
 LangString QyUpgradeLong ${LANG_ENGLISH} "An $R4 version of ${QY_NAME_EN} is installed. Select the operation you want to perform and click Next to continue."
+!if "${LICENSE}" != ""
+  LicenseLangString QyLicense ${LANG_ENGLISH} "${LICENSE}"
+  LicenseLangString QyLicense ${LANG_SIMPCHINESE} "${QY_LICENSE_ZH}"
+!endif
 
 Function .onInit
   ${GetOptions} $CMDLINE "/P" $PassiveMode

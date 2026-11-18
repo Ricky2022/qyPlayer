@@ -5,3 +5,5 @@
 ; 制作器不关联文件类型，下面两个常量只是为了让模板里的文案定义完整
 !define QY_FILETYPE_ZH "青云制作器文件"
 !define QY_FILETYPE_EN "qyMaker file"
+; 中文安装时协议页使用的文本：中文说明加英文原文，两个程序共用
+!define QY_LICENSE_ZH "${__FILEDIR__}\..\..\..\desktop-common\nsis\license.zh-CN.txt"

@@ -19,10 +19,12 @@
 
 播放器（青云播放器 / qyPlayer）和制作器（青云制作器 / qyMaker）是两个独立的程序，都只在本机运行。需要 Windows 10 / 11（64 位）。
 
+当前版本：[v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1)。
+
 | 程序 | 安装包 | 免安装版 |
 | --- | --- | --- |
-| 播放器 | [qyPlayer-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyPlayer-Setup-x64.exe) | [qyPlayer-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyPlayer-x64-portable.zip) |
-| 制作器 | [qyMaker-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyMaker-Setup-x64.exe) | [qyMaker-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyMaker-x64-portable.zip) |
+| 播放器 | [qyPlayer-0.2.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyPlayer-0.2.1-Setup-x64.exe) | [qyPlayer-0.2.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyPlayer-0.2.1-x64-portable.zip) |
+| 制作器 | [qyMaker-0.2.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyMaker-0.2.1-Setup-x64.exe) | [qyMaker-0.2.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyMaker-0.2.1-x64-portable.zip) |
 
 所有版本见 [Releases](https://github.com/Ricky2022/qyPlayer/releases)。
 
@@ -94,7 +96,7 @@ pnpm fixtures:build    # 构建示例包，并复制到 apps/web/public/samples�
 
 线上站点的示例文件放在 GitHub Release `samples-v1` 的附件里，部署时下载到站点中。
 
-Windows 桌面版由 GitHub Actions 构建：推送 `v*` 标签（如 `v0.2.0`，要与两个 `tauri.conf.json` 里的版本号一致）会自动发布 Release；也可以在 Actions 页手动运行 “Release Windows apps” 只构建、不发布。本地构建需要 Rust 工具链和 MSVC 生成工具：先 `pnpm --filter @qyplayer/web build:player`，再 `pnpm --filter @qyplayer/desktop-player bundle`；制作器用 `build:maker` 和 `@qyplayer/desktop-maker`（播放器的构建不含内置配乐，制作器的含）。
+Windows 桌面版由 GitHub Actions 构建：推送 `v*` 标签（如 `v0.2.1`，要与两个 `tauri.conf.json` 里的版本号一致）会自动发布 Release；发版时要同时更新两份 README 和 `.github/release-notes.md` 里的版本号和下载链接，`pnpm test` 会检查；也可以在 Actions 页手动运行 “Release Windows apps” 只构建、不发布。本地构建需要 Rust 工具链和 MSVC 生成工具：先 `pnpm --filter @qyplayer/web build:player`，再 `pnpm --filter @qyplayer/desktop-player bundle`；制作器用 `build:maker` 和 `@qyplayer/desktop-maker`（播放器的构建不含内置配乐，制作器的含）。
 
 ## 示例素材与许可
 

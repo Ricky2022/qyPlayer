@@ -4,6 +4,8 @@
 !define QY_NAME_EN "qyPlayer"
 !define QY_FILETYPE_ZH "青云播放器回忆影片"
 !define QY_FILETYPE_EN "qyPlayer memory film"
+; 中文安装时协议页使用的文本：中文说明加英文原文，两个程序共用
+!define QY_LICENSE_ZH "${__FILEDIR__}\..\..\..\desktop-common\nsis\license.zh-CN.txt"
 
 ; 卸载（非升级）后清理 .qyp 文件关联和“打开方式”留下的注册表项
 !macro NSIS_HOOK_POSTUNINSTALL

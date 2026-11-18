@@ -19,10 +19,12 @@ The interface is available in Chinese and English. It follows the system languag
 
 The player (qyPlayer, 青云播放器) and the creator (qyMaker, 青云制作器) are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
 
+Current version: [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1).
+
 | Program | Installer | Portable |
 | --- | --- | --- |
-| Player | [qyPlayer-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyPlayer-Setup-x64.exe) | [qyPlayer-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyPlayer-x64-portable.zip) |
-| Creator | [qyMaker-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyMaker-Setup-x64.exe) | [qyMaker-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyMaker-x64-portable.zip) |
+| Player | [qyPlayer-0.2.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyPlayer-0.2.1-Setup-x64.exe) | [qyPlayer-0.2.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyPlayer-0.2.1-x64-portable.zip) |
+| Creator | [qyMaker-0.2.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyMaker-0.2.1-Setup-x64.exe) | [qyMaker-0.2.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyMaker-0.2.1-x64-portable.zip) |
 
 All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/releases) page.
 
@@ -94,7 +96,7 @@ pnpm fixtures:build    # build sample packages and copy them to apps/web/public/
 
 On the live site, the sample files are attached to the GitHub Release `samples-v1` and downloaded into the site at deploy time.
 
-The Windows apps are built by GitHub Actions: pushing a `v*` tag (such as `v0.2.0`, which must match the version in both `tauri.conf.json` files) publishes a Release automatically. You can also run "Release Windows apps" by hand on the Actions page to build without publishing. Building locally needs the Rust toolchain and the MSVC build tools: run `pnpm --filter @qyplayer/web build:player`, then `pnpm --filter @qyplayer/desktop-player bundle`; for the creator use `build:maker` and `@qyplayer/desktop-maker` (the player build omits the built-in music, the creator build includes it).
+The Windows apps are built by GitHub Actions: pushing a `v*` tag (such as `v0.2.1`, which must match the version in both `tauri.conf.json` files) publishes a Release automatically. When releasing, update the version and download links in both READMEs and in `.github/release-notes.md` too; `pnpm test` checks them. You can also run "Release Windows apps" by hand on the Actions page to build without publishing. Building locally needs the Rust toolchain and the MSVC build tools: run `pnpm --filter @qyplayer/web build:player`, then `pnpm --filter @qyplayer/desktop-player bundle`; for the creator use `build:maker` and `@qyplayer/desktop-maker` (the player build omits the built-in music, the creator build includes it).
 
 ## Sample media and licenses
 
