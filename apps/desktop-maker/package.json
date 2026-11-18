@@ -1,6 +1,6 @@
 {
   "name": "@qyplayer/desktop-maker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "Apache-2.0",
   "scripts": {
@@ -8,6 +8,6 @@
     "bundle": "tauri build --bundles nsis"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.12.0"
+    "@tauri-apps/cli": "2.12.5"
   }
 }

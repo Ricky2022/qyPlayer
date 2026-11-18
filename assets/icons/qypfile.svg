@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e3eef9"/></linearGradient>
+    <linearGradient id="cloud" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0b5fa5"/></linearGradient>
+  </defs>
+  <path d="M200 76H624L824 276V948H200Z" fill="url(#paper)" stroke="#c9dbed" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M624 76V276H824Z" fill="#bcd4ea" stroke="#c9dbed" stroke-width="12" stroke-linejoin="round"/>
+  <g transform="translate(512 612) scale(0.76) translate(-535 -490)" fill="url(#cloud)"><circle cx="372" cy="568" r="140"/><circle cx="528" cy="462" r="196"/><circle cx="706" cy="548" r="152"/><rect x="300" y="560" width="560" height="148" rx="74"/></g>
+  <g transform="translate(512 622) scale(0.608) translate(-400 -500)" fill="none" stroke="#fff" stroke-width="96" stroke-linecap="round" stroke-linejoin="round"><circle cx="344" cy="470" r="186"/><path d="M404 634C446 682 514 692 566 652"/></g>
+</svg>

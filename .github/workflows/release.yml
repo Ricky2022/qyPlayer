@@ -37,39 +37,44 @@ jobs:
 
       - run: pnpm test
 
+      - name: Test desktop shared crate
+        run: cargo test -p qy-desktop-common
+
       - name: Check tag matches app version
         if: github.ref_type == 'tag'
         run: |
-          foreach ($app in "desktop-player", "desktop-maker") {
-            $version = (Get-Content "apps/$app/src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
-            if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "$app version v$version does not match tag $env:GITHUB_REF_NAME" }
+          $files = "apps/desktop-player/src-tauri/tauri.conf.json", "apps/desktop-maker/src-tauri/tauri.conf.json", "apps/web/package.json"
+          foreach ($file in $files) {
+            $version = (Get-Content $file -Raw | ConvertFrom-Json).version
+            if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "$file version v$version does not match tag $env:GITHUB_REF_NAME" }
           }
 
-      # 制作器的内置配乐从网页的 samples/ 目录取，所以只把配乐放进网页构建产物
+      # 内置配乐只放进制作器：制作器的网页构建会把它带上，播放器的网页构建不带
       - name: Download built-in music
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release download samples-v1 --dir apps/web/public/samples --pattern "*.mp3"
 
-      - run: pnpm --filter @qyplayer/web build
+      - run: pnpm --filter @qyplayer/web build:player
 
       - run: pnpm --filter @qyplayer/desktop-player bundle
 
       - name: Collect player files
         run: |
           New-Item -ItemType Directory -Force dist-release, stage-player | Out-Null
-          $setup = Get-ChildItem target/release/bundle/nsis -Filter "*-setup.exe" | Select-Object -First 1
+          $setup = Get-ChildItem target/release/bundle/nsis -Filter "qyPlayer_*-setup.exe" | Select-Object -First 1
           Copy-Item $setup.FullName dist-release/qyPlayer-Setup-x64.exe
           Copy-Item target/release/qyplayer.exe stage-player/qyPlayer.exe
           Compress-Archive stage-player/qyPlayer.exe dist-release/qyPlayer-x64-portable.zip
+
+      - run: pnpm --filter @qyplayer/web build:maker
 
       - run: pnpm --filter @qyplayer/desktop-maker bundle
 
       - name: Collect maker files
         run: |
           New-Item -ItemType Directory -Force stage-maker | Out-Null
-          # 此时 nsis 目录里有两个安装包，播放器那个以 qyPlayer_ 开头，另一个就是制作器
-          $setup = Get-ChildItem target/release/bundle/nsis -Filter "*-setup.exe" | Where-Object Name -notlike "qyPlayer_*" | Select-Object -First 1
+          $setup = Get-ChildItem target/release/bundle/nsis -Filter "qyMaker_*-setup.exe" | Select-Object -First 1
           Copy-Item $setup.FullName dist-release/qyMaker-Setup-x64.exe
           Copy-Item target/release/qymaker.exe stage-maker/qyMaker.exe
           Compress-Archive stage-maker/qyMaker.exe dist-release/qyMaker-x64-portable.zip
