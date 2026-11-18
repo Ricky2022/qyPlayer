@@ -1,0 +1,11 @@
+[package]
+name = "qy-desktop-common"
+version = "0.2.0"
+description = "两个桌面程序共用的 Tauri 命令"
+license = "Apache-2.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tauri = "2"
+tauri-plugin-opener = "2"

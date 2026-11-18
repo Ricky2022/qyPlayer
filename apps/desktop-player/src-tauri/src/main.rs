@@ -32,8 +32,14 @@ fn main() {
         .find(|path| path.is_file());
 
     tauri::Builder::default()
+        .plugin(qy_desktop_common::opener_plugin())
         .manage(InitialFile(initial))
-        .invoke_handler(tauri::generate_handler![initial_file, read_file])
+        .invoke_handler(tauri::generate_handler![
+            initial_file,
+            read_file,
+            qy_desktop_common::set_title,
+            qy_desktop_common::open_url
+        ])
         .run(tauri::generate_context!())
-        .expect("启动 qyPlayer 失败");
+        .expect("启动青云播放器失败");
 }

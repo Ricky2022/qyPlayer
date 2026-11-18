@@ -1,6 +1,6 @@
 [package]
 name = "qymaker"
-version = "0.1.0"
+version = "0.2.0"
 description = "qyPlayer 制作器：本机把照片和视频生成 .qyp 回忆影片"
 license = "Apache-2.0"
 edition = "2021"
@@ -10,5 +10,6 @@ tauri-build = "2"
 
 [dependencies]
 tauri = "2"
+qy-desktop-common = { path = "../../desktop-common" }
 tauri-plugin-dialog = "2"
 percent-encoding = "2"

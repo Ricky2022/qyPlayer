@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "io.github.ricky2022.qyplayer",
   "build": {
-    "frontendDist": "../../web/dist"
+    "frontendDist": "../../web/dist-player"
   },
   "app": {
     "windows": [

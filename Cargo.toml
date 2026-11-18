@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["apps/desktop-player/src-tauri", "apps/desktop-maker/src-tauri"]
+members = ["apps/desktop-common", "apps/desktop-player/src-tauri", "apps/desktop-maker/src-tauri"]
 
 [profile.release]
 strip = true
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"

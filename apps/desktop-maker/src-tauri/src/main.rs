@@ -34,7 +34,12 @@ async fn save_file(app: tauri::AppHandle, request: Request<'_>) -> Result<(), St
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![save_file])
+        .plugin(qy_desktop_common::opener_plugin())
+        .invoke_handler(tauri::generate_handler![
+            save_file,
+            qy_desktop_common::set_title,
+            qy_desktop_common::open_url
+        ])
         .run(tauri::generate_context!())
-        .expect("启动 qyPlayer 制作器失败");
+        .expect("启动青云制作器失败");
 }
