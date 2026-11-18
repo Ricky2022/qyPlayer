@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
 import { openPackage } from "@qyplayer/qyp";
+import { isDesktop, readInitialFile } from "./desktop";
 import { describeError } from "./messages";
 import { PlaybackController } from "./player/PlaybackController";
 import { PlayerView } from "./PlayerView";
@@ -73,6 +74,14 @@ export function App({ initialSource }: AppProps) {
     if (initialSource) void initialSource().then(open, (e: unknown) => setError(describeError(e)));
   }, [initialSource, open]);
 
+  // 桌面程序：双击 .qyp 启动时，直接打开命令行里带的文件
+  useEffect(() => {
+    void readInitialFile().then(
+      (file) => (file ? open(file) : undefined),
+      (e: unknown) => setError(describeError(e)),
+    );
+  }, [open]);
+
   const openSample = async (file: string): Promise<void> => {
     setBusy(true);
     setError(null);
@@ -120,17 +129,22 @@ export function App({ initialSource }: AppProps) {
         <button className={classes.pick} disabled={busy} onClick={() => inputRef.current?.click()}>
           {busy ? "正在打开…" : "选择 .qyp 文件"}
         </button>
-        <div className={classes.samples}>
-          没有 .qyp 文件？试看示例：
-          {SAMPLE_PACKAGES.map((sample) => (
-            <button key={sample.file} className={classes.sample} disabled={busy} onClick={() => void openSample(sample.file)}>
-              {sample.label}
-            </button>
-          ))}
-        </div>
-        <div className={classes.create}>
-          想自己做一个？<a href="create.html">制作影片</a>
-        </div>
+        {/* 示例和制作页只在网页版提供，桌面播放器里没有这两样 */}
+        {!isDesktop() && (
+          <>
+            <div className={classes.samples}>
+              没有 .qyp 文件？试看示例：
+              {SAMPLE_PACKAGES.map((sample) => (
+                <button key={sample.file} className={classes.sample} disabled={busy} onClick={() => void openSample(sample.file)}>
+                  {sample.label}
+                </button>
+              ))}
+            </div>
+            <div className={classes.create}>
+              想自己做一个？<a href="create.html">制作影片</a>
+            </div>
+          </>
+        )}
         {error && <div className={classes.error} role="alert">{error}</div>}
       </div>
     </div>

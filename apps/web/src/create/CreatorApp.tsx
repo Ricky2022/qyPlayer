@@ -3,6 +3,7 @@ import { createUseStyles } from "react-jss";
 import { GENERATOR_LIMITS, GenerateError, TEMPLATES, defaultAspectRatio, type AspectRatio, type Manifest } from "@qyplayer/core";
 import { MediaFormatError } from "@qyplayer/qyp/inspect";
 import { PACKAGE_LIMITS, QypError, openPackage } from "@qyplayer/qyp";
+import { isDesktop, saveBlob } from "../desktop";
 import { describeError } from "../messages";
 import { PlaybackController } from "../player/PlaybackController";
 import { PlayerView } from "../PlayerView";
@@ -75,16 +76,6 @@ function describeBuildError(error: unknown): string {
   }
   if (error instanceof QypError) return describeError(error);
   return `生成失败：${error instanceof Error ? error.message : String(error)}`;
-}
-
-function downloadBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  // 给浏览器一点时间开始下载再释放
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 /** 制作页：选素材、调顺序、选模板和配乐，生成 .qyp 并在页内预览、下载。所有处理都在本机完成。 */
@@ -234,7 +225,7 @@ export function CreatorApp() {
           <PlayerView controller={result.controller} onClose={backToEditing} />
         </div>
         <div className={classes.actions}>
-          <button className={classes.primary} onClick={() => downloadBlob(result.blob, safeFileName(result.manifest.title))}>
+          <button className={classes.primary} onClick={() => void saveBlob(result.blob, safeFileName(result.manifest.title)).catch((e: unknown) => setBuildError(`保存失败：${e instanceof Error ? e.message : String(e)}`))}>
             下载 .qyp
           </button>
           <button className={classes.button} disabled={building} onClick={() => void generate(seed + 1)}>
@@ -261,7 +252,7 @@ export function CreatorApp() {
     >
       <div className={classes.header}>
         <h1>制作影片</h1>
-        <a href="./">← 回到播放器</a>
+        {!isDesktop() && <a href="./">← 回到播放器</a>}
       </div>
       <p className={classes.note}>选好照片和视频，自动生成回忆影片并保存为 .qyp 文件。文件只在本机处理，不会上传。</p>
 
