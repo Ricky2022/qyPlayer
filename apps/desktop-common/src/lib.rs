@@ -37,9 +37,9 @@ pub mod commands {
     }
 }
 
-/// 供两个程序注册的插件（open_url 依赖它）。
-pub fn opener_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<tauri_plugin_opener::config::Config>> {
-    tauri_plugin_opener::init()
+/// 给应用注册 open_url 依赖的 opener 插件（插件配置类型不对外公开，所以包一层 Builder）。
+pub fn with_opener<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder.plugin(tauri_plugin_opener::init())
 }
 
 #[cfg(test)]

@@ -31,8 +31,7 @@ fn main() {
         .map(PathBuf::from)
         .find(|path| path.is_file());
 
-    tauri::Builder::default()
-        .plugin(qy_desktop_common::opener_plugin())
+    qy_desktop_common::with_opener(tauri::Builder::default())
         .manage(InitialFile(initial))
         .invoke_handler(tauri::generate_handler![
             initial_file,

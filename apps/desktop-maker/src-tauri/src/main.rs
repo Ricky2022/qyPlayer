@@ -32,9 +32,8 @@ async fn save_file(app: tauri::AppHandle, request: Request<'_>) -> Result<(), St
 }
 
 fn main() {
-    tauri::Builder::default()
+    qy_desktop_common::with_opener(tauri::Builder::default())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(qy_desktop_common::opener_plugin())
         .invoke_handler(tauri::generate_handler![
             save_file,
             qy_desktop_common::commands::set_title,
