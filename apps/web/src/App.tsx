@@ -76,6 +76,7 @@ export function App({ initialSource }: AppProps) {
   const [error, setError] = useState<unknown>(null);
   const [sampleError, setSampleError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -85,7 +86,7 @@ export function App({ initialSource }: AppProps) {
     setError(null);
     setSampleError(null);
     try {
-      const next = await PlaybackController.create(await openPackage(source));
+      const next = await PlaybackController.create(await openPackage(source), { onChecking: () => setChecking(true) });
       // 开发时在控制台和自动化测试里检查内部状态用
       if (import.meta.env.DEV) (window as unknown as { __qy?: PlaybackController }).__qy = next;
       setController((previous) => {
@@ -96,6 +97,7 @@ export function App({ initialSource }: AppProps) {
       setError(e);
     } finally {
       setBusy(false);
+      setChecking(false);
     }
   }, []);
 
@@ -174,7 +176,7 @@ export function App({ initialSource }: AppProps) {
           }}
         />
         <button className={classes.open} disabled={busy} onClick={() => inputRef.current?.click()}>
-          {busy ? t("homeOpening") : t("homeOpen")}
+          {checking ? t("homeChecking") : busy ? t("homeOpening") : t("homeOpen")}
         </button>
         <p className={classes.hint}>{t("homeDrop")}</p>
         <p className={classes.privacy}>{t("homePrivacy")}</p>

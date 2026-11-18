@@ -535,6 +535,8 @@ videoAudioGain(localTime, pageDuration) =
 
 - 播放时视频元素的音量 = 用户音量 × `videoAudioGain`；拖动定位到页中间时直接按函数取值，不产生跳变。
 - 验收：连续两个视频页在无配乐时切换，在两页边界前后各 0.1 秒内音量连续变化，没有从非零直接跳到零。
+- 实现说明（S3）：预检在 `apps/web/src/player/preflight.ts`，由 `PlaybackController.create` 调用；背景音乐无法播放时沿用原有的 `bgm-decode` 提示，不计入 `assets-unsupported` 的个数和页码；预检读取素材失败（包损坏）直接报错，只有解码失败才算“本设备不支持”。
+- 验证记录（S3）：本机 Chrome 的 `canPlayType('video/mp4; codecs="hvc1…"')` 为空，HEIC 无法解码，V3-05、V3-06 的占位画面和提示均出现，播放不中断，时间线不变；V3-07 用两个连续视频页（无配乐）逐帧采样，边界处音量 1 → 0.47 → 0.03 → 0.53 → 1，连续。真机 iPhone 素材仍待 S8 验收。
 
 ### 6.4 读取包内文件
 

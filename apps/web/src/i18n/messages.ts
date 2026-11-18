@@ -57,6 +57,10 @@ export const zh = {
   warnBgmRead: "背景音乐读取失败，将静音播放",
   warnAssetFailed: "素材 {src} 无法读取或解码，已跳过",
   warnAutoplay: "浏览器阻止了音频自动播放，请再点一次播放",
+  warnAssetsUnsupported: "有 {count} 个素材在本设备上无法播放（第 {pages} 页），这些位置会显示占位画面。",
+  warnPagesMore: "等",
+  placeholderCantPlay: "本设备无法播放",
+  homeChecking: "正在检查素材……",
 
   // 关于
   aboutPlayerDesc: "青云播放器用来在本机播放 .qyp 回忆影片：照片和视频配上音乐，带转场和入场动画。",
@@ -233,6 +237,10 @@ export const en: Record<MessageKey, string> = {
   warnBgmRead: "The background music could not be read. Playing without it.",
   warnAssetFailed: "Could not read or decode {src}. It was skipped.",
   warnAutoplay: "The browser blocked audio autoplay. Please press play again.",
+  warnAssetsUnsupported: "{count} item(s) cannot be played on this device (page {pages}). Placeholders will be shown in their place.",
+  warnPagesMore: " and more",
+  placeholderCantPlay: "Can't play on this device",
+  homeChecking: "Checking media...",
 
   aboutPlayerDesc: "qyPlayer plays .qyp memory films on your own computer: photos and videos set to music, with transitions and entrance animations.",
   aboutMakerDesc: "qyMaker turns a set of photos and videos, plus music, into a .qyp memory film with transitions and entrance animations.",

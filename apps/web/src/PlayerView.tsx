@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createUseStyles } from "react-jss";
 import { useI18n, type MessageKey } from "./i18n";
 import type { PlaybackController, PlayerWarning, PlayState } from "./player/PlaybackController";
+import { MAX_LISTED_PAGES } from "./player/preflight";
 import { Slider } from "./ui/Slider";
 import { theme } from "./ui/theme";
 import { useAutoHide } from "./ui/useAutoHide";
@@ -25,6 +26,7 @@ const WARNING_MESSAGES: Record<PlayerWarning["code"], MessageKey> = {
   "bgm-read": "warnBgmRead",
   "asset-failed": "warnAssetFailed",
   "autoplay-blocked": "warnAutoplay",
+  "assets-unsupported": "warnAssetsUnsupported",
 };
 
 const useStyles = createUseStyles({
@@ -63,6 +65,16 @@ const useStyles = createUseStyles({
     background: "rgba(160, 90, 0, 0.92)", fontSize: 13, whiteSpace: "pre-line",
   },
 });
+
+function describeWarning(warning: PlayerWarning, t: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+  const pages = warning.pages ?? [];
+  const listed = pages.slice(0, MAX_LISTED_PAGES).join(t("listSeparator"));
+  return t(WARNING_MESSAGES[warning.code], {
+    src: warning.src ?? "",
+    count: warning.count ?? 0,
+    pages: pages.length > MAX_LISTED_PAGES ? `${listed}${t("warnPagesMore")}` : listed,
+  });
+}
 
 function formatTime(seconds: number): string {
   const s = Math.floor(seconds);
@@ -118,6 +130,10 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
       canvas.remove();
     };
   }, [controller, classes.canvas]);
+
+  useEffect(() => {
+    controller.setPlaceholderText(t("placeholderCantPlay"));
+  }, [controller, t]);
 
   useEffect(() => {
     const onChange = (): void => setFullscreen(document.fullscreenElement === rootRef.current);
@@ -196,7 +212,7 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
 
       {warnings.length > 0 && (
         <div className={classes.warning} role="status">
-          {warnings.map((w) => t(WARNING_MESSAGES[w.code], { src: w.src ?? "" })).join("\n")}
+          {warnings.map((w) => describeWarning(w, t)).join("\n")}
         </div>
       )}
 

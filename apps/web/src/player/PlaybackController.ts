@@ -1,15 +1,26 @@
-import { bgmGainAt, bgmPositionAt, stateAt, type Asset, type FrameState, type Layer, type Manifest } from "@qyplayer/core";
+import { bgmGainAt, bgmPositionAt, stateAt, videoAudioGain, type Asset, type FrameState, type Layer, type Manifest } from "@qyplayer/core";
 import type { OpenedPackage } from "@qyplayer/qyp";
-import { renderFrame, type DrawableAsset } from "@qyplayer/renderer";
+import { renderFrame, type DrawableAsset, type PlaceholderAsset } from "@qyplayer/renderer";
+import { browserPreflightEnv, pagesUsing, playbackMimeType, preflightAssets, type PreflightEnv } from "./preflight";
 import { Clock, distance } from "./timing";
 
 export type PlayState = "paused" | "playing" | "ended";
 
 /** 不影响继续播放的提示。只给代码，文字由界面按语言翻译 */
 export interface PlayerWarning {
-  code: "bgm-decode" | "bgm-read" | "asset-failed" | "autoplay-blocked";
+  code: "bgm-decode" | "bgm-read" | "asset-failed" | "autoplay-blocked" | "assets-unsupported";
   /** asset-failed 时是出问题的包内路径 */
   src?: string;
+  /** assets-unsupported 时：无法播放的素材个数，和用到它们的页码（从 1 开始、升序，完整列表，由界面决定列出几个） */
+  count?: number;
+  pages?: number[];
+}
+
+export interface CreateOptions {
+  /** 预检要读文件试解码（较慢）时调用一次，用于显示“正在检查素材” */
+  onChecking?: () => void;
+  /** 测试用：替换浏览器能力查询 */
+  preflightEnv?: PreflightEnv;
 }
 
 export interface PlayerEvents {
@@ -58,6 +69,9 @@ export class PlaybackController {
   private readonly videos = new Map<string, VideoSlot>();
   private readonly pending = new Map<string, Promise<void>>();
   private readonly failed = new Set<string>();
+  /** 预检判定本设备无法播放的素材 id */
+  private readonly unsupported: ReadonlySet<string>;
+  private placeholderText = "";
   private readonly audio: HTMLAudioElement | null = null;
   private audioUrl: string | null = null;
   private readonly audioIsMaster: boolean;
@@ -74,8 +88,12 @@ export class PlaybackController {
     if (document.hidden) this.pause();
   };
 
-  private constructor(private readonly pkg: OpenedPackage) {
+  private constructor(
+    private readonly pkg: OpenedPackage,
+    unsupported: ReadonlySet<string>,
+  ) {
     this.manifest = pkg.manifest;
+    this.unsupported = unsupported;
     this.clock = new Clock(this.manifest.duration);
     for (const asset of this.manifest.assets) this.assets.set(asset.id, asset);
     this.pageAssets = this.manifest.pages.map((p) => [...new Set(p.items.map((i) => i.assetId))]);
@@ -96,13 +114,32 @@ export class PlaybackController {
       this.audio.addEventListener("error", () => this.warn({ code: "bgm-decode" }));
     }
     document.addEventListener("visibilitychange", this.onVisibility);
+
+    // 背景音乐无法播放走原有的 bgm-decode 提示；画面素材汇总成一条带页码的提示
+    const visual = new Set([...unsupported].filter((id) => id !== bgm?.assetId));
+    if (bgm && unsupported.has(bgm.assetId)) this.warnings.push({ code: "bgm-decode" });
+    if (visual.size > 0) this.warnings.push({ code: "assets-unsupported", count: visual.size, pages: pagesUsing(this.manifest, visual) });
   }
 
-  /** 创建控制器并准备好第一帧（第一页的素材已就绪），之后即可 play()。 */
-  static async create(pkg: OpenedPackage): Promise<PlaybackController> {
-    const controller = new PlaybackController(pkg);
+  /** 先预检素材（0.2 包），再创建控制器并准备好第一帧（第一页的素材已就绪），之后即可 play()。 */
+  static async create(pkg: OpenedPackage, options: CreateOptions = {}): Promise<PlaybackController> {
+    let unsupported: ReadonlySet<string>;
+    try {
+      ({ unsupported } = await preflightAssets(pkg.manifest, (path) => pkg.readBlob(path), options.preflightEnv ?? browserPreflightEnv(), options.onChecking));
+    } catch (error) {
+      void pkg.close();
+      throw error;
+    }
+    const controller = new PlaybackController(pkg, unsupported);
     await controller.prepare();
     return controller;
+  }
+
+  /** 占位画面上的文字（界面语言相关，由界面传入）；变化后补画一帧 */
+  setPlaceholderText(text: string): void {
+    if (text === this.placeholderText) return;
+    this.placeholderText = text;
+    this.redrawIfIdle();
   }
 
   get state(): PlayState {
@@ -123,12 +160,12 @@ export class PlaybackController {
   }
 
   /** 内部状态快照，仅供开发和自动化测试检查同步情况 */
-  debugInfo(): { time: number; audioTime: number | null; audioPaused: boolean | null; videos: { id: string; time: number; paused: boolean; muted: boolean }[] } {
+  debugInfo(): { time: number; audioTime: number | null; audioPaused: boolean | null; videos: { id: string; time: number; paused: boolean; muted: boolean; volume: number }[] } {
     return {
       time: this.currentTime,
       audioTime: this.audio ? this.audio.currentTime : null,
       audioPaused: this.audio ? this.audio.paused : null,
-      videos: [...this.videos].map(([id, v]) => ({ id, time: v.element.currentTime, paused: v.element.paused, muted: v.element.muted })),
+      videos: [...this.videos].map(([id, v]) => ({ id, time: v.element.currentTime, paused: v.element.paused, muted: v.element.muted, volume: v.element.volume })),
     };
   }
   get volume(): number {
@@ -211,7 +248,7 @@ export class PlaybackController {
     const bgm = this.manifest.bgm;
     if (bgm && this.audio) {
       const asset = this.assets.get(bgm.assetId);
-      if (asset) {
+      if (asset && !this.unsupported.has(asset.id)) {
         try {
           this.audioUrl = URL.createObjectURL(await this.pkg.readBlob(asset.src));
           this.audio.src = this.audioUrl;
@@ -258,7 +295,7 @@ export class PlaybackController {
 
   private load(id: string): void {
     const asset = this.assets.get(id);
-    if (!asset || this.failed.has(id) || this.images.has(id) || this.videos.has(id) || this.pending.has(id)) return;
+    if (!asset || this.unsupported.has(id) || this.failed.has(id) || this.images.has(id) || this.videos.has(id) || this.pending.has(id)) return;
     const task = (asset.type === "video" ? this.loadVideo(asset) : this.loadImage(asset))
       .catch(() => this.fail(asset))
       .finally(() => {
@@ -290,7 +327,9 @@ export class PlaybackController {
   }
 
   private async loadVideo(asset: Asset): Promise<void> {
-    const url = URL.createObjectURL(await this.pkg.readBlob(asset.src));
+    const blob = await this.pkg.readBlob(asset.src);
+    // 0.2 包按清单里的类型建 Blob，MOV 换成 video/mp4，浏览器才肯播
+    const url = URL.createObjectURL(asset.mimeType ? blob.slice(0, blob.size, playbackMimeType(asset.mimeType)) : blob);
     if (this.disposed) {
       URL.revokeObjectURL(url);
       return;
@@ -335,7 +374,8 @@ export class PlaybackController {
 
   // ---------- 内部：绘制与同步 ----------
 
-  private readonly resolve = (assetId: string, layer: Layer): DrawableAsset | undefined => {
+  private readonly resolve = (assetId: string, layer: Layer): DrawableAsset | PlaceholderAsset | undefined => {
+    if (this.unsupported.has(assetId)) return { placeholder: true };
     if (layer.kind === "image") {
       const bitmap = this.images.get(assetId);
       return bitmap && { source: bitmap, width: bitmap.width, height: bitmap.height };
@@ -370,7 +410,7 @@ export class PlaybackController {
   private draw(t: number): void {
     const state = stateAt(this.manifest, t);
     this.sweep(state.pageIndex);
-    renderFrame(this.ctx, this.manifest, state, this.resolve);
+    renderFrame(this.ctx, this.manifest, state, this.resolve, { placeholderText: this.placeholderText });
     this.syncMedia(state, t);
     this.events?.onTime(t);
   }
@@ -378,7 +418,7 @@ export class PlaybackController {
   private syncMedia(state: FrameState, t: number): void {
     const playing = this.clock.playing;
     this.syncAudio(t, playing);
-    this.syncVideos(state, playing);
+    this.syncVideos(state, playing, t);
   }
 
   private syncAudio(t: number, playing: boolean): void {
@@ -412,8 +452,9 @@ export class PlaybackController {
     return item && (item.clipStart ?? 0);
   }
 
-  private syncVideos(state: FrameState, playing: boolean): void {
-    const currentPageId = this.manifest.pages[state.pageIndex]?.id;
+  private syncVideos(state: FrameState, playing: boolean, t: number): void {
+    const currentPage = this.manifest.pages[state.pageIndex];
+    const currentPageId = currentPage?.id;
     const active = new Map<string, Layer>();
     for (const layer of state.layers) if (layer.kind === "video") active.set(layer.assetId, layer);
 
@@ -428,6 +469,10 @@ export class PlaybackController {
       }
       // 转场中上一页的视频停在末帧；暂停时一律停在目标帧
       const shouldRun = playing && layer.pageId === currentPageId;
+      // 没有背景音乐时，视频原声每页首尾各淡 0.1 秒，避免相邻视频页切换时爆音（A-05）
+      if (shouldRun && currentPage && this.manifest.bgm === undefined) {
+        element.volume = this.volumeValue * videoAudioGain(t - currentPage.start, currentPage.duration);
+      }
       const tolerance = shouldRun ? VIDEO_DRIFT_PLAYING : VIDEO_DRIFT_PAUSED;
       if (Math.abs(element.currentTime - layer.videoTime) > tolerance) element.currentTime = layer.videoTime;
       if (shouldRun) {
