@@ -9,6 +9,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
+        create: resolve(__dirname, "create.html"),
         playground: resolve(__dirname, "playground.html"),
         bench: resolve(__dirname, "bench.html"),
       },

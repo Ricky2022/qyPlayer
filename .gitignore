@@ -8,3 +8,6 @@ Thumbs.db
 # 构建产物（可由脚本重新生成）
 fixtures/build/
 fixtures/downloads/
+
+# 示例包和内置配乐：由 fixtures:build 复制或部署时从 Release 下载
+apps/web/public/samples/
