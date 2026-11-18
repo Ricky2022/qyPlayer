@@ -1,8 +1,10 @@
-# qyPlayer
+# qyPlayer (青云播放器)
+
+<img src="./assets/icons/qyplayer.svg" alt="qyPlayer" width="96"> <img src="./assets/icons/qymaker.svg" alt="qyMaker" width="96">
 
 English | [中文](./README.md)
 
-qyPlayer is an open-source, cross-platform, local-first "memory film" player, together with the `.qyp` package format. It works much like the Memories feature in Apple Photos: it arranges a set of photos and videos, plus music, into a film with transitions and entrance animations.
+qyPlayer (青云播放器 in Chinese) is an open-source, cross-platform, local-first "memory film" player, together with the `.qyp` package format. It works much like the Memories feature in Apple Photos: it arranges a set of photos and videos, plus music, into a film with transitions and entrance animations.
 
 **Everything is processed in your browser. Files are never uploaded to a server. There are no accounts and no backend.**
 
@@ -11,11 +13,11 @@ qyPlayer is an open-source, cross-platform, local-first "memory film" player, to
 - Player: <https://ricky2022.github.io/qyPlayer/>. Open or drop a `.qyp` file, or try the built-in samples.
 - Creator: <https://ricky2022.github.io/qyPlayer/create.html>. Pick photos and videos, choose a template and music, then generate and download a `.qyp`.
 
-The user interface is currently in Chinese only.
+The interface is available in Chinese and English. It follows the system language by default; the switch in the top-right corner is remembered.
 
 ## Download for Windows
 
-The player and the creator are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
+The player (qyPlayer, 青云播放器) and the creator (qyMaker, 青云制作器) are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
 
 | Program | Installer | Portable |
 | --- | --- | --- |
@@ -24,7 +26,10 @@ The player and the creator are two separate programs. Both run entirely on your 
 
 All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/releases) page.
 
-- The installers do not need administrator rights. After installing, double-clicking a `.qyp` file in Explorer opens it in the player.
+- The installers do not need administrator rights. The installer language follows the system (Chinese or English). You can pick the install folder, whether to create a desktop shortcut, and whether to launch after installing; running a newer installer upgrades in place. After installing, double-clicking a `.qyp` file in Explorer opens it in the player, with its own file icon.
+- Uninstall from Settings > Apps, or use the Start menu shortcut. It removes shortcuts, registry entries and the `.qyp` association; tick "Delete the application data" to remove cached program data too. Your own `.qyp` files are never touched.
+- The player no longer bundles music, so it is smaller; the built-in music is only in the creator.
+- Upgrading from 0.1.0: just run the new player installer over it. The 0.1.0 creator was named "qyPlayer 制作器" and the new one is "qyMaker", so it is not treated as an upgrade; please uninstall the old one from Settings > Apps first.
 - For the portable zips, unzip and run `qyPlayer.exe` or `qyMaker.exe`. WebView2 must already be installed (Windows 10 / 11 usually ship with it); the installers install it when it is missing.
 - The programs are not code-signed, so Windows SmartScreen may warn about an "unknown publisher" on first run: click "More info", then "Run anyway".
 - The desktop apps are the web app inside the system WebView2, so features and limitations are the same as the web version.
@@ -32,6 +37,8 @@ All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/release
 ## Status
 
 This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps, MP4 export and AI-assisted editing have not been started.
+
+New in 0.2.0: an immersive player (auto-hiding controls, a big play button, keyboard shortcuts); a bilingual Chinese / English interface; an About page; new Q + cloud icons (a play triangle for the player, a pencil for the creator) and a dedicated `.qyp` file icon; a reworked Windows installer (see above).
 
 What works today:
 
@@ -59,6 +66,8 @@ TypeScript (strict), React 19, react-jss, Vite, Vitest, pnpm workspace. Canvas 2
 | `packages/qyp` | Reading and writing `.qyp`, safety checks, conformance packages, audio and video format checks |
 | `apps/web` | The web app: player (`index.html`) and creator (`create.html`) |
 | `apps/desktop-player`, `apps/desktop-maker` | Tauri projects for the Windows apps (player and creator); both reuse the `apps/web` build output |
+| `apps/desktop-common` | Rust code shared by both desktop apps, and the NSIS installer template |
+| `assets` | Icon sources (SVG) with their generator, and the installer image generator |
 | `spec` | JSON Schema of the manifest and an example |
 | `fixtures` | Source records of the sample media, conformance packages |
 | `scripts` | Download sample media, check licenses, build sample packages |
@@ -85,7 +94,7 @@ pnpm fixtures:build    # build sample packages and copy them to apps/web/public/
 
 On the live site, the sample files are attached to the GitHub Release `samples-v1` and downloaded into the site at deploy time.
 
-The Windows apps are built by GitHub Actions: pushing a `v*` tag (such as `v0.1.0`, which must match the version in both `tauri.conf.json` files) publishes a Release automatically. You can also run "Release Windows apps" by hand on the Actions page to build without publishing. Building locally needs the Rust toolchain and the MSVC build tools: run `pnpm --filter @qyplayer/web build`, then `pnpm --filter @qyplayer/desktop-player bundle` (and the same for the creator).
+The Windows apps are built by GitHub Actions: pushing a `v*` tag (such as `v0.2.0`, which must match the version in both `tauri.conf.json` files) publishes a Release automatically. You can also run "Release Windows apps" by hand on the Actions page to build without publishing. Building locally needs the Rust toolchain and the MSVC build tools: run `pnpm --filter @qyplayer/web build:player`, then `pnpm --filter @qyplayer/desktop-player bundle`; for the creator use `build:maker` and `@qyplayer/desktop-maker` (the player build omits the built-in music, the creator build includes it).
 
 ## Sample media and licenses
 
