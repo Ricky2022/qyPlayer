@@ -1,0 +1,18 @@
+{
+  "name": "@qyplayer/qyp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@qyplayer/core": "workspace:*",
+    "@zip.js/zip.js": "^2.25.0"
+  }
+}
