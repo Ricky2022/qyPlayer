@@ -37,8 +37,8 @@ fn main() {
         .plugin(qy_desktop_common::opener_plugin())
         .invoke_handler(tauri::generate_handler![
             save_file,
-            qy_desktop_common::set_title,
-            qy_desktop_common::open_url
+            qy_desktop_common::commands::set_title,
+            qy_desktop_common::commands::open_url
         ])
         .run(tauri::generate_context!())
         .expect("启动青云制作器失败");

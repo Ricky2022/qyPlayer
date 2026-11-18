@@ -37,8 +37,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             initial_file,
             read_file,
-            qy_desktop_common::set_title,
-            qy_desktop_common::open_url
+            qy_desktop_common::commands::set_title,
+            qy_desktop_common::commands::open_url
         ])
         .run(tauri::generate_context!())
         .expect("启动青云播放器失败");

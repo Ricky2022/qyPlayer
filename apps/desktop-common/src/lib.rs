@@ -1,7 +1,5 @@
 //! 播放器和制作器共用的 Tauri 命令：改窗口标题、用系统浏览器打开白名单里的链接。
 
-use tauri_plugin_opener::OpenerExt;
-
 /// 允许从程序里打开的链接前缀：作者主页和项目仓库。
 /// 网页不能借此让系统打开任意地址。
 const ALLOWED_URLS: [&str; 2] = [
@@ -17,23 +15,30 @@ fn is_allowed(url: &str) -> bool {
     })
 }
 
-/// 随界面语言更新窗口标题。
-#[tauri::command]
-pub fn set_title(window: tauri::WebviewWindow, title: String) -> Result<(), String> {
-    window.set_title(&title).map_err(|e| e.to_string())
-}
+/// Tauri 命令必须放在子模块里：写在 lib.rs 根部时，命令宏生成的同名宏会重复定义而编译失败。
+pub mod commands {
+    use tauri_plugin_opener::OpenerExt;
 
-/// 用系统默认浏览器打开链接。
-#[tauri::command]
-pub fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
-    if !is_allowed(&url) {
-        return Err("不允许打开该链接".into());
+    use super::is_allowed;
+
+    /// 随界面语言更新窗口标题。
+    #[tauri::command]
+    pub fn set_title(window: tauri::WebviewWindow, title: String) -> Result<(), String> {
+        window.set_title(&title).map_err(|e| e.to_string())
     }
-    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+
+    /// 用系统默认浏览器打开链接。
+    #[tauri::command]
+    pub fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+        if !is_allowed(&url) {
+            return Err("不允许打开该链接".into());
+        }
+        app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+    }
 }
 
 /// 供两个程序注册的插件（open_url 依赖它）。
-pub fn opener_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+pub fn opener_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<tauri_plugin_opener::config::Config>> {
     tauri_plugin_opener::init()
 }
 
