@@ -22,6 +22,7 @@ import { editorMediaFromImport } from "./editor/fromImport";
 import { DESKTOP_MEDIA_QUERY } from "./editor/layout";
 import { menuStatus } from "./editor/menu";
 import { needsMusicRightsConfirm, resolveMusic } from "./editor/music";
+import { createPreviewPackage } from "./editor/preview";
 import { RestoreError, restorePackage } from "./editor/restore";
 import { commandForShortcut, shortcutLabel } from "./editor/shortcuts";
 import {
@@ -47,6 +48,9 @@ import {
   type EditorMediaInput,
   type EditorState,
 } from "./editor/state";
+import { browserExportCheckEnv, findUndecodable } from "./export/plan";
+import { exportMp4, type ExportProgress } from "./export/run";
+import { LONG_EXPORT_SECONDS } from "./export/spec";
 import { formatDuration, safeFileName, sortByCapturedAt } from "./files";
 import { ImportError, importMedia, importMusic } from "./importers";
 import { MenuBar, type BarCommand, type MenuGroup } from "./MenuBar";
@@ -134,7 +138,7 @@ export function CreatorApp() {
 
   const [failures, setFailures] = useState<ImportFailure[]>([]);
   const [importing, setImporting] = useState<{ done: number; total: number } | null>(null);
-  const [working, setWorking] = useState<"saving" | "opening" | null>(null);
+  const [working, setWorking] = useState<"saving" | "opening" | "exporting" | null>(null);
   const [customMusic, setCustomMusic] = useState<MusicEntry | null>(null);
   const [layoutMayDiffer, setLayoutMayDiffer] = useState(false);
   const [tab, setTab] = useState<Tab>("media");
@@ -142,6 +146,7 @@ export function CreatorApp() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [progress, setProgress] = useState<TranscodeProgress | null>(null);
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
   const saveAbort = useRef<AbortController | null>(null);
   const transcodeCache = useRef(new TranscodeCache());
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -159,7 +164,7 @@ export function CreatorApp() {
   const busy = importing !== null || working !== null;
   const busyRef = useRef(busy);
   busyRef.current = busy;
-  const modalOpen = confirmation !== null || errorMessage !== null || savedNote !== null || progress !== null || aboutOpen;
+  const modalOpen = confirmation !== null || errorMessage !== null || savedNote !== null || progress !== null || exportProgress !== null || aboutOpen;
   const dirty = isDirty(editor);
 
   // 转码开关关闭时丢弃转码缓存（5.5）
@@ -198,7 +203,7 @@ export function CreatorApp() {
     busy,
     canUndo: canUndo(editor),
     canRedo: canRedo(editor),
-    canExport: false,
+    canExport: !transcodeSetting.mobile && transcodeSetting.capabilities.videoEncode && transcodeSetting.capabilities.audioEncode,
   });
 
   const guardDirty = (action: () => void): void => {
@@ -339,6 +344,58 @@ export function CreatorApp() {
     }
   };
 
+  /** 导出 MP4（10）：用当前编辑内容生成与预览相同的影片，检查素材能解码后逐帧渲染和编码 */
+  const exportMovie = async (confirmedLong = false): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setWorking("exporting");
+    result?.controller.pause();
+    const controller = new AbortController();
+    saveAbort.current = controller;
+    try {
+      const current = currentDoc(editorRef.current);
+      const music = await resolveMusic(current.music);
+      const { opened, manifest } = createPreviewPackage(current, { ...(music && { music }), defaultTitleWord: t("defaultTitleWord") });
+      if (!confirmedLong && manifest.duration > LONG_EXPORT_SECONDS) {
+        setConfirmation({
+          message: t("exportLongMessage", { duration: formatDuration(manifest.duration) }),
+          confirmLabel: t("exportLongContinue"),
+          onConfirm: () => void exportMovie(true),
+        });
+        return;
+      }
+      announce(t("statusExporting"));
+      const undecodable = await findUndecodable(manifest, opened.readBlob, browserExportCheckEnv());
+      if (undecodable.length > 0) {
+        const nameOf = (id: string): string => {
+          const index = /^m(\d+)$/.exec(id)?.[1];
+          return (index !== undefined && current.media[Number(index) - 1]?.fileName) || music?.title || id;
+        };
+        setErrorMessage(t("exportUndecodable", { names: undecodable.map(nameOf).join("\n") }));
+        return;
+      }
+      setExportProgress({ fraction: 0 });
+      const blob = await exportMp4({ manifest, readBlob: opened.readBlob, signal: controller.signal, onProgress: setExportProgress });
+      setExportProgress(null);
+      const fileName = safeFileName(manifest.title, t("defaultTitleWord"), ".mp4");
+      let saved: boolean;
+      try {
+        saved = await saveBlob(blob, fileName);
+      } catch (error) {
+        setErrorMessage(t("makerSaveFailed", { detail: error instanceof Error ? error.message : String(error) }));
+        return;
+      }
+      if (saved) announce(t("statusExported", { name: fileName }));
+    } catch (error) {
+      if (isAbortError(error)) announce(t("statusExportCanceled"));
+      else setErrorMessage(t("exportFailed", { detail: error instanceof Error ? error.message : String(error) }));
+    } finally {
+      saveAbort.current = null;
+      setExportProgress(null);
+      setWorking(null);
+    }
+  };
+
   const pickMusic = async (file: File): Promise<void> => {
     try {
       const entry = await importMusic(file);
@@ -382,6 +439,12 @@ export function CreatorApp() {
         break;
       }
       case "exportMp4":
+        // 导入的音乐在导出前同样提示确认使用权（5.6）
+        if (needsMusicRightsConfirm(currentDoc(editorRef.current).music)) {
+          setConfirmation({ message: t("musicRightsMessage"), confirmLabel: t("musicRightsContinueExport"), onConfirm: () => void exportMovie() });
+        } else {
+          void exportMovie();
+        }
         break;
       case "undo":
         apply(undo);
@@ -657,6 +720,17 @@ export function CreatorApp() {
         <ProgressDialog
           message={t("transcodeProgress", { index: progress.index, total: progress.total, percent: Math.round(progress.fraction * 100) })}
           fraction={progress.fraction}
+          onCancel={() => saveAbort.current?.abort()}
+        />
+      )}
+      {exportProgress && (
+        <ProgressDialog
+          message={
+            exportProgress.remainingSeconds === undefined
+              ? t("exportProgress", { percent: Math.round(exportProgress.fraction * 100) })
+              : t("exportProgressRemaining", { percent: Math.round(exportProgress.fraction * 100), remaining: formatDuration(exportProgress.remainingSeconds) })
+          }
+          fraction={exportProgress.fraction}
           onCancel={() => saveAbort.current?.abort()}
         />
       )}
