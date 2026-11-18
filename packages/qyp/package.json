@@ -5,7 +5,8 @@
   "type": "module",
   "license": "Apache-2.0",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./inspect": "./src/inspect.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -13,6 +14,7 @@
   },
   "dependencies": {
     "@qyplayer/core": "workspace:*",
-    "@zip.js/zip.js": "^2.25.0"
+    "@zip.js/zip.js": "^2.25.0",
+    "music-metadata": "^12.7.0"
   }
 }

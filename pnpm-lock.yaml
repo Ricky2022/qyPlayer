@@ -20,9 +20,6 @@ importers:
       image-size:
         specifier: ^2.1.0
         version: 2.1.0
-      music-metadata:
-        specifier: ^12.7.0
-        version: 12.7.0
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -84,6 +81,9 @@ importers:
       '@zip.js/zip.js':
         specifier: ^2.25.0
         version: 2.25.0
+      music-metadata:
+        specifier: ^12.7.0
+        version: 12.7.0
 
   packages/renderer:
     dependencies:

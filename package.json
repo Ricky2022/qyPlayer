@@ -23,7 +23,6 @@
     "@qyplayer/qyp": "workspace:*",
     "@types/node": "^26.6.6",
     "image-size": "^2.1.0",
-    "music-metadata": "^12.7.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
