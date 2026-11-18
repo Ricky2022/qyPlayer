@@ -13,9 +13,25 @@ qyPlayer is an open-source, cross-platform, local-first "memory film" player, to
 
 The user interface is currently in Chinese only.
 
+## Download for Windows
+
+The player and the creator are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
+
+| Program | Installer | Portable |
+| --- | --- | --- |
+| Player | [qyPlayer-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyPlayer-Setup-x64.exe) | [qyPlayer-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyPlayer-x64-portable.zip) |
+| Creator | [qyMaker-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyMaker-Setup-x64.exe) | [qyMaker-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyMaker-x64-portable.zip) |
+
+All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/releases) page.
+
+- The installers do not need administrator rights. After installing, double-clicking a `.qyp` file in Explorer opens it in the player.
+- For the portable zips, unzip and run `qyPlayer.exe` or `qyMaker.exe`. WebView2 must already be installed (Windows 10 / 11 usually ship with it); the installers install it when it is missing.
+- The programs are not code-signed, so Windows SmartScreen may warn about an "unknown publisher" on first run: click "More info", then "Run anyway".
+- The desktop apps are the web app inside the system WebView2, so features and limitations are the same as the web version.
+
 ## Status
 
-This is **Phase 0 (technical research)**: only the Web version exists, to validate the technical approach. Desktop and mobile apps, MP4 export and AI-assisted editing have not been started.
+This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps, MP4 export and AI-assisted editing have not been started.
 
 What works today:
 
@@ -32,7 +48,7 @@ Known limitations (details in the [Phase 0 report](./docs/phase0-report.md), in 
 
 ## Tech stack
 
-TypeScript (strict), React 19, react-jss, Vite, Vitest, pnpm workspace. Canvas 2D rendering, zip.js for packages, Ajv for manifest validation, music-metadata for checking audio and video formats.
+TypeScript (strict), React 19, react-jss, Vite, Vitest, pnpm workspace. Canvas 2D rendering, zip.js for packages, Ajv for manifest validation, music-metadata for checking audio and video formats. The Windows desktop apps use Tauri 2 (Rust).
 
 ## Repository layout
 
@@ -42,6 +58,7 @@ TypeScript (strict), React 19, react-jss, Vite, Vitest, pnpm workspace. Canvas 2
 | `packages/renderer` | Canvas 2D renderer that draws a timeline state |
 | `packages/qyp` | Reading and writing `.qyp`, safety checks, conformance packages, audio and video format checks |
 | `apps/web` | The web app: player (`index.html`) and creator (`create.html`) |
+| `apps/desktop-player`, `apps/desktop-maker` | Tauri projects for the Windows apps (player and creator); both reuse the `apps/web` build output |
 | `spec` | JSON Schema of the manifest and an example |
 | `fixtures` | Source records of the sample media, conformance packages |
 | `scripts` | Download sample media, check licenses, build sample packages |
@@ -67,6 +84,8 @@ pnpm fixtures:build    # build sample packages and copy them to apps/web/public/
 ```
 
 On the live site, the sample files are attached to the GitHub Release `samples-v1` and downloaded into the site at deploy time.
+
+The Windows apps are built by GitHub Actions: pushing a `v*` tag (such as `v0.1.0`, which must match the version in both `tauri.conf.json` files) publishes a Release automatically. You can also run "Release Windows apps" by hand on the Actions page to build without publishing. Building locally needs the Rust toolchain and the MSVC build tools: run `pnpm --filter @qyplayer/web build`, then `pnpm --filter @qyplayer/desktop-player bundle` (and the same for the creator).
 
 ## Sample media and licenses
 

@@ -11,9 +11,25 @@ qyPlayer 是一个开源、跨平台、本地优先的“回忆影片”播放�
 - 播放器：<https://ricky2022.github.io/qyPlayer/>，打开或拖入 `.qyp` 文件，也可以直接试看内置示例。
 - 制作页：<https://ricky2022.github.io/qyPlayer/create.html>，选照片和视频，选模板和配乐，生成 `.qyp` 并下载。
 
+## 下载 Windows 版
+
+播放器和制作器是两个独立的程序，都只在本机运行。需要 Windows 10 / 11（64 位）。
+
+| 程序 | 安装包 | 免安装版 |
+| --- | --- | --- |
+| 播放器 | [qyPlayer-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyPlayer-Setup-x64.exe) | [qyPlayer-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyPlayer-x64-portable.zip) |
+| 制作器 | [qyMaker-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyMaker-Setup-x64.exe) | [qyMaker-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/latest/download/qyMaker-x64-portable.zip) |
+
+所有版本见 [Releases](https://github.com/Ricky2022/qyPlayer/releases)。
+
+- 安装包不需要管理员权限，装好后在资源管理器里双击 `.qyp` 文件就会用播放器打开。
+- 免安装版解压后直接运行 `qyPlayer.exe` 或 `qyMaker.exe`；需要系统已有 WebView2（Windows 10 / 11 一般自带）。安装包会在缺少时自动安装。
+- 程序没有代码签名，第一次运行时 Windows SmartScreen 可能提示“未知发布者”：点“更多信息”，再点“仍要运行”。
+- 桌面版就是把网页版装进系统自带的 WebView2 窗口里，功能和限制与网页版一致。
+
 ## 当前状态
 
-处于**阶段 0（技术预研）**：只做了 Web 版，用来验证技术路线。桌面端和手机端、MP4 导出、AI 编排都还没有开始。
+处于**阶段 0（技术预研）**：做了 Web 版和一个 Windows 桌面壳，用来验证技术路线。macOS、手机端、MP4 导出、AI 编排都还没有开始。
 
 已经可用：
 
@@ -30,7 +46,7 @@ qyPlayer 是一个开源、跨平台、本地优先的“回忆影片”播放�
 
 ## 技术栈
 
-TypeScript（严格模式）、React 19、react-jss、Vite、Vitest、pnpm workspace。Canvas 2D 渲染，zip.js 读写包，Ajv 校验清单，music-metadata 检查音视频格式。
+TypeScript（严格模式）、React 19、react-jss、Vite、Vitest、pnpm workspace。Canvas 2D 渲染，zip.js 读写包，Ajv 校验清单，music-metadata 检查音视频格式。Windows 桌面版用 Tauri 2（Rust）。
 
 ## 目录结构
 
@@ -40,6 +56,7 @@ TypeScript（严格模式）、React 19、react-jss、Vite、Vitest、pnpm works
 | `packages/renderer` | 把时间线状态画到 Canvas 2D 的渲染器 |
 | `packages/qyp` | `.qyp` 的读写、安全校验、一致性测试包、音视频格式检查 |
 | `apps/web` | 网页：播放器（`index.html`）和制作页（`create.html`） |
+| `apps/desktop-player`、`apps/desktop-maker` | Windows 桌面版的 Tauri 工程：播放器和制作器，共用 `apps/web` 的构建产物 |
 | `spec` | 清单的 JSON Schema 和示例 |
 | `fixtures` | 示例素材的来源记录、一致性测试包 |
 | `scripts` | 下载示例素材、检查许可、构建示例包 |
@@ -65,6 +82,8 @@ pnpm fixtures:build    # 构建示例包，并复制到 apps/web/public/samples�
 ```
 
 线上站点的示例文件放在 GitHub Release `samples-v1` 的附件里，部署时下载到站点中。
+
+Windows 桌面版由 GitHub Actions 构建：推送 `v*` 标签（如 `v0.1.0`，要与两个 `tauri.conf.json` 里的版本号一致）会自动发布 Release；也可以在 Actions 页手动运行 “Release Windows apps” 只构建、不发布。本地构建需要 Rust 工具链和 MSVC 生成工具：先 `pnpm --filter @qyplayer/web build`，再 `pnpm --filter @qyplayer/desktop-player bundle`（制作器同理）。
 
 ## 示例素材与许可
 
