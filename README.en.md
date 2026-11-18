@@ -19,12 +19,12 @@ The interface is available in Chinese and English. It follows the system languag
 
 The player (qyPlayer, 青云播放器) and the creator (qyMaker, 青云制作器) are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
 
-Current version: [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1).
+Current version: [v0.3.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.3.0) (preview). **The official v0.3.0 Release has not been published yet, so the links below only work after it is**; for now you can download preview installers with the same names from the latest successful run on [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml) (`windows-apps` at the bottom of the page). The previous official version is [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1).
 
 | Program | Installer | Portable |
 | --- | --- | --- |
-| Player | [qyPlayer-0.2.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyPlayer-0.2.1-Setup-x64.exe) | [qyPlayer-0.2.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyPlayer-0.2.1-x64-portable.zip) |
-| Creator | [qyMaker-0.2.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyMaker-0.2.1-Setup-x64.exe) | [qyMaker-0.2.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyMaker-0.2.1-x64-portable.zip) |
+| Player | [qyPlayer-0.3.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyPlayer-0.3.0-Setup-x64.exe) | [qyPlayer-0.3.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyPlayer-0.3.0-x64-portable.zip) |
+| Creator | [qyMaker-0.3.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyMaker-0.3.0-Setup-x64.exe) | [qyMaker-0.3.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyMaker-0.3.0-x64-portable.zip) |
 
 All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/releases) page.
 
@@ -42,7 +42,7 @@ This is **Phase 0 (technical research)**: the Web version and a Windows desktop 
 
 ### 0.3.0 preview (not officially released yet)
 
-The contents of this repository are already the 0.3.0 preview; the detailed plan is in [`docs/dev-0.3.0.md`](./docs/dev-0.3.0.md) (in Chinese). The online demo is already the 0.3.0 preview; the Windows download table above is still the released 0.2.1. Windows preview installers for 0.3.0 are available from [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml): open the latest successful run and download `windows-apps` at the bottom of the page. Their file names still say 0.2.1 (the version is only raised to 0.3.0 at the official release), and they have not been fully tested, so do not treat them as a release.
+The contents of this repository are already the 0.3.0 preview; the detailed plan is in [`docs/dev-0.3.0.md`](./docs/dev-0.3.0.md) (in Chinese). The online demo is already the 0.3.0 preview, and the version inside the apps is already 0.3.0, but the official Release has not been published. Windows preview installers are in the latest successful run on [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml) (`windows-apps` at the bottom of the page). They have not been fully tested, so do not treat them as a release.
 
 Done:
 

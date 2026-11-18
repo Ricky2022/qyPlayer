@@ -19,12 +19,12 @@
 
 播放器（青云播放器 / qyPlayer）和制作器（青云制作器 / qyMaker）是两个独立的程序，都只在本机运行。需要 Windows 10 / 11（64 位）。
 
-当前版本：[v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1)。
+当前版本：[v0.3.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.3.0)（预览版）。**v0.3.0 的正式 Release 还没有发布，下面的链接要等发布后才能下载**；现在可以从 [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml) 最近一次成功的运行里下载同名的预览安装包（页面底部的 `windows-apps`）。上一个正式版是 [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1)。
 
 | 程序 | 安装包 | 免安装版 |
 | --- | --- | --- |
-| 播放器 | [qyPlayer-0.2.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyPlayer-0.2.1-Setup-x64.exe) | [qyPlayer-0.2.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyPlayer-0.2.1-x64-portable.zip) |
-| 制作器 | [qyMaker-0.2.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyMaker-0.2.1-Setup-x64.exe) | [qyMaker-0.2.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.2.1/qyMaker-0.2.1-x64-portable.zip) |
+| 播放器 | [qyPlayer-0.3.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyPlayer-0.3.0-Setup-x64.exe) | [qyPlayer-0.3.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyPlayer-0.3.0-x64-portable.zip) |
+| 制作器 | [qyMaker-0.3.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyMaker-0.3.0-Setup-x64.exe) | [qyMaker-0.3.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyMaker-0.3.0-x64-portable.zip) |
 
 所有版本见 [Releases](https://github.com/Ricky2022/qyPlayer/releases)。
 
@@ -42,7 +42,7 @@
 
 ### 0.3.0 预览版（尚未正式发布）
 
-本仓库的内容已经是 0.3.0 的预览版，详细方案见 [`docs/dev-0.3.0.md`](./docs/dev-0.3.0.md)。在线试用的网页已经是 0.3.0 预览版；上面的 Windows 下载表格仍是已发布的 0.2.1。0.3.0 的 Windows 预览安装包可以在 [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml) 里选最近一次成功的运行，在页面底部下载 `windows-apps`；它们的文件名里版本号仍写 0.2.1（版本号要等正式发布时才升到 0.3.0），未经完整验收，不要当作正式版使用。
+本仓库的内容已经是 0.3.0 的预览版，详细方案见 [`docs/dev-0.3.0.md`](./docs/dev-0.3.0.md)。在线试用的网页已经是 0.3.0 预览版；应用内的版本号也已升到 0.3.0，但正式 Release 还没有发布。Windows 预览安装包在 [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml) 最近一次成功的运行里（页面底部的 `windows-apps`），未经完整验收，不要当作正式版使用。
 
 已经完成：
 
