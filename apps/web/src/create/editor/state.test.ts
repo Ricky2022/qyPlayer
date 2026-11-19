@@ -246,7 +246,7 @@ describe("编辑状态：撤销和重做", () => {
   });
 
   it("转码开关不在历史里（状态里没有它）", () => {
-    expect(Object.keys(currentDoc(fresh())).sort()).toEqual(["aspect", "length", "look", "media", "music", "seed", "showTitle", "subtitle", "templateId", "title", "transition"]);
+    expect(Object.keys(currentDoc(fresh())).sort()).toEqual(["aspect", "length", "look", "media", "music", "pages", "seed", "showTitle", "subtitle", "templateId", "title", "transition"]);
   });
 });
 
@@ -307,6 +307,7 @@ describe("编辑状态：新建和打开", () => {
       look: "original",
       music: { kind: "none" },
       seed: 5,
+      pages: null,
     });
     expect(names(state)).toEqual(["照片 1", "照片 2"]);
     expect(currentDoc(state).media.map((m) => m.key)).toEqual([1, 2]);

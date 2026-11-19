@@ -24,6 +24,8 @@ export interface GeneratorInfo {
   seed?: number;
   /** 格式 0.3：用户选的转场，用于重新打开时还原；缺省表示跟随模板 */
   transition?: string;
+  /** 0.4.1：单页编辑后的编排（PagePlan[]，素材用清单里的 id）；生成器的私有数据，播放器不读，缺省表示自动编排 */
+  plan?: unknown;
 }
 
 export interface Canvas {

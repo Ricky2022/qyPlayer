@@ -1,8 +1,9 @@
 // 打开已有 .qyp 时，把包还原成可编辑的内容（规则见 docs/dev-0.3.0.md 3A.5）。
-import { KNOWN_LOOKS, TEMPLATES, TRANSITION_CHOICES, type Asset, type Manifest } from "@qyplayer/core";
+import { KNOWN_LOOKS, TEMPLATES, TRANSITION_CHOICES, planProblems, type Asset, type Manifest, type PagePlan } from "@qyplayer/core";
 import { mimeForPath, type OpenedPackage } from "@qyplayer/qyp";
 import type { MusicEntry } from "../buildPackage";
 import { BUILTIN_TRACKS, type BuiltinTrack } from "../builtinMusicInfo";
+import { pagesFromPlan, type EditorPage } from "./pages";
 import type { EditorContent, EditorMediaInput, MusicChoice } from "./state";
 
 /** 本工具生成的包在清单里写的生成器名字 */
@@ -73,14 +74,33 @@ async function restoreMusic(opened: OpenedPackage, tracks: readonly BuiltinTrack
   return { kind: "custom", entry };
 }
 
-/** 读出包里的素材并还原设置。页的版式、转场、时长不还原，由生成器重新生成 */
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** generator.plan 的外形是否像 PagePlan[]（来自文件，先确认再用；内容是否合法由 planProblems 检查） */
+function looksLikePlan(plan: unknown): plan is PagePlan[] {
+  return (
+    Array.isArray(plan) &&
+    plan.every((page) => isRecord(page) && Array.isArray(page.items) && page.items.every((item) => isRecord(item) && typeof item.assetId === "string"))
+  );
+}
+
+/** 还原手动编排：generator.plan 合法（外形对、每个素材恰好用一次、取值在范围内）才采用，素材 key 是它在 media 里的位置加 1 */
+function restorePages(plan: unknown, assets: readonly Asset[]): EditorPage[] | null {
+  if (!looksLikePlan(plan)) return null;
+  const media = assets.map((a) => ({ id: a.id, type: a.type as "image" | "video" }));
+  if (planProblems(plan, media) !== null) return null;
+  return pagesFromPlan(plan, new Map(assets.map((a, index) => [a.id, index + 1])));
+}
+
+/** 读出包里的素材并还原设置。有合法的 generator.plan 时还原手动编排，否则页的版式、转场、时长由生成器重新生成 */
 export async function restorePackage(opened: OpenedPackage, options: RestoreOptions): Promise<RestoredPackage> {
   const manifest = opened.manifest;
   const counters = { image: 0, video: 0 };
   const media: EditorMediaInput[] = [];
   let totalBytes = 0;
 
-  for (const asset of assetsInFirstAppearanceOrder(manifest)) {
+  const assets = assetsInFirstAppearanceOrder(manifest);
+  for (const asset of assets) {
     const type = asset.type as "image" | "video";
     const blob = await opened.readBlob(asset.src);
     totalBytes += blob.size;
@@ -107,6 +127,7 @@ export async function restorePackage(opened: OpenedPackage, options: RestoreOpti
   const generator = manifest.generator;
   const templateId = TEMPLATES.some((t) => t.id === generator?.templateId) ? (generator?.templateId as string) : TEMPLATES[0]!.id;
   const seed = Number.isInteger(generator?.seed) ? (generator?.seed as number) : options.fallbackSeed;
+  const pages = restorePages(generator?.plan, assets);
 
   return {
     content: {
@@ -120,8 +141,9 @@ export async function restorePackage(opened: OpenedPackage, options: RestoreOpti
       showTitle: manifest.titleCard !== undefined,
       look: KNOWN_LOOKS.find((look) => look === manifest.look) ?? "original",
       seed,
+      pages,
       music: await restoreMusic(opened, options.builtinTracks ?? BUILTIN_TRACKS),
     },
-    layoutMayDiffer: generator?.name !== GENERATOR_NAME || !Number.isInteger(generator?.seed),
+    layoutMayDiffer: pages === null && (generator?.name !== GENERATOR_NAME || !Number.isInteger(generator?.seed)),
   };
 }

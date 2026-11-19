@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GenerateError, type Manifest } from "@qyplayer/core";
 import { openPackage, writePackage } from "@qyplayer/qyp";
-import { planPackage, type MediaEntry, type MusicEntry } from "../buildPackage";
+import { planPackage, planPagesFor, type MediaEntry, type MusicEntry } from "../buildPackage";
 import { BUILTIN_MUSIC_LICENSE, BUILTIN_TRACKS } from "../builtinMusicInfo";
 import { createPreviewPackage, memoryPackage } from "./preview";
 import { RestoreError, assetsInFirstAppearanceOrder, restorePackage, type RestoreOptions } from "./restore";
@@ -211,10 +211,63 @@ describe("还原后重新生成", () => {
   });
 });
 
+describe("还原：手动编排（generator.plan）", () => {
+  const media = [photo("a.jpg", "2026-03-01T00:00:00Z"), photo("b.jpg", "2026-03-02T00:00:00Z"), video, photo("c.jpg"), photo("d.jpg", "2026-03-05T00:00:00Z")];
+  const base = { media, templateId: "classic", seed: 2024, aspectRatio: "16:9" } as const;
+  const strip = (m: Manifest): Manifest => ({ ...m, id: "", createdAt: "" });
+
+  /** 自动编排上改几处：第一个照片页的时长和取景、视频页的时长和起点 */
+  function editedPlan() {
+    const plan = planPagesFor(base);
+    const photoPage = plan.find((p) => p.items[0]!.clipStart === undefined)!;
+    photoPage.duration = 6;
+    photoPage.items[0]!.crop = { zoom: 2, x: 0.3, y: 0.6 };
+    const videoPage = plan.find((p) => p.items[0]!.clipStart !== undefined)!;
+    videoPage.duration = 4;
+    videoPage.items[0]!.clipStart = 1.5;
+    return plan;
+  }
+
+  it("合法的 plan：还原为手动编排，重新生成的清单与原包相同（经过真实 ZIP）", async () => {
+    const original = planPackage({ ...base, pages: editedPlan() });
+    const opened = await openPackage(await writePackage(original.manifest, original.files));
+    const restored = await restorePackage(opened, options);
+    expect(restored.content.pages).not.toBeNull();
+    expect(restored.layoutMayDiffer).toBe(false);
+    const doc = currentDoc(loadEditor(createEditor(1, "clean"), restored.content));
+    const again = (await createPreviewPackage(doc)).manifest;
+    expect(strip(again)).toEqual(strip(original.manifest));
+    await opened.close();
+  });
+
+  it("plan 不合法（素材对不上、取值越界、外形不对）：按自动编排打开", async () => {
+    const bad: Array<(plan: ReturnType<typeof editedPlan>) => unknown> = [
+      (plan) => (plan[0]!.items[0]!.assetId = "nope", plan),
+      (plan) => plan.slice(1),
+      (plan) => (plan[0]!.items[0]!.crop = { zoom: 9, x: 0.5, y: 0.5 }, plan),
+      () => "not a plan",
+      () => [{ items: "x" }],
+    ];
+    for (const make of bad) {
+      const original = planPackage({ ...base, pages: editedPlan() });
+      original.manifest.generator!.plan = make(editedPlan());
+      const restored = await restorePackage(memoryPackage(original.manifest, original.files), options);
+      expect(restored.content.pages).toBeNull();
+      expect(restored.content.media).toHaveLength(5);
+    }
+  });
+
+  it("没有 plan 的包（自动编排）：pages 为 null", async () => {
+    const { manifest, files } = planPackage(base);
+    const restored = await restorePackage(memoryPackage(manifest, files), options);
+    expect(restored.content.pages).toBeNull();
+  });
+});
+
 describe("预览包", () => {
   it("readBlob 直接返回编辑状态里的素材，不存在的路径报缺失", async () => {
     const input: EditorMediaInput = { ...photo("a.jpg"), final: false };
-    const state = loadEditor(createEditor(1, "clean"), { media: [input], title: "", subtitle: "", showTitle: false, aspect: "auto", templateId: "clean", transition: "auto", look: "original", length: "long", music: { kind: "none" }, seed: 1 });
+    const state = loadEditor(createEditor(1, "clean"), { media: [input], title: "", subtitle: "", showTitle: false, aspect: "auto", templateId: "clean", transition: "auto", look: "original", length: "long", music: { kind: "none" }, seed: 1, pages: null });
     const { opened, manifest } = await createPreviewPackage(currentDoc(state));
     const src = manifest.assets[0]!.src;
     expect(await (await opened.readBlob(src)).text()).toBe("a.jpg");
@@ -227,7 +280,7 @@ describe("预览包", () => {
 
   it("显示标题时按最终标题和画布尺寸画标题图片并放进包；不显示时不画", async () => {
     const input: EditorMediaInput = { ...photo("a.jpg"), final: false };
-    const content = { media: [input], title: "春游", subtitle: "三月", showTitle: true, length: "long" as const, aspect: "auto" as const, templateId: "clean", transition: "auto" as const, look: "original" as const, music: { kind: "none" as const }, seed: 1 };
+    const content = { media: [input], title: "春游", subtitle: "三月", showTitle: true, length: "long" as const, aspect: "auto" as const, templateId: "clean", transition: "auto" as const, look: "original" as const, music: { kind: "none" as const }, seed: 1, pages: null };
     const requests: unknown[] = [];
     const renderTitle = async (request: unknown) => (requests.push(request), new Blob(["png"]));
     const shown = await createPreviewPackage(currentDoc(loadEditor(createEditor(1, "clean"), content)), { renderTitle });

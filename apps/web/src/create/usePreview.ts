@@ -69,11 +69,11 @@ export interface PreviewState {
 }
 
 /**
- * 编辑内容变化后自动重新生成预览（3A.10）。素材、比例、模板、转场、滤镜、时长、配乐、种子、是否显示标题变化时触发，标题和副标题变化不触发。
+ * 编辑内容变化后自动重新生成预览（3A.10）。素材、比例、模板、转场、滤镜、时长、配乐、种子、是否显示标题、单页编排变化时触发，标题和副标题变化不触发。
  * 去抖 300 毫秒；生成中又有新变化，则丢弃当前这次，按最新内容再来。
  */
 export function usePreview(doc: EditorDoc, defaultTitleWord: string): PreviewState {
-  const { media, aspect, templateId, transition, look, length, music, seed, showTitle } = doc;
+  const { media, aspect, templateId, transition, look, length, music, seed, showTitle, pages } = doc;
   const [result, setResult] = useState<PreviewResult | null>(null);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -108,7 +108,7 @@ export function usePreview(doc: EditorDoc, defaultTitleWord: string): PreviewSta
           if (cancelled) return;
           // 始终用默认标题、空副标题生成，再按当前文字改写，这样改标题不必重新生成
           const { opened, manifest } = await createPreviewPackage(
-            { media, aspect, templateId, transition, look, length, music, seed, title: "", subtitle: "", showTitle },
+            { media, aspect, templateId, transition, look, length, music, seed, pages, title: "", subtitle: "", showTitle },
             { ...(musicEntry && { music: musicEntry }), defaultTitleWord },
           );
           const controller = await PlaybackController.create(opened);
@@ -134,7 +134,7 @@ export function usePreview(doc: EditorDoc, defaultTitleWord: string): PreviewSta
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [media, aspect, templateId, transition, look, length, music, seed, showTitle, defaultTitleWord]);
+  }, [media, aspect, templateId, transition, look, length, music, seed, showTitle, pages, defaultTitleWord]);
 
   // 离开页面时释放播放器
   useEffect(
