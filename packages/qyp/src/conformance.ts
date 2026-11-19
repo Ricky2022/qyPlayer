@@ -1,5 +1,6 @@
 import example from "../../../spec/examples/example.manifest.json";
 import example01 from "../../../spec/examples/example-0.1.manifest.json";
+import example03 from "../../../spec/examples/example-0.3.manifest.json";
 import { referencedPaths, type Manifest } from "@qyplayer/core";
 import type { QypErrorCode } from "./open";
 import { writeZip, type PackageFile } from "./write";
@@ -22,6 +23,8 @@ export interface ConformanceCase {
 const base = example01 as unknown as Manifest;
 /** 格式 0.2 的示例：新增的 v02 用例以它为基础 */
 const base02 = example as unknown as Manifest;
+/** 格式 0.3 的示例：新增的 v03 用例以它为基础 */
+const base03 = example03 as unknown as Manifest;
 
 function copyOf(manifest: Manifest, change: (m: any) => void): any {
   const copy = JSON.parse(JSON.stringify(manifest));
@@ -30,6 +33,7 @@ function copyOf(manifest: Manifest, change: (m: any) => void): any {
 }
 const variant = (change: (m: any) => void) => copyOf(base, change);
 const variant02 = (change: (m: any) => void) => copyOf(base02, change);
+const variant03 = (change: (m: any) => void) => copyOf(base03, change);
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
@@ -105,7 +109,7 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
     name: "invalid-version-too-high",
     description: "格式版本高于播放器支持的版本",
     expect: { ok: false, code: "unsupported-version" },
-    build: validPackage(variant((m) => (m.formatVersion = "0.3"))),
+    build: validPackage(variant((m) => (m.formatVersion = "0.4"))),
   },
   {
     name: "invalid-missing-file",
@@ -199,6 +203,41 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
     description: "格式 0.2：source.transcoded 为 false，但两个 mimeType 不同",
     expect: { ok: false, code: "invalid-manifest" },
     build: validPackage(variant02((m) => (m.assets[1].source = { mimeType: "image/heic", transcoded: false }))),
+  },
+  {
+    name: "valid-v03-basic",
+    description: "格式 0.3 的完整示例：模糊背景、Ken Burns、旋转转场、整片滤镜、副标题和片头标题图片",
+    expect: { ok: true },
+    build: validPackage(base03),
+  },
+  {
+    name: "valid-v03-unknown-values",
+    description: "格式 0.3：不认识的 backdrop 和 look 取值：必须能打开并按缺省处理（只用背景色、原片）",
+    expect: { ok: true },
+    build: validPackage(
+      variant03((m) => {
+        m.canvas.backdrop = "future-backdrop";
+        m.look = "future-look";
+      }),
+    ),
+  },
+  {
+    name: "invalid-v03-title-card-not-image",
+    description: "格式 0.3：titleCard 引用的是视频素材",
+    expect: { ok: false, code: "invalid-manifest" },
+    build: validPackage(variant03((m) => (m.titleCard.assetId = "m004"))),
+  },
+  {
+    name: "invalid-v03-title-card-out-of-range",
+    description: "格式 0.3：titleCard 的显示时间超出影片时长",
+    expect: { ok: false, code: "invalid-manifest" },
+    build: validPackage(variant03((m) => (m.titleCard.duration = 30))),
+  },
+  {
+    name: "invalid-v03-motion-scale-zero",
+    description: "格式 0.3：motion 的 scale 为 0",
+    expect: { ok: false, code: "invalid-manifest" },
+    build: validPackage(variant03((m) => (m.pages[0].items[0].motion.to.scale = 0))),
   },
   {
     name: "invalid-size-mismatch",

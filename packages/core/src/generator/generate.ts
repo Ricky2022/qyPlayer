@@ -1,5 +1,5 @@
 import { CANVAS_SIZE, cellAspect, coverCropLoss, layoutFrames } from "../layout";
-import type { Asset, AssetSource, AspectRatio, Bgm, Direction, Enter, Item, Manifest, Page, TransitionIn } from "../manifest";
+import { CURRENT_FORMAT_VERSION, type Asset, type AssetSource, type AspectRatio, type Bgm, type Direction, type Enter, type Item, type Manifest, type Page, type TransitionIn } from "../manifest";
 import { createRng, type Rng } from "./rng";
 import { findTemplate, type Template } from "./templates";
 
@@ -343,7 +343,7 @@ export function generateManifest(options: GenerateOptions): Manifest {
   const defaultTitle = earliest ? `${earliest.slice(0, 10)} ${titleWord}` : titleWord;
 
   return {
-    formatVersion: "0.2",
+    formatVersion: CURRENT_FORMAT_VERSION,
     id: options.id ?? randomId(),
     title: options.title ?? defaultTitle,
     createdAt: options.createdAt ?? new Date().toISOString(),
@@ -353,7 +353,7 @@ export function generateManifest(options: GenerateOptions): Manifest {
       templateId: template.id,
       seed: options.seed,
     },
-    canvas: { aspectRatio, ...CANVAS_SIZE[aspectRatio], background: "#000000" },
+    canvas: { aspectRatio, ...CANVAS_SIZE[aspectRatio], background: "#000000", backdrop: "blur" },
     duration: totalMs / 1000,
     assets,
     ...(bgm && { bgm }),

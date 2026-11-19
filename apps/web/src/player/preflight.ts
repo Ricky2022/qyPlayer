@@ -1,4 +1,4 @@
-import type { Asset, Manifest } from "@qyplayer/core";
+import { hasAssetTypeInfo, type Asset, type Manifest } from "@qyplayer/core";
 
 /** 预检要问浏览器的三件事，测试里换成桩 */
 export interface PreflightEnv {
@@ -58,7 +58,7 @@ async function runLimited<T>(items: readonly T[], limit: number, task: (item: T)
 }
 
 /**
- * 打开包时检查素材能否在本设备播放。只检查 formatVersion "0.2" 的包，0.1 的包不检查。
+ * 打开包时检查素材能否在本设备播放。只检查格式 0.2 起的包，0.1 的包不检查。
  * 图片不在白名单内就读出来试解码一次；视频和音频问 canPlayType。
  * 要试解码（会读文件、较慢）时，开始前调用一次 onChecking，便于界面显示“正在检查素材”。
  */
@@ -69,7 +69,7 @@ export async function preflightAssets(
   onChecking?: () => void,
 ): Promise<PreflightResult> {
   const unsupported = new Set<string>();
-  if (manifest.formatVersion !== "0.2") return { unsupported };
+  if (!hasAssetTypeInfo(manifest.formatVersion)) return { unsupported };
 
   const toDecode: Asset[] = [];
   for (const asset of manifest.assets) {

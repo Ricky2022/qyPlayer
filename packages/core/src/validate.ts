@@ -3,6 +3,7 @@ import {
   KNOWN_ENTER_TYPES,
   KNOWN_TRANSITION_TYPES,
   SUPPORTED_FORMAT_VERSIONS,
+  hasAssetTypeInfo,
   type Manifest,
 } from "./manifest";
 import { checkPackagePath } from "./paths";
@@ -94,7 +95,7 @@ function checkSemantics(m: Manifest, errors: ValidationIssue[], warnings: Valida
   });
 
   // 素材类型信息（仅 0.2 起；必需字段由 schema 保证存在）
-  if (m.formatVersion === "0.2") {
+  if (hasAssetTypeInfo(m.formatVersion)) {
     m.assets.forEach((a, i) => {
       for (const [key, value] of [
         ["mimeType", a.mimeType],
@@ -129,6 +130,16 @@ function checkSemantics(m: Manifest, errors: ValidationIssue[], warnings: Valida
     const a = assets.get(m.bgm.assetId);
     if (!a) err("unknown-reference", "/bgm/assetId", `bgm refers to unknown asset ${m.bgm.assetId}`);
     else if (a.type !== "audio") err("wrong-asset-type", "/bgm/assetId", `bgm asset ${a.id} is ${a.type}, expected audio`);
+  }
+
+  // 片头标题图片（格式 0.3）：引用图片素材，显示时间落在影片内
+  if (m.titleCard) {
+    const a = assets.get(m.titleCard.assetId);
+    if (!a) err("unknown-reference", "/titleCard/assetId", `titleCard refers to unknown asset ${m.titleCard.assetId}`);
+    else if (a.type !== "image") err("wrong-asset-type", "/titleCard/assetId", `titleCard asset ${a.id} is ${a.type}, expected image`);
+    if (m.titleCard.start + m.titleCard.duration > m.duration + TIME_EPSILON) {
+      err("title-card-out-of-range", "/titleCard", `titleCard ends at ${m.titleCard.start + m.titleCard.duration}s, after the film ends at ${m.duration}s`);
+    }
   }
 
   // 页：时间连续、转场、素材引用、格子

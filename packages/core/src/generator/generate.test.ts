@@ -495,7 +495,7 @@ describe("generated manifests are valid", () => {
   });
 
   it("canvas matches the chosen ratio", () => {
-    expect(gen({ media: landscapePhotos(2), aspectRatio: "9:16" }).canvas).toEqual({ aspectRatio: "9:16", width: 1080, height: 1920, background: "#000000" });
+    expect(gen({ media: landscapePhotos(2), aspectRatio: "9:16" }).canvas).toEqual({ aspectRatio: "9:16", width: 1080, height: 1920, background: "#000000", backdrop: "blur" });
     expect(gen({ media: landscapePhotos(2) }).canvas).toMatchObject({ aspectRatio: "16:9", width: 1920, height: 1080 });
   });
 
@@ -528,11 +528,11 @@ describe("generateManifest errors", () => {
   });
 });
 
-describe("格式 0.2 的素材信息", () => {
-  it("写 formatVersion 0.2，素材和配乐都带 mimeType 和 source，且通过校验", () => {
+describe("素材信息和格式版本", () => {
+  it("写 formatVersion 0.3，素材和配乐都带 mimeType 和 source，且通过校验", () => {
     const converted: MediaInput = { ...photo("m001", 2560, 1707, at(0)), mimeType: JPEG, source: { mimeType: "image/heic", transcoded: true } };
     const m = gen({ media: [converted, video("m002", 5, at(1))], music: music(30) });
-    expect(m.formatVersion).toBe("0.2");
+    expect(m.formatVersion).toBe("0.3");
     expect(m.assets[0]).toMatchObject({ mimeType: JPEG, source: { mimeType: "image/heic", transcoded: true } });
     expect(m.assets[1]).toMatchObject({ mimeType: MP4, source: { mimeType: MP4, transcoded: false } });
     expect(m.assets[2]).toMatchObject({ type: "audio", mimeType: M4A, source: { mimeType: M4A, transcoded: false } });

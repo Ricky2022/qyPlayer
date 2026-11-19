@@ -166,6 +166,44 @@
     }
   },
   {
+    "file": "valid-v03-basic.qyp",
+    "description": "格式 0.3 的完整示例：模糊背景、Ken Burns、旋转转场、整片滤镜、副标题和片头标题图片",
+    "expect": {
+      "ok": true
+    }
+  },
+  {
+    "file": "valid-v03-unknown-values.qyp",
+    "description": "格式 0.3：不认识的 backdrop 和 look 取值：必须能打开并按缺省处理（只用背景色、原片）",
+    "expect": {
+      "ok": true
+    }
+  },
+  {
+    "file": "invalid-v03-title-card-not-image.qyp",
+    "description": "格式 0.3：titleCard 引用的是视频素材",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
+    "file": "invalid-v03-title-card-out-of-range.qyp",
+    "description": "格式 0.3：titleCard 的显示时间超出影片时长",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
+    "file": "invalid-v03-motion-scale-zero.qyp",
+    "description": "格式 0.3：motion 的 scale 为 0",
+    "expect": {
+      "ok": false,
+      "code": "invalid-manifest"
+    }
+  },
+  {
     "file": "invalid-size-mismatch.qyp",
     "description": "manifest.json 在中央目录里记录的大小比实际多 1 字节（声明体积与实际不符）",
     "expect": {

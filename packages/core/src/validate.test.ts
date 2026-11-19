@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import example from "../../../spec/examples/example.manifest.json";
 import example01 from "../../../spec/examples/example-0.1.manifest.json";
+import example03 from "../../../spec/examples/example-0.3.manifest.json";
 import { checkPackagePath, referencedPaths, validateManifest, type Manifest } from "./index";
 
 /** 深拷贝示例清单后按需改动，得到一个只违反一条规则的不合法样本 */
@@ -56,9 +57,47 @@ describe("validateManifest: valid", () => {
   });
 });
 
+/** 深拷贝 0.3 示例后改动 */
+function mutated03(change: (m: any) => void): unknown {
+  const copy = JSON.parse(JSON.stringify(example03));
+  change(copy);
+  return copy;
+}
+
+describe("validateManifest: format 0.3", () => {
+  it("accepts the 0.3 example", () => {
+    const result = validateManifest(example03);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+    expect(result.manifest?.titleCard?.assetId).toBe("t001");
+  });
+
+  it("still requires mimeType and source on every asset", () => {
+    expect(codes(mutated03((m) => delete m.assets[0].source)).length).toBeGreaterThan(0);
+  });
+
+  it("accepts unknown backdrop and look values", () => {
+    expect(validateManifest(mutated03((m) => ((m.canvas.backdrop = "x"), (m.look = "y")))).ok).toBe(true);
+  });
+
+  it("knows the rotate transition", () => {
+    expect(validateManifest(example03).warnings.map((w) => w.code)).not.toContain("unknown-transition-type");
+  });
+
+  it("rejects a title card that points at a missing asset, a non-image, or runs past the end", () => {
+    expect(codes(mutated03((m) => (m.titleCard.assetId = "nope")))).toEqual(["unknown-reference"]);
+    expect(codes(mutated03((m) => (m.titleCard.assetId = "m004")))).toEqual(["wrong-asset-type"]);
+    expect(codes(mutated03((m) => (m.titleCard.duration = 30)))).toEqual(["title-card-out-of-range"]);
+  });
+
+  it("rejects a motion whose scale is not positive", () => {
+    expect(codes(mutated03((m) => (m.pages[0].items[0].motion.from.scale = 0)))).toEqual(["schema"]);
+  });
+});
+
 describe("validateManifest: version and structure", () => {
   it("rejects a higher format version with a dedicated code", () => {
-    expect(codes(mutated((m) => (m.formatVersion = "0.3")))).toEqual(["unsupported-version"]);
+    expect(codes(mutated((m) => (m.formatVersion = "0.4")))).toEqual(["unsupported-version"]);
     expect(codes(mutated((m) => (m.formatVersion = "1.0")))).toEqual(["unsupported-version"]);
   });
 
