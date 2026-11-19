@@ -17,6 +17,8 @@ import {
   setAspect,
   setMusic,
   setSeed,
+  selectedMedia,
+  setLength,
   setLook,
   setShowTitle,
   setSubtitle,
@@ -113,11 +115,14 @@ describe("编辑状态：设置", () => {
     state = setShowTitle(state, false);
     expect(currentDoc(state).showTitle).toBe(false);
     expect(setShowTitle(state, false)).toBe(state);
+    state = setLength(state, "short");
+    expect(currentDoc(state).length).toBe("short");
+    expect(setLength(state, "short")).toBe(state);
     expect(setAspect(state, "9:16")).toBe(state);
     expect(setTemplate(state, "lively")).toBe(state);
     expect(setMusic(state, { kind: "builtin", trackId: "goldberg-var1" })).toBe(state);
     expect(setSeed(state, 99)).toBe(state);
-    for (let i = 0; i < 7; i++) state = undo(state);
+    for (let i = 0; i < 8; i++) state = undo(state);
     expect(state.present.id).toBe(base.present.id);
   });
 
@@ -126,6 +131,31 @@ describe("编辑状态：设置", () => {
     const state = setMusic(fresh(), { kind: "custom", entry });
     expect(setMusic(state, { kind: "custom", entry })).toBe(state);
     expect(setMusic(state, { kind: "custom", entry: { ...entry } })).not.toBe(state);
+  });
+});
+
+describe("编辑状态：时长档位", () => {
+  const timedPhotos = (n: number) => {
+    let state = fresh();
+    state = addMedia(state, Array.from({ length: n }, (_, i) => ({ ...photo(`p${i}`), capturedAt: new Date(Date.UTC(2026, 2, 1, 0, i * 10)).toISOString() }))).state;
+    return state;
+  };
+
+  it("长档用全部素材；素材少于 10 个时任何档位都是全部", () => {
+    expect(selectedMedia(currentDoc(timedPhotos(12)))).toHaveLength(12);
+    expect(selectedMedia(currentDoc(setLength(timedPhotos(9), "short")))).toHaveLength(9);
+  });
+
+  it("中、短档按比例选用，选用的素材保持列表顺序，删除素材后重新计算", () => {
+    let state = setLength(timedPhotos(20), "medium");
+    expect(selectedMedia(currentDoc(state))).toHaveLength(12);
+    state = setLength(state, "short");
+    const doc = currentDoc(state);
+    const chosen = selectedMedia(doc);
+    expect(chosen).toHaveLength(6);
+    expect(chosen.map((m) => doc.media.indexOf(m))).toEqual([...chosen.map((m) => doc.media.indexOf(m))].sort((a, b) => a - b));
+    state = removeMedia(state, doc.media[0]!.key);
+    expect(selectedMedia(currentDoc(state))).toHaveLength(6);
   });
 });
 
@@ -216,7 +246,7 @@ describe("编辑状态：撤销和重做", () => {
   });
 
   it("转码开关不在历史里（状态里没有它）", () => {
-    expect(Object.keys(currentDoc(fresh())).sort()).toEqual(["aspect", "look", "media", "music", "seed", "showTitle", "subtitle", "templateId", "title", "transition"]);
+    expect(Object.keys(currentDoc(fresh())).sort()).toEqual(["aspect", "length", "look", "media", "music", "seed", "showTitle", "subtitle", "templateId", "title", "transition"]);
   });
 });
 
@@ -270,6 +300,7 @@ describe("编辑状态：新建和打开", () => {
       title: "T",
       subtitle: "",
       showTitle: true,
+      length: "long",
       aspect: "9:16",
       templateId: "classic",
       transition: "auto",

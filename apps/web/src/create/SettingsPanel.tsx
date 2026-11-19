@@ -1,5 +1,5 @@
 import { createUseStyles } from "react-jss";
-import { TEMPLATES, type AspectRatio } from "@qyplayer/core";
+import { LENGTH_MIN_MEDIA, TEMPLATES, targetCount, type AspectRatio, type LengthChoice } from "@qyplayer/core";
 import { useI18n } from "../i18n";
 import { theme } from "../ui/theme";
 import type { MusicEntry } from "./buildPackage";
@@ -65,13 +65,14 @@ interface SettingsPanelProps {
   onTemplate(templateId: string): void;
   onTransition(transition: TransitionSetting): void;
   onLook(look: LookSetting): void;
+  onLength(length: LengthChoice): void;
   onMusic(music: MusicChoice): void;
   onPickMusic(): void;
   onReroll(): void;
 }
 
 /** 设置面板（3A.9）：标题、比例、模板、转场、配乐、换一版 */
-export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, transcode, onTranscode, onTitle, onSubtitle, onShowTitle, onAspect, onTemplate, onTransition, onLook, onMusic, onPickMusic, onReroll }: SettingsPanelProps) {
+export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, transcode, onTranscode, onTitle, onSubtitle, onShowTitle, onAspect, onTemplate, onTransition, onLook, onLength, onMusic, onPickMusic, onReroll }: SettingsPanelProps) {
   const classes = useStyles();
   const { lang, t } = useI18n();
   const ratioName = resolvedAspect === "16:9" ? t("makerLandscape") : t("makerPortrait");
@@ -94,6 +95,12 @@ export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, cu
     { value: "cool", label: t("makerLookCool") },
     { value: "vintage", label: t("makerLookVintage") },
   ];
+  const lengths: { value: LengthChoice; label: string }[] = [
+    { value: "long", label: t("makerLengthLong") },
+    { value: "medium", label: t("makerLengthMedium", { count: targetCount(doc.media.length, "medium") }) },
+    { value: "short", label: t("makerLengthShort", { count: targetCount(doc.media.length, "short") }) },
+  ];
+  const lengthLocked = doc.media.length < LENGTH_MIN_MEDIA;
   const preview = useTrackPreview();
   const pickedCustom = doc.music.kind === "custom" ? doc.music.entry : customMusic;
 
@@ -137,6 +144,18 @@ export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, cu
             </label>
           ))}
         </div>
+      </fieldset>
+
+      <fieldset className={classes.section}>
+        <legend className={classes.legend}>{t("makerLength")}</legend>
+        <div className={classes.choices}>
+          {lengths.map((option) => (
+            <label key={option.value} className={classes.choice}>
+              <input type="radio" name="qy-length" checked={doc.length === option.value} disabled={disabled || lengthLocked} onChange={() => onLength(option.value)} /> {option.label}
+            </label>
+          ))}
+        </div>
+        {lengthLocked && <p className={classes.hint}>{t("makerLengthFew", { min: LENGTH_MIN_MEDIA })}</p>}
       </fieldset>
 
       <fieldset className={classes.section}>

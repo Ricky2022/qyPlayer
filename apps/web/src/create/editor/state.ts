@@ -1,6 +1,6 @@
 // 制作器的编辑状态：素材列表、设置、撤销重做和“有未保存更改”的判断。
 // 全部是纯函数：每个操作接收旧状态、返回新状态；没有变化时返回同一个对象（不产生历史）。规则见 docs/dev-0.3.0.md 3A.11。
-import { GENERATOR_LIMITS, type AspectRatio, type Look, type TransitionChoice } from "@qyplayer/core";
+import { GENERATOR_LIMITS, selectByLength, type AspectRatio, type LengthChoice, type Look, type TransitionChoice } from "@qyplayer/core";
 import type { MediaEntry, MusicEntry } from "../buildPackage";
 import { moveItem, sortByCapturedAt } from "../files";
 
@@ -44,6 +44,8 @@ export interface EditorDoc {
   templateId: string;
   transition: TransitionSetting;
   look: LookSetting;
+  /** 影片时长档位；只决定用哪些素材，不写进清单，重新打开一律是长 */
+  length: LengthChoice;
   music: MusicChoice;
   seed: number;
 }
@@ -74,7 +76,7 @@ export interface EditorState {
 }
 
 function initialDoc(seed: number, templateId: string): EditorDoc {
-  return { media: [], title: "", subtitle: "", showTitle: true, aspect: "auto", templateId, transition: "auto", look: "original", music: { kind: "none" }, seed };
+  return { media: [], title: "", subtitle: "", showTitle: true, aspect: "auto", templateId, transition: "auto", look: "original", length: "long", music: { kind: "none" }, seed };
 }
 
 /** 创建空的编辑状态；种子由调用方随机给出，保持函数纯净 */
@@ -169,6 +171,17 @@ export function setTemplate(state: EditorState, templateId: string): EditorState
 export function setTransition(state: EditorState, transition: TransitionSetting): EditorState {
   const doc = state.present.doc;
   return doc.transition === transition ? state : commit(state, { ...doc, transition });
+}
+
+export function setLength(state: EditorState, length: LengthChoice): EditorState {
+  const doc = state.present.doc;
+  return doc.length === length ? state : commit(state, { ...doc, length });
+}
+
+/** 当前档位下入选的素材（保持列表顺序）。生成、保存、导出都只用这些 */
+export function selectedMedia(doc: Pick<EditorDoc, "media" | "length">): EditorMedia[] {
+  const keep = new Set(selectByLength(doc.media, doc.length));
+  return doc.media.filter((_, index) => keep.has(index));
 }
 
 export function setLook(state: EditorState, look: LookSetting): EditorState {

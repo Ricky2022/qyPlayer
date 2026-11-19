@@ -2,7 +2,7 @@
 import type { Manifest } from "@qyplayer/core";
 import { QypError, type OpenedPackage } from "@qyplayer/qyp";
 import { planPackageWithTitle, type BlobFile, type BuildOptions, type MusicEntry, type RenderTitleImage } from "../buildPackage";
-import type { EditorDoc } from "./state";
+import { selectedMedia, type EditorDoc } from "./state";
 
 export interface PreviewOptions {
   /** 已读出的配乐文件；内置曲目由调用方先加载好再传入 */
@@ -42,7 +42,7 @@ export function memoryPackage(manifest: Manifest, files: readonly BlobFile[]): M
 /** 编辑内容对应的生成选项（不含配乐和默认标题的词，由调用方按需补上）。预览、保存、导出共用，保证三者一致 */
 export function buildOptionsOf(doc: EditorDoc): BuildOptions {
   return {
-    media: doc.media,
+    media: selectedMedia(doc),
     ...(doc.aspect !== "auto" && { aspectRatio: doc.aspect }),
     templateId: doc.templateId,
     seed: doc.seed,

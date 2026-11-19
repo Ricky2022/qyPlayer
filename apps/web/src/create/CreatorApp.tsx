@@ -39,6 +39,8 @@ import {
   removeMedia,
   resetEditor,
   setAspect,
+  selectedMedia,
+  setLength,
   setLook,
   setMusic,
   setSeed,
@@ -308,7 +310,7 @@ export function CreatorApp() {
         const outcome = await transcodeForSave({
           manifest,
           files,
-          media: current.media,
+          media: selectedMedia(current),
           ...(music && { music }),
           audioEncode: transcodeSetting.capabilities.audioEncode,
           cache: transcodeCache.current,
@@ -372,7 +374,7 @@ export function CreatorApp() {
       if (undecodable.length > 0) {
         const nameOf = (id: string): string => {
           const index = /^m(\d+)$/.exec(id)?.[1];
-          return (index !== undefined && current.media[Number(index) - 1]?.fileName) || music?.title || id;
+          return (index !== undefined && selectedMedia(current)[Number(index) - 1]?.fileName) || music?.title || id;
         };
         setErrorMessage(t("exportUndecodable", { names: undecodable.map(nameOf).join("\n") }));
         return;
@@ -531,13 +533,16 @@ export function CreatorApp() {
   ];
 
   const empty = doc.media.length === 0;
-  const resolvedAspect = empty ? "16:9" : defaultAspectRatio(doc.media);
-  const hasVideoSound = doc.media.some((m) => m.type === "video" && m.hasAudio);
+  const chosen = selectedMedia(doc);
+  const unselectedKeys = new Set(doc.media.filter((m) => !chosen.includes(m)).map((m) => m.key));
+  const resolvedAspect = empty ? "16:9" : defaultAspectRatio(chosen);
+  const hasVideoSound = chosen.some((m) => m.type === "video" && m.hasAudio);
   const originalTotal = doc.media.reduce((sum, m) => sum + (m.originalBytes ?? m.blob.size), 0);
 
   const assets = (
     <AssetPanel
       media={doc.media}
+      unselectedKeys={unselectedKeys}
       urlFor={urlFor}
       failures={failures}
       describeFailure={(failure) => describeFileError(failure.fileName, failure.error, t)}
@@ -583,6 +588,7 @@ export function CreatorApp() {
       onTemplate={(templateId) => apply((state) => setTemplate(state, templateId))}
       onTransition={(transition) => apply((state) => setTransition(state, transition))}
       onLook={(look) => apply((state) => setLook(state, look))}
+      onLength={(length) => apply((state) => setLength(state, length))}
       onMusic={(music) => apply((state) => setMusic(state, music))}
       onPickMusic={() => musicInput.current?.click()}
       onReroll={() => apply((state) => setSeed(state, randomSeed()))}

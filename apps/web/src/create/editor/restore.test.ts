@@ -214,7 +214,7 @@ describe("还原后重新生成", () => {
 describe("预览包", () => {
   it("readBlob 直接返回编辑状态里的素材，不存在的路径报缺失", async () => {
     const input: EditorMediaInput = { ...photo("a.jpg"), final: false };
-    const state = loadEditor(createEditor(1, "clean"), { media: [input], title: "", subtitle: "", showTitle: false, aspect: "auto", templateId: "clean", transition: "auto", look: "original", music: { kind: "none" }, seed: 1 });
+    const state = loadEditor(createEditor(1, "clean"), { media: [input], title: "", subtitle: "", showTitle: false, aspect: "auto", templateId: "clean", transition: "auto", look: "original", length: "long", music: { kind: "none" }, seed: 1 });
     const { opened, manifest } = await createPreviewPackage(currentDoc(state));
     const src = manifest.assets[0]!.src;
     expect(await (await opened.readBlob(src)).text()).toBe("a.jpg");
@@ -227,7 +227,7 @@ describe("预览包", () => {
 
   it("显示标题时按最终标题和画布尺寸画标题图片并放进包；不显示时不画", async () => {
     const input: EditorMediaInput = { ...photo("a.jpg"), final: false };
-    const content = { media: [input], title: "春游", subtitle: "三月", showTitle: true, aspect: "auto" as const, templateId: "clean", transition: "auto" as const, look: "original" as const, music: { kind: "none" as const }, seed: 1 };
+    const content = { media: [input], title: "春游", subtitle: "三月", showTitle: true, length: "long" as const, aspect: "auto" as const, templateId: "clean", transition: "auto" as const, look: "original" as const, music: { kind: "none" as const }, seed: 1 };
     const requests: unknown[] = [];
     const renderTitle = async (request: unknown) => (requests.push(request), new Blob(["png"]));
     const shown = await createPreviewPackage(currentDoc(loadEditor(createEditor(1, "clean"), content)), { renderTitle });

@@ -33,6 +33,7 @@ const useStyles = createUseStyles({
   insertBefore: { boxShadow: `inset 0 3px 0 ${theme.accent}` },
   insertAfter: { boxShadow: `inset 0 -3px 0 ${theme.accent}` },
   dragging: { opacity: 0.45 },
+  unselected: { opacity: 0.5 },
   handle: {
     display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 44, padding: 0, border: "none", borderRadius: 4, background: "transparent",
     color: theme.muted, cursor: "grab", flex: "none",
@@ -112,6 +113,8 @@ function Thumbnail({ item, url, className, fallbackClassName, label }: Thumbnail
 
 interface AssetPanelProps {
   media: readonly EditorMedia[];
+  /** 当前时长档位下没有入选的素材：变灰并标注，不会进入影片 */
+  unselectedKeys: ReadonlySet<number>;
   urlFor(media: EditorMedia): string;
   failures: readonly ImportFailure[];
   describeFailure(failure: ImportFailure): string;
@@ -128,7 +131,7 @@ interface AssetPanelProps {
 }
 
 /** 素材面板（3A.7）：列表顺序就是影片播放顺序 */
-export function AssetPanel({ media, urlFor, failures, describeFailure, busy, importing, mobile, sizeWarning, onAdd, onMove, onRemove, onClearFailures }: AssetPanelProps) {
+export function AssetPanel({ media, unselectedKeys, urlFor, failures, describeFailure, busy, importing, mobile, sizeWarning, onAdd, onMove, onRemove, onClearFailures }: AssetPanelProps) {
   const classes = useStyles();
   const { lang, t } = useI18n();
   const rowRefs = useRef(new Map<number, HTMLLIElement>());
@@ -202,12 +205,14 @@ export function AssetPanel({ media, urlFor, failures, describeFailure, busy, imp
           <ul className={classes.list} role="list" aria-label={t("assetListLabel")} onDragOver={(event) => dragIndex !== null && event.preventDefault()} onDrop={onDropList}>
             {media.map((item, index) => {
               const name = item.fileName;
-              const detail = describeMedia(item, t, lang);
+              const unselected = unselectedKeys.has(item.key);
+              const detail = describeMedia(item, t, lang) + (unselected ? ` · ${t("assetUnselected")}` : "");
               const rowClass = [
                 classes.row,
                 insertAt === index ? classes.insertBefore : "",
                 insertAt === media.length && index === media.length - 1 ? classes.insertAfter : "",
                 dragIndex === index ? classes.dragging : "",
+                unselected ? classes.unselected : "",
               ].join(" ");
               return (
                 <li
