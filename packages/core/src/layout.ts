@@ -6,25 +6,33 @@ export const CANVAS_SIZE: Record<AspectRatio, { width: number; height: number }>
   "9:16": { width: 1080, height: 1920 },
 };
 
-/** 多图版式的格子间距，占画布短边的比例（PRD T-15） */
-export const LAYOUT_GAP_RATIO = 0.01;
+/** 多图版式的格子间距，占画布短边的比例（0.4.0 起为卡片式：PRD T-15 原为 1%） */
+export const LAYOUT_GAP_RATIO = 0.02;
+/** 多图版式整组格子四周的外边距，占画布短边的比例（卡片式，露出背景） */
+export const LAYOUT_MARGIN_RATIO = 0.04;
 
 const round4 = (n: number): number => Math.round(n * 10000) / 10000;
 
 /**
  * 1~4 张图的版式（PRD 8.2），返回画布归一化坐标下的格子，顺序为从上到下、从左到右。
  * 16:9：2 张左右并排；3 张左一右二。9:16：2 张上下排列；3 张上一下二。4 张都是 2×2。
+ * 单张铺满画布；2~4 张整组四周留 LAYOUT_MARGIN_RATIO 的外边距，格子之间留 LAYOUT_GAP_RATIO 的间隙。
  */
 export function layoutFrames(count: 1 | 2 | 3 | 4, aspectRatio: AspectRatio): Frame[] {
   const { width, height } = CANVAS_SIZE[aspectRatio];
-  const gapPx = Math.min(width, height) * LAYOUT_GAP_RATIO;
-  const gx = gapPx / width;
-  const gy = gapPx / height;
-  const halfW = (1 - gx) / 2;
-  const halfH = (1 - gy) / 2;
+  const short = Math.min(width, height);
+  const gx = (short * LAYOUT_GAP_RATIO) / width;
+  const gy = (short * LAYOUT_GAP_RATIO) / height;
+  const mx = (short * LAYOUT_MARGIN_RATIO) / width;
+  const my = (short * LAYOUT_MARGIN_RATIO) / height;
+  // 内框：外边距之内的区域，格子都排在里面
+  const iw = 1 - 2 * mx;
+  const ih = 1 - 2 * my;
+  const halfW = (iw - gx) / 2;
+  const halfH = (ih - gy) / 2;
   const f = (x: number, y: number, w: number, h: number): Frame => ({
-    x: round4(x),
-    y: round4(y),
+    x: round4(mx + x),
+    y: round4(my + y),
     w: round4(w),
     h: round4(h),
   });
@@ -32,15 +40,15 @@ export function layoutFrames(count: 1 | 2 | 3 | 4, aspectRatio: AspectRatio): Fr
 
   switch (count) {
     case 1:
-      return [f(0, 0, 1, 1)];
+      return [{ x: 0, y: 0, w: 1, h: 1 }];
     case 2:
       return landscape
-        ? [f(0, 0, halfW, 1), f(halfW + gx, 0, halfW, 1)]
-        : [f(0, 0, 1, halfH), f(0, halfH + gy, 1, halfH)];
+        ? [f(0, 0, halfW, ih), f(halfW + gx, 0, halfW, ih)]
+        : [f(0, 0, iw, halfH), f(0, halfH + gy, iw, halfH)];
     case 3:
       return landscape
-        ? [f(0, 0, halfW, 1), f(halfW + gx, 0, halfW, halfH), f(halfW + gx, halfH + gy, halfW, halfH)]
-        : [f(0, 0, 1, halfH), f(0, halfH + gy, halfW, halfH), f(halfW + gx, halfH + gy, halfW, halfH)];
+        ? [f(0, 0, halfW, ih), f(halfW + gx, 0, halfW, halfH), f(halfW + gx, halfH + gy, halfW, halfH)]
+        : [f(0, 0, iw, halfH), f(0, halfH + gy, halfW, halfH), f(halfW + gx, halfH + gy, halfW, halfH)];
     case 4:
       return [
         f(0, 0, halfW, halfH),

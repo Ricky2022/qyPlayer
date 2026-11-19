@@ -27,7 +27,7 @@ export function frameCount(duration: number): number {
 
 /** 这一帧里需要从视频取画面的图层（透明度为 0 的图层不会被画出，也就不取） */
 export function videoLayers(state: FrameState): (Layer & { videoTime: number })[] {
-  return state.layers.filter((layer): layer is Layer & { videoTime: number } => layer.kind === "video" && layer.videoTime !== undefined && layer.opacity > 0);
+  return state.layers.filter((layer): layer is Layer & { videoTime: number } => layer.kind === "video" && layer.role !== "backdrop" && layer.videoTime !== undefined && layer.opacity > 0);
 }
 
 /**

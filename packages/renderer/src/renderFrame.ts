@@ -1,5 +1,6 @@
 import type { FrameState, Layer, Manifest } from "@qyplayer/core";
 import { stateAt } from "@qyplayer/core";
+import { BACKDROP_DIM, blurredBackdrop, type CreateCanvas } from "./backdrop";
 import { computeFit } from "./fit";
 
 /** 渲染器能画的素材：已解码的图片、当前帧的视频、或任意 Canvas */
@@ -8,6 +9,8 @@ export interface DrawableAsset {
   /** 素材的像素宽高（视频用 videoWidth/videoHeight） */
   width: number;
   height: number;
+  /** 画面不随时间变化（解码后的静态图片）。模糊背景的结果据此缓存 */
+  still?: boolean;
 }
 
 /** 本设备无法播放的素材：不带画面，渲染器在它的格子里画占位画面 */
@@ -31,6 +34,8 @@ export type AssetResolver = (assetId: string, layer: Layer) => DrawableAsset | P
 export interface RenderOptions {
   /** 占位画面上的文字。渲染器不知道界面语言，由调用方传入；缺省时只画底色 */
   placeholderText?: string;
+  /** 创建离屏画布（模糊背景用）；缺省用 OffscreenCanvas 或 canvas 元素。测试里可以换成假的 */
+  createCanvas?: CreateCanvas;
 }
 
 function isPlaceholder(asset: DrawableAsset | PlaceholderAsset): asset is PlaceholderAsset {
@@ -78,6 +83,11 @@ export function renderFrame(
     const clip = layer.clip;
     const rect = layer.rect;
     const target = { x: rect.x * width, y: rect.y * height, w: rect.w * width, h: rect.h * height };
+    if (layer.role === "backdrop") {
+      // 无法播放的素材不画背景：占位画面本身就是灰底
+      if (!isPlaceholder(asset)) drawBackdrop(ctx, asset, layer, width, height, options.createCanvas);
+      continue;
+    }
     if (isPlaceholder(asset)) {
       drawPlaceholder(ctx, target, clip, width, height, Math.min(1, layer.opacity), options.placeholderText);
       continue;
@@ -96,6 +106,25 @@ export function renderFrame(
 
   ctx.restore();
   return state;
+}
+
+/** 模糊背景层：素材放大铺满、重度模糊，再盖一层半透明黑 */
+function drawBackdrop(ctx: Ctx, asset: DrawableAsset, layer: Layer, width: number, height: number, createCanvas: CreateCanvas | undefined): void {
+  const blurred = blurredBackdrop(asset, width / height, createCanvas);
+  const { clip, rect } = layer;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(clip.x * width, clip.y * height, clip.w * width, clip.h * height);
+  ctx.clip();
+  ctx.globalAlpha = Math.min(1, layer.opacity);
+  const x = rect.x * width;
+  const y = rect.y * height;
+  const w = rect.w * width;
+  const h = rect.h * height;
+  ctx.drawImage(blurred as unknown as CanvasImageSource, 0, 0, blurred.width, blurred.height, x, y, w, h);
+  ctx.fillStyle = `rgba(0, 0, 0, ${BACKDROP_DIM})`;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
 }
 
 function drawPlaceholder(

@@ -56,6 +56,15 @@ describe("videoTimestamps", () => {
   });
 });
 
+describe("videoTimestamps 与模糊背景", () => {
+  it("完整显示的视频页带模糊背景层，背景层不另取视频帧", () => {
+    const withBackdrop = JSON.parse(JSON.stringify(manifest)) as Manifest;
+    withBackdrop.canvas.backdrop = "blur";
+    withBackdrop.pages[2]!.items[0]!.fit = "contain";
+    expect(videoTimestamps(withBackdrop)).toEqual(videoTimestamps(manifest));
+  });
+});
+
 describe("gain curves", () => {
   it("background music fades in and out with straight lines between the knots", () => {
     const curve = bgmGainCurve(manifest, 0, manifest.duration);

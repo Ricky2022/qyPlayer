@@ -4,6 +4,8 @@ import type { Direction, Fit, Frame, Manifest, Page } from "./manifest";
 export type Rect = Frame;
 
 export interface Layer {
+  /** 特殊图层：backdrop 是页的模糊背景（铺满画面，由渲染器模糊并压暗），缺省为普通素材层 */
+  role?: "backdrop";
   pageId: string;
   assetId: string;
   kind: "image" | "video";
@@ -131,6 +133,13 @@ function transformRect(r: Rect, t: PageTransform): Rect {
   };
 }
 
+const FULL_CANVAS: Rect = { x: 0, y: 0, w: 1, h: 1 };
+
+/** 页是否会露出画布背景：多于一个素材（拼图），或有完整显示（contain）的素材 */
+function pageNeedsBackdrop(page: Page): boolean {
+  return page.items.length > 1 || page.items.some((item) => item.fit === "contain");
+}
+
 function pageLayers(
   manifest: Manifest,
   page: Page,
@@ -167,6 +176,23 @@ function pageLayers(
       layer.videoTime = asset.duration === undefined ? wanted : Math.min(wanted, asset.duration);
     }
     layers.push(layer);
+  }
+
+  // 格式 0.3：留空处画模糊背景。取页里第一个素材，铺满画面，跟随整页变换，画在所有素材层下面
+  const first = layers[0];
+  if (manifest.canvas.backdrop === "blur" && first && pageNeedsBackdrop(page)) {
+    const backdrop: Layer = {
+      role: "backdrop",
+      pageId: page.id,
+      assetId: first.assetId,
+      kind: first.kind,
+      fit: "cover",
+      clip: transformRect(FULL_CANVAS, pageTransform),
+      rect: transformRect(FULL_CANVAS, pageTransform),
+      opacity: pageTransform.opacity,
+    };
+    if (first.videoTime !== undefined) backdrop.videoTime = first.videoTime;
+    layers.unshift(backdrop);
   }
   return layers;
 }

@@ -228,8 +228,8 @@ describe("F-GEN-03 layout matching", () => {
         const portraits = page.items.filter((i) => m.assets.find((a) => a.id === i.assetId)!.height! > m.assets.find((a) => a.id === i.assetId)!.width!);
         if (portraits.length !== 1) continue;
         checked++;
-        expect(portraits[0]!.frame.h).toBe(1); // 左侧通栏格子
-        expect(portraits[0]!.frame.x).toBe(0);
+        expect(portraits[0]!.frame.h).toBeGreaterThan(0.9); // 左侧通栏格子（四周有外边距）
+        expect(portraits[0]!.frame.x).toBeLessThan(0.05);
       }
     }
     expect(checked).toBeGreaterThan(10);

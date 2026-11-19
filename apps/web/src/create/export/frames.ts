@@ -76,7 +76,7 @@ export function createFrameProvider(manifest: Manifest, readBlob: (path: string)
           bitmap = await createImageBitmap(await readBlob(asset.src));
           images.set(layer.assetId, bitmap);
         }
-        ready.set(layer.assetId, { source: bitmap, width: bitmap.width, height: bitmap.height });
+        ready.set(layer.assetId, { source: bitmap, width: bitmap.width, height: bitmap.height, still: true });
       }
       for (const layer of videoLayers(state)) {
         if (ready.has(layer.assetId)) continue;

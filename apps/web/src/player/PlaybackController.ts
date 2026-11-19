@@ -378,7 +378,7 @@ export class PlaybackController {
     if (this.unsupported.has(assetId)) return { placeholder: true };
     if (layer.kind === "image") {
       const bitmap = this.images.get(assetId);
-      return bitmap && { source: bitmap, width: bitmap.width, height: bitmap.height };
+      return bitmap && { source: bitmap, width: bitmap.width, height: bitmap.height, still: true };
     }
     const element = this.videos.get(assetId)?.element;
     if (!element || element.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || element.videoWidth === 0) return undefined;

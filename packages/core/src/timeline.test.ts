@@ -252,6 +252,49 @@ describe("stateAt: transition types", () => {
   });
 });
 
+describe("stateAt: 模糊背景层（格式 0.3）", () => {
+  const blurred = (change: (m: any) => void = () => {}): Manifest => variant((m) => ((m.canvas.backdrop = "blur"), change(m)));
+
+  it("没有声明 backdrop 时不生成背景层", () => {
+    for (const t of [2, 8, 15, 22]) expect(stateAt(base, t).layers.some((l) => l.role === "backdrop")).toBe(false);
+  });
+
+  it("单张 cover 照片和 cover 视频填满画面，不需要背景层", () => {
+    expect(stateAt(blurred(), 2).layers.some((l) => l.role === "backdrop")).toBe(false);
+    expect(stateAt(blurred(), 15).layers.some((l) => l.role === "backdrop")).toBe(false);
+  });
+
+  it("拼图页：背景层在所有素材层下面，取页里第一个素材，铺满画面", () => {
+    const { layers } = stateAt(blurred(), 8);
+    expect(layers.map((l) => l.role)).toEqual(["backdrop", undefined, undefined]);
+    expect(layers[0]).toMatchObject({ assetId: "m002", kind: "image", fit: "cover", opacity: 1, rect: { x: 0, y: 0, w: 1, h: 1 }, clip: { x: 0, y: 0, w: 1, h: 1 } });
+  });
+
+  it("完整显示（contain）的单张照片需要背景层", () => {
+    const m = blurred((x) => (x.pages[0].items[0].fit = "contain"));
+    expect(stateAt(m, 2).layers.map((l) => l.role)).toEqual(["backdrop", undefined]);
+  });
+
+  it("完整显示的视频页：背景层带同一时刻的 videoTime", () => {
+    const m = blurred((x) => (x.pages[2].items[0].fit = "contain"));
+    const layers = stateAt(m, 13).layers;
+    expect(layers[0]).toMatchObject({ role: "backdrop", assetId: "m004", kind: "video" });
+    expect(layers[0]!.videoTime).toBeCloseTo(1.8, 10);
+    expect(layers[1]!.videoTime).toBeCloseTo(1.8, 10);
+  });
+
+  it("转场中背景层跟随整页变换：滑动时跟着新页进入，淡入时随整页不透明度变化", () => {
+    // p001 -> p002 滑动，进度 0.5 处缓动值 0.5
+    const slide = stateAt(blurred(), 4.8 + 0.3).layers.filter((l) => l.role === "backdrop");
+    expect(slide).toHaveLength(1);
+    expect(slide[0]!.rect.x).toBeCloseTo(0.5, 6); // 新页向左滑入，偏移 (1-p) = 0.5
+    const fade = blurred((x) => {
+      x.pages[1].transitionIn = { type: "fade", duration: 0.6 };
+    });
+    expect(stateAt(fade, 4.8 + 0.3).layers.find((l) => l.role === "backdrop")!.opacity).toBeCloseTo(0.5, 6);
+  });
+});
+
 describe("bgm helpers", () => {
   it("fades in and out per fadeIn / fadeOut (A-03)", () => {
     expect(bgmGainAt(base, 0)).toBe(0);

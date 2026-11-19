@@ -26,18 +26,16 @@ describe("layoutFrames", () => {
 
   it("16:9 two photos sit side by side, 9:16 stacked", () => {
     const [a, b] = layoutFrames(2, "16:9");
-    expect(a!.y).toBe(0);
-    expect(b!.y).toBe(0);
+    expect(a!.y).toBe(b!.y);
     expect(b!.x).toBeGreaterThan(a!.x + a!.w);
     const [c, d] = layoutFrames(2, "9:16");
-    expect(c!.x).toBe(0);
-    expect(d!.x).toBe(0);
+    expect(c!.x).toBe(d!.x);
     expect(d!.y).toBeGreaterThan(c!.y + c!.h);
   });
 
   it("16:9 three photos: one tall cell on the left, two stacked on the right", () => {
     const [left, topRight, bottomRight] = layoutFrames(3, "16:9");
-    expect(left!.h).toBe(1);
+    expect(left!.h).toBeGreaterThan(topRight!.h);
     expect(topRight!.x).toBe(bottomRight!.x);
     expect(bottomRight!.y).toBeGreaterThan(topRight!.y);
     expect(cellAspect(left!, "16:9")).toBeLessThan(1);
@@ -46,18 +44,32 @@ describe("layoutFrames", () => {
 
   it("9:16 three photos: one wide cell on top, two side by side below", () => {
     const [top, bl, br] = layoutFrames(3, "9:16");
-    expect(top!.w).toBe(1);
+    expect(top!.w).toBeGreaterThan(bl!.w);
     expect(bl!.y).toBe(br!.y);
     expect(br!.x).toBeGreaterThan(bl!.x);
   });
 
-  it("gap is 1% of the short edge in pixels, on both axes", () => {
+  it("gap is 2% of the short edge in pixels, on both axes", () => {
     const [a, b] = layoutFrames(2, "16:9");
     const gapPx = (b!.x - (a!.x + a!.w)) * 1920;
-    expect(gapPx).toBeCloseTo(10.8, 1);
+    expect(gapPx).toBeCloseTo(21.6, 0);
     const [c, d] = layoutFrames(2, "9:16");
     const gapPy = (d!.y - (c!.y + c!.h)) * 1920;
-    expect(gapPy).toBeCloseTo(10.8, 1);
+    expect(gapPy).toBeCloseTo(21.6, 0);
+  });
+
+  it.each([
+    ["16:9", 1920, 1080],
+    ["9:16", 1080, 1920],
+  ] as const)("%s: a group of 2 to 4 leaves a margin of 4%% of the short edge on all four sides", (ratio, width, height) => {
+    for (const count of [2, 3, 4] as const) {
+      const frames = layoutFrames(count, ratio);
+      const left = Math.min(...frames.map((f) => f.x)) * width;
+      const top = Math.min(...frames.map((f) => f.y)) * height;
+      const right = (1 - Math.max(...frames.map((f) => f.x + f.w))) * width;
+      const bottom = (1 - Math.max(...frames.map((f) => f.y + f.h))) * height;
+      for (const margin of [left, top, right, bottom]) expect(margin).toBeCloseTo(43.2, 0);
+    }
   });
 });
 

@@ -2,7 +2,9 @@
 //   /playground.html                      示例清单（16:9）在关键时间点的联系表
 //   /playground.html?m=portrait           竖屏（9:16）清单的联系表
 //   /playground.html?t=5.1&w=960          在指定时间渲染一帧大图
-import { validateManifest, type Layer, type Manifest } from "@qyplayer/core";
+//   /playground.html?m=gen&seed=3&template=lively&aspect=9:16
+//                                         用生成器按一组横竖混合的素材生成清单，每页取一帧（0.4.0 的画面效果）
+import { generateManifest, validateManifest, type Layer, type Manifest, type MediaInput } from "@qyplayer/core";
 import { renderFrame, type DrawableAsset } from "@qyplayer/renderer";
 import example from "../../../spec/examples/example.manifest.json";
 
@@ -58,8 +60,34 @@ function portraitManifest(): Manifest {
   return m as unknown as Manifest;
 }
 
+/** 横竖混合的占位素材，经生成器得到清单（与制作器走同一份生成逻辑） */
+function generatedManifest(): Manifest {
+  const sizes: [number, number][] = [[2560, 1707], [1707, 2560], [2560, 1440], [1707, 2560], [2560, 1707], [1200, 1200], [1707, 2560], [2560, 1707], [3000, 2000], [1707, 2560], [2560, 1707], [2560, 1707]];
+  const media: MediaInput[] = sizes.map(([width, height], i) => ({
+    id: `g${String(i + 1).padStart(2, "0")}`,
+    type: "image",
+    src: `media/g${i + 1}.jpg`,
+    mimeType: "image/jpeg",
+    source: { mimeType: "image/jpeg", transcoded: false },
+    fileName: `g${i + 1}.jpg`,
+    width,
+    height,
+    capturedAt: new Date(Date.UTC(2026, 9, 1, 8, i * 7)).toISOString(),
+  }));
+  return generateManifest({
+    media,
+    aspectRatio: params.get("aspect") === "9:16" ? "9:16" : "16:9",
+    templateId: params.get("template") ?? "classic",
+    seed: Number(params.get("seed") ?? 1),
+    keepOrder: true,
+    id: "playground-generated",
+    createdAt: "2026-11-19T00:00:00+08:00",
+  });
+}
+
 function pickManifest(): Manifest {
-  const raw = params.get("m") === "portrait" ? portraitManifest() : (example as unknown as Manifest);
+  const mode = params.get("m");
+  const raw = mode === "portrait" ? portraitManifest() : mode === "gen" ? generatedManifest() : (example as unknown as Manifest);
   const result = validateManifest(raw);
   if (!result.ok) throw new Error("playground manifest invalid: " + JSON.stringify(result.errors));
   return result.manifest!;
@@ -99,7 +127,7 @@ function placeholder(id: string, w: number, h: number, label: string): DrawableA
   g.font = `${Math.round(Math.min(cw, ch) / 14)}px sans-serif`;
   g.fillText(label, cw / 2, ch / 2 + Math.min(cw, ch) / 4);
   g.fillText("TOP", cw / 2, Math.min(cw, ch) / 9 + 10);
-  return { source: canvas, width: cw, height: ch };
+  return { source: canvas, width: cw, height: ch, still: true };
 }
 
 const manifest = pickManifest();
@@ -130,10 +158,13 @@ if (params.has("t")) {
   addFrame(root, Number(params.get("t")), Number(params.get("w") ?? 960));
 } else {
   const portrait = params.get("m") === "portrait";
-  const times = portrait
-    ? [0.3, 2, 4.3, 6, 8.3, 10, 12.3, 14]
-    : [0.3, 2, 4.8, 5.1, 5.5, 7, 11.5, 15, 19.5, 20.05, 22, 25.6];
-  const width = portrait ? 180 : 320;
+  const generated = params.get("m") === "gen";
+  const times = generated
+    ? manifest.pages.map((p) => p.start + p.duration * 0.75)
+    : portrait
+      ? [0.3, 2, 4.3, 6, 8.3, 10, 12.3, 14]
+      : [0.3, 2, 4.8, 5.1, 5.5, 7, 11.5, 15, 19.5, 20.05, 22, 25.6];
+  const width = manifest.canvas.height > manifest.canvas.width ? 180 : portrait ? 180 : 320;
   for (const t of times) addFrame(root, t, width);
 }
 document.title = "playground ready";

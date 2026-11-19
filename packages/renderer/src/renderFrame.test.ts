@@ -1,5 +1,6 @@
 import type { Manifest } from "@qyplayer/core";
 import { describe, expect, it } from "vitest";
+import { BACKDROP_DIM, blurredBackdrop, type ScratchCanvas } from "./backdrop";
 import { PLACEHOLDER_BACKGROUND, PLACEHOLDER_TEXT_COLOR, placeholderFontSize, renderFrame } from "./renderFrame";
 
 describe("placeholderFontSize", () => {
@@ -80,5 +81,103 @@ describe("renderFrame 占位画面", () => {
     renderFrame(ctx, manifest, 2, () => ({ placeholder: true }));
     expect(calls).toContain(`fillRect:${PLACEHOLDER_BACKGROUND}(0,0,1000,500)`);
     expect(calls.some((c) => c.startsWith("fillText"))).toBe(false);
+  });
+});
+
+/** 记录每次创建的离屏画布，和画布上的 drawImage 调用，检查模糊背景的绘制步骤 */
+function fakeCanvasFactory() {
+  const created: { width: number; height: number; calls: string[] }[] = [];
+  const create = (width: number, height: number): ScratchCanvas => {
+    const calls: string[] = [];
+    const record = { width, height, calls };
+    created.push(record);
+    const ctx = {
+      imageSmoothingEnabled: false,
+      imageSmoothingQuality: "low",
+      drawImage: (...args: unknown[]) => calls.push(`drawImage(${args.slice(1).join(",")})`),
+      clearRect: (...args: unknown[]) => calls.push(`clearRect(${args.join(",")})`),
+    };
+    return { width, height, getContext: () => ctx as unknown as OffscreenCanvasRenderingContext2D };
+  };
+  return { create, created };
+}
+
+describe("blurredBackdrop", () => {
+  const photo = { source: {} as CanvasImageSource, width: 4000, height: 3000 };
+
+  it("经过 中间尺寸 → 很小 → 放大回中间尺寸 三步，结果是中间尺寸的画布", () => {
+    const { create, created } = fakeCanvasFactory();
+    const result = blurredBackdrop(photo, 16 / 9, create);
+    expect(created.map((c) => [c.width, c.height])).toEqual([
+      [192, 108],
+      [48, 27],
+    ]);
+    expect(result.width).toBe(192);
+    expect(result.height).toBe(108);
+    // 4:3 的素材铺满 16:9：上下各裁掉一部分
+    expect(created[0]!.calls[0]).toBe("drawImage(0,375,4000,2250,0,0,192,108)");
+    expect(created[1]!.calls).toEqual(["drawImage(0,0,192,108,0,0,48,27)"]);
+    expect(created[0]!.calls.slice(1)).toEqual(["clearRect(0,0,192,108)", "drawImage(0,0,48,27,0,0,192,108)"]);
+  });
+
+  it("竖向画布的尺寸互换", () => {
+    const { create, created } = fakeCanvasFactory();
+    blurredBackdrop(photo, 9 / 16, create);
+    expect(created.map((c) => [c.width, c.height])).toEqual([
+      [108, 192],
+      [27, 48],
+    ]);
+  });
+
+  it("静态图片的结果被缓存，视频帧每次重算", () => {
+    const { create, created } = fakeCanvasFactory();
+    const still = { ...photo, source: {} as CanvasImageSource, still: true };
+    expect(blurredBackdrop(still, 16 / 9, create)).toBe(blurredBackdrop(still, 16 / 9, create));
+    expect(created).toHaveLength(2);
+    const moving = { ...photo, source: {} as CanvasImageSource };
+    blurredBackdrop(moving, 16 / 9, create);
+    blurredBackdrop(moving, 16 / 9, create);
+    expect(created).toHaveLength(6);
+  });
+});
+
+describe("renderFrame 模糊背景", () => {
+  const blurManifest = {
+    ...manifest,
+    canvas: { ...manifest.canvas, backdrop: "blur" },
+    assets: [{ id: "a1", type: "image", src: "media/a1.jpg" }],
+    pages: [
+      {
+        id: "p1",
+        start: 0,
+        duration: 4,
+        transitionIn: { type: "none", duration: 0 },
+        items: [
+          { assetId: "a1", frame: { x: 0.1, y: 0.1, w: 0.4, h: 0.8 }, fit: "contain" },
+          { assetId: "a1", frame: { x: 0.5, y: 0.1, w: 0.4, h: 0.8 }, fit: "contain" },
+        ],
+      },
+    ],
+  } as unknown as Manifest;
+  const photo = { source: {} as CanvasImageSource, width: 400, height: 300, still: true };
+
+  it("先画模糊小图铺满整个画布，再盖黑，然后才画素材", () => {
+    const { ctx, calls } = fakeContext(1000, 500);
+    const { create } = fakeCanvasFactory();
+    renderFrame(ctx, blurManifest, 2, () => photo, { createCanvas: create });
+    const draws = calls.filter((c) => c.startsWith("drawImage"));
+    expect(draws).toHaveLength(3);
+    expect(draws[0]).toBe("drawImage([object Object],0,0,192,96,0,0,1000,500)");
+    expect(calls).toContain(`fillRect:rgba(0, 0, 0, ${BACKDROP_DIM})(0,0,1000,500)`);
+    const dimAt = calls.findIndex((c) => c.startsWith("fillRect:rgba(0, 0, 0,"));
+    expect(calls.findIndex((c) => c.startsWith("drawImage") && c !== draws[0])).toBeGreaterThan(dimAt);
+  });
+
+  it("素材无法播放时不画背景", () => {
+    const { ctx, calls } = fakeContext(1000, 500);
+    const { create, created } = fakeCanvasFactory();
+    renderFrame(ctx, blurManifest, 2, () => ({ placeholder: true }), { createCanvas: create });
+    expect(created).toHaveLength(0);
+    expect(calls.some((c) => c.startsWith("drawImage"))).toBe(false);
   });
 });
