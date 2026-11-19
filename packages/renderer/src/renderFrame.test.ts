@@ -233,6 +233,16 @@ describe("renderFrame 滤镜", () => {
     expect(fills).toEqual(LOOK_PASSES.vintage.map((p) => `fillRect:${p.color}(0,0,1000,500)`));
   });
 
+  it("标题图片画在滤镜之后，按透明度铺满画布", () => {
+    const titled = { ...manifest, look: "warm", assets: [...manifest.assets, { id: "t1", type: "image", src: "media/title.png" }], titleCard: { assetId: "t1", start: 0, duration: 3, fadeIn: 0, fadeOut: 0 } } as unknown as Manifest;
+    const { ctx, calls } = fakeContext(1000, 500);
+    renderFrame(ctx, titled, 1, (id) => ({ source: { id } as unknown as CanvasImageSource, width: id === "t1" ? 1920 : 100, height: id === "t1" ? 1080 : 50 }));
+    const look = calls.findIndex((c) => c.startsWith("op:overlay"));
+    const title = calls.findIndex((c) => c.includes("drawImage") && c.includes("1920,1080,0,0,1000,500"));
+    expect(look).toBeGreaterThan(-1);
+    expect(title).toBeGreaterThan(look);
+  });
+
   it("缺省、不认识的滤镜按原片，不叠色", () => {
     for (const look of [undefined, "future-look", "toString"]) {
       const { ctx, calls } = fakeContext(1000, 500);

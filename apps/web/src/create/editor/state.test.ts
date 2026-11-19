@@ -18,6 +18,8 @@ import {
   setMusic,
   setSeed,
   setLook,
+  setShowTitle,
+  setSubtitle,
   setTemplate,
   setTransition,
   setTitle,
@@ -108,11 +110,14 @@ describe("编辑状态：设置", () => {
     expect(currentDoc(state)).toMatchObject({ aspect: "9:16", templateId: "lively", transition: "rotate", look: "warm", music: { kind: "builtin", trackId: "goldberg-var1" }, seed: 99 });
     expect(setTransition(state, "rotate")).toBe(state);
     expect(setLook(state, "warm")).toBe(state);
+    state = setShowTitle(state, false);
+    expect(currentDoc(state).showTitle).toBe(false);
+    expect(setShowTitle(state, false)).toBe(state);
     expect(setAspect(state, "9:16")).toBe(state);
     expect(setTemplate(state, "lively")).toBe(state);
     expect(setMusic(state, { kind: "builtin", trackId: "goldberg-var1" })).toBe(state);
     expect(setSeed(state, 99)).toBe(state);
-    for (let i = 0; i < 6; i++) state = undo(state);
+    for (let i = 0; i < 7; i++) state = undo(state);
     expect(state.present.id).toBe(base.present.id);
   });
 
@@ -135,6 +140,14 @@ describe("编辑状态：标题输入合并", () => {
     expect(state.past).toHaveLength(2);
     expect(currentDoc(undo(state)).title).toBe("春游记");
     expect(currentDoc(undo(undo(state))).title).toBe("");
+  });
+
+  it("副标题输入同样合并；改成相同的值不算", () => {
+    let state = setSubtitle(fresh(), "三", 0);
+    state = setSubtitle(state, "三月", 300);
+    expect(state.past).toHaveLength(1);
+    expect(currentDoc(state).subtitle).toBe("三月");
+    expect(setSubtitle(state, "三月", 400)).toBe(state);
   });
 
   it("其他操作打断合并", () => {
@@ -203,7 +216,7 @@ describe("编辑状态：撤销和重做", () => {
   });
 
   it("转码开关不在历史里（状态里没有它）", () => {
-    expect(Object.keys(currentDoc(fresh())).sort()).toEqual(["aspect", "look", "media", "music", "seed", "templateId", "title", "transition"]);
+    expect(Object.keys(currentDoc(fresh())).sort()).toEqual(["aspect", "look", "media", "music", "seed", "showTitle", "subtitle", "templateId", "title", "transition"]);
   });
 });
 
@@ -255,6 +268,8 @@ describe("编辑状态：新建和打开", () => {
     const state = loadEditor(dirty, {
       media: [photo("照片 1"), photo("照片 2")],
       title: "T",
+      subtitle: "",
+      showTitle: true,
       aspect: "9:16",
       templateId: "classic",
       transition: "auto",

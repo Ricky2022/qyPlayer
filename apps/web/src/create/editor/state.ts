@@ -36,6 +36,10 @@ export type MusicChoice =
 export interface EditorDoc {
   media: readonly EditorMedia[];
   title: string;
+  /** 副标题，可以为空 */
+  subtitle: string;
+  /** 是否在影片开头显示标题 */
+  showTitle: boolean;
   aspect: AspectChoice;
   templateId: string;
   transition: TransitionSetting;
@@ -70,7 +74,7 @@ export interface EditorState {
 }
 
 function initialDoc(seed: number, templateId: string): EditorDoc {
-  return { media: [], title: "", aspect: "auto", templateId, transition: "auto", look: "original", music: { kind: "none" }, seed };
+  return { media: [], title: "", subtitle: "", showTitle: true, aspect: "auto", templateId, transition: "auto", look: "original", music: { kind: "none" }, seed };
 }
 
 /** 创建空的编辑状态；种子由调用方随机给出，保持函数纯净 */
@@ -195,13 +199,27 @@ export function setSeed(state: EditorState, seed: number): EditorState {
  * 但如果上一步正好是已保存的位置，就必须另起一步，否则保存后再改会被误判为没有更改。
  */
 export function setTitle(state: EditorState, title: string, at: number): EditorState {
+  return setText(state, "title", title, at);
+}
+
+/** 修改副标题，输入合并的规则同标题 */
+export function setSubtitle(state: EditorState, subtitle: string, at: number): EditorState {
+  return setText(state, "subtitle", subtitle, at);
+}
+
+function setText(state: EditorState, field: "title" | "subtitle", value: string, at: number): EditorState {
   const doc = state.present.doc;
-  if (doc.title === title) return state;
+  if (doc[field] === value) return state;
   const mergeable = state.lastTitleAt !== null && at - state.lastTitleAt <= TITLE_MERGE_MS && state.present.id !== state.savedId;
   if (mergeable) {
-    return { ...state, present: { id: state.present.id, doc: { ...doc, title } }, lastTitleAt: at };
+    return { ...state, present: { id: state.present.id, doc: { ...doc, [field]: value } }, lastTitleAt: at };
   }
-  return commit(state, { ...doc, title }, at);
+  return commit(state, { ...doc, [field]: value }, at);
+}
+
+export function setShowTitle(state: EditorState, showTitle: boolean): EditorState {
+  const doc = state.present.doc;
+  return doc.showTitle === showTitle ? state : commit(state, { ...doc, showTitle });
 }
 
 export function undo(state: EditorState): EditorState {

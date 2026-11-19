@@ -1,5 +1,5 @@
 import { CANVAS_SIZE, cellAspect, coverCropLoss, layoutFrames } from "../layout";
-import { CURRENT_FORMAT_VERSION, KNOWN_LOOKS, type Look, type Asset, type AssetSource, type AspectRatio, type Bgm, type Direction, type Enter, type Fit, type Item, type Manifest, type Motion, type Page, type TransitionIn } from "../manifest";
+import { CURRENT_FORMAT_VERSION, KNOWN_LOOKS, type Look, type Asset, type AssetSource, type AspectRatio, type Bgm, type Direction, type Enter, type Fit, type Item, type Manifest, type Motion, type Page, type TitleCard, type TransitionIn } from "../manifest";
 import { createRng, type Rng } from "./rng";
 import { findTemplate, type Template } from "./templates";
 
@@ -27,6 +27,10 @@ export const GENERATOR_LIMITS = {
   kenBurnsMaxScale: 1.08,
   kenBurnsContainMinScale: 0.94,
   kenBurnsPanOffset: 0.035,
+  /** 0.4.0 片头标题卡：开始显示的时刻、最晚结束的时刻、淡入淡出时长（秒） */
+  titleStartSeconds: 0.3,
+  titleEndSeconds: 3,
+  titleFadeSeconds: 0.5,
 } as const;
 
 export interface MediaInput {
@@ -49,6 +53,15 @@ export interface MediaInput {
   /** 拍摄时间，ISO 8601；缺失的素材排在最后 */
   capturedAt?: string;
   original?: string;
+}
+
+/** 片头标题图片：制作器画好的、与画布同尺寸的透明 PNG，由调用方放进包里 */
+export interface TitleCardInput {
+  id: string;
+  src: string;
+  mimeType: string;
+  width: number;
+  height: number;
 }
 
 export interface MusicInput {
@@ -75,6 +88,10 @@ export interface GenerateOptions {
   transition?: TransitionChoice;
   /** 整片滤镜，写进清单 look；缺省是原片 */
   look?: Look;
+  /** 片头标题图片；缺省则影片没有片头标题。显示时间由生成器按第一页的长度决定 */
+  titleCard?: TitleCardInput;
+  /** 副标题文字，写进清单 subtitle，仅用于还原编辑设置 */
+  subtitle?: string;
   /** 没给标题时，默认标题里“日期 + 词”的那个词，让界面按语言传入；缺省为“回忆” */
   defaultTitleWord?: string;
   /** 缺省时随机生成 */
@@ -262,6 +279,13 @@ function validateInput(options: GenerateOptions): Template {
       throw new GenerateError("invalid-media", `${m.id}: a video needs a positive duration`);
     }
   }
+  if (options.titleCard) {
+    const card = options.titleCard;
+    if (ids.has(card.id) || card.id === options.music?.id) {
+      throw new GenerateError("duplicate-media-id", `title card id ${card.id} collides with another asset id`);
+    }
+    if (!(card.width > 0) || !(card.height > 0)) throw new GenerateError("invalid-media", "title card width and height must be positive");
+  }
   if (options.music && ids.has(options.music.id)) {
     throw new GenerateError("duplicate-media-id", `music id ${options.music.id} collides with a media id`);
   }
@@ -390,6 +414,11 @@ export function generateManifest(options: GenerateOptions): Manifest {
     };
   }
 
+  if (options.titleCard) {
+    const card = options.titleCard;
+    assets.push({ id: card.id, type: "image", src: card.src, mimeType: card.mimeType, source: { mimeType: card.mimeType, transcoded: false }, width: card.width, height: card.height });
+  }
+
   const earliest = ordered.map((m) => m.capturedAt).filter((t): t is string => !!t).sort()[0];
   const titleWord = options.defaultTitleWord ?? "回忆";
   const defaultTitle = earliest ? `${earliest.slice(0, 10)} ${titleWord}` : titleWord;
@@ -412,6 +441,8 @@ export function generateManifest(options: GenerateOptions): Manifest {
     ...(bgm && { bgm }),
     pages,
     ...(options.look !== undefined && { look: options.look }),
+    ...(options.subtitle && { subtitle: options.subtitle }),
+    ...(options.titleCard && { titleCard: titleCardTiming(options.titleCard.id, durationsMs[0]! / 1000, totalMs / 1000) }),
   };
 }
 
@@ -421,6 +452,15 @@ function randomId(): string {
 }
 
 /** 选转场：尽量不与上一页重复（同类型，或同为滑动且方向相同）。 */
+/** 标题从 0.3 秒显示到 3 秒；第一页或整片不足 3 秒则在其结束时淡出完 */
+function titleCardTiming(assetId: string, firstPageSeconds: number, filmSeconds: number): TitleCard {
+  const start = GENERATOR_LIMITS.titleStartSeconds;
+  const end = Math.min(GENERATOR_LIMITS.titleEndSeconds, firstPageSeconds, filmSeconds);
+  const duration = Math.max(0, round3(end - start));
+  const fade = round3(Math.min(GENERATOR_LIMITS.titleFadeSeconds, duration / 2));
+  return { assetId, start, duration, fadeIn: fade, fadeOut: fade };
+}
+
 function pickTransition(template: Template, rng: Rng, previous: TransitionIn | undefined, duration: number, forced?: TransitionChoice): TransitionIn {
   const type: string = forced ?? pickTransitionType(template, rng, previous);
   if (type !== "slide") return { type, duration };

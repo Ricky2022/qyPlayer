@@ -114,6 +114,21 @@ describe("还原：设置", () => {
     expect((await restorePackage(unknown, options)).content.transition).toBe("auto");
   });
 
+  it("副标题和“显示标题”取自清单；标题图片不会被当成用户素材", async () => {
+    const { manifest, files } = planPackage({
+      media: [photo("a.jpg", "2026-03-01T00:00:00Z")],
+      templateId: "clean",
+      seed: 1,
+      subtitle: "三月",
+      titleImage: new Blob(["png"]),
+    });
+    const restored = await restorePackage(memoryPackage(manifest, files), options);
+    expect(restored.content).toMatchObject({ subtitle: "三月", showTitle: true });
+    expect(restored.content.media).toHaveLength(1);
+    const plain = await restorePackage(makeMemoryPackage(), options);
+    expect(plain.content).toMatchObject({ subtitle: "", showTitle: false });
+  });
+
   it("滤镜取自清单 look；没有或不认识时是原片", async () => {
     expect((await restorePackage(makeMemoryPackage({ look: "vintage" }), options)).content.look).toBe("vintage");
     expect((await restorePackage(makeMemoryPackage(), options)).content.look).toBe("original");
@@ -188,7 +203,7 @@ describe("还原后重新生成", () => {
     const state = loadEditor(createEditor(1, "clean"), restored.content);
     const doc = currentDoc(state);
     const music = doc.music.kind === "custom" ? doc.music.entry : undefined;
-    const again = createPreviewPackage(doc, music ? { music } : {}).manifest;
+    const again = (await createPreviewPackage(doc, music ? { music } : {})).manifest;
 
     const strip = (m: Manifest): Manifest => ({ ...m, id: "", createdAt: "" });
     expect(strip(again)).toEqual(strip(original.manifest));
@@ -199,15 +214,34 @@ describe("还原后重新生成", () => {
 describe("预览包", () => {
   it("readBlob 直接返回编辑状态里的素材，不存在的路径报缺失", async () => {
     const input: EditorMediaInput = { ...photo("a.jpg"), final: false };
-    const state = loadEditor(createEditor(1, "clean"), { media: [input], title: "", aspect: "auto", templateId: "clean", transition: "auto", look: "original", music: { kind: "none" }, seed: 1 });
-    const { opened, manifest } = createPreviewPackage(currentDoc(state));
+    const state = loadEditor(createEditor(1, "clean"), { media: [input], title: "", subtitle: "", showTitle: false, aspect: "auto", templateId: "clean", transition: "auto", look: "original", music: { kind: "none" }, seed: 1 });
+    const { opened, manifest } = await createPreviewPackage(currentDoc(state));
     const src = manifest.assets[0]!.src;
     expect(await (await opened.readBlob(src)).text()).toBe("a.jpg");
     await expect(opened.readBlob("media/none.jpg")).rejects.toMatchObject({ code: "missing-file" });
   });
 
-  it("没有素材时抛出 no-media", () => {
-    expect(() => createPreviewPackage(currentDoc(createEditor(1, "clean")))).toThrowError(GenerateError);
+  it("没有素材时抛出 no-media", async () => {
+    await expect(createPreviewPackage(currentDoc(createEditor(1, "clean")))).rejects.toThrowError(GenerateError);
+  });
+
+  it("显示标题时按最终标题和画布尺寸画标题图片并放进包；不显示时不画", async () => {
+    const input: EditorMediaInput = { ...photo("a.jpg"), final: false };
+    const content = { media: [input], title: "春游", subtitle: "三月", showTitle: true, aspect: "auto" as const, templateId: "clean", transition: "auto" as const, look: "original" as const, music: { kind: "none" as const }, seed: 1 };
+    const requests: unknown[] = [];
+    const renderTitle = async (request: unknown) => (requests.push(request), new Blob(["png"]));
+    const shown = await createPreviewPackage(currentDoc(loadEditor(createEditor(1, "clean"), content)), { renderTitle });
+    expect(requests).toEqual([{ title: "春游", subtitle: "三月", width: shown.manifest.canvas.width, height: shown.manifest.canvas.height }]);
+    expect(shown.manifest.titleCard).toMatchObject({ assetId: "t001" });
+    expect(await (await shown.opened.readBlob("media/title.png")).text()).toBe("png");
+    shown.opened.setFile("media/title.png", new Blob(["new"]));
+    expect(await (await shown.opened.readBlob("media/title.png")).text()).toBe("new");
+
+    requests.length = 0;
+    const hidden = await createPreviewPackage(currentDoc(loadEditor(createEditor(1, "clean"), { ...content, showTitle: false })), { renderTitle });
+    expect(requests).toEqual([]);
+    expect(hidden.manifest.titleCard).toBeUndefined();
+    expect(hidden.manifest.subtitle).toBe("三月");
   });
 });
 

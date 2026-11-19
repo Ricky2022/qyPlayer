@@ -97,6 +97,13 @@ export class PlaybackController {
     this.clock = new Clock(this.manifest.duration);
     for (const asset of this.manifest.assets) this.assets.set(asset.id, asset);
     this.pageAssets = this.manifest.pages.map((p) => [...new Set(p.items.map((i) => i.assetId))]);
+    // 片头标题图片不属于任何一页：在它显示期间碰到的页里，都要保留这张图
+    const card = this.manifest.titleCard;
+    if (card) {
+      this.manifest.pages.forEach((page, index) => {
+        if (page.start < card.start + card.duration && page.start + page.duration > card.start) this.pageAssets[index]!.push(card.assetId);
+      });
+    }
 
     this.canvas = document.createElement("canvas");
     this.canvas.width = this.manifest.canvas.width;
@@ -303,6 +310,21 @@ export class PlaybackController {
         this.redrawIfIdle();
       });
     this.pending.set(id, task);
+  }
+
+  /** 包里某个图片文件被换掉后（改标题时换标题图片），丢掉旧的解码结果，重新读入。只处理已经载入过的图片 */
+  refreshAsset(id: string): void {
+    const pending = this.pending.get(id);
+    if (pending) {
+      void pending.then(() => this.refreshAsset(id));
+      return;
+    }
+    const bitmap = this.images.get(id);
+    if (!bitmap) return;
+    bitmap.close();
+    this.images.delete(id);
+    this.failed.delete(id);
+    this.load(id);
   }
 
   private fail(asset: Asset): void {

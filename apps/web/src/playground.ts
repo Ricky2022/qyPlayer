@@ -4,9 +4,12 @@
 //   /playground.html?t=5.1&w=960          在指定时间渲染一帧大图
 //   /playground.html?m=gen&seed=3&template=lively&aspect=9:16
 //                                         用生成器按一组横竖混合的素材生成清单，每页取一帧（0.4.0 的画面效果）
+//   /playground.html?m=gen&title=标题&subtitle=副标题&t=1.5
+//                                         在 gen 模式的第一页上叠片头标题图片（与制作器画的是同一张）
 //   /playground.html?m=looks              同一张模拟照片套上 原片 和 四款滤镜 的对比
-import { generateManifest, KNOWN_LOOKS, validateManifest, type Layer, type Manifest, type MediaInput } from "@qyplayer/core";
+import { CANVAS_SIZE, generateManifest, KNOWN_LOOKS, validateManifest, type Layer, type Manifest, type MediaInput } from "@qyplayer/core";
 import { renderFrame, type DrawableAsset } from "@qyplayer/renderer";
+import { TITLE_ASSET_ID, TITLE_PATH, renderTitleCard } from "./create/titleCard";
 import example from "../../../spec/examples/example.manifest.json";
 
 const params = new URLSearchParams(location.search);
@@ -81,6 +84,7 @@ function generatedManifest(): Manifest {
     templateId: params.get("template") ?? "classic",
     seed: Number(params.get("seed") ?? 1),
     keepOrder: true,
+    ...(params.has("title") && { titleCard: { id: TITLE_ASSET_ID, src: TITLE_PATH, mimeType: "image/png", ...CANVAS_SIZE[params.get("aspect") === "9:16" ? "9:16" : "16:9"] } }),
     id: "playground-generated",
     createdAt: "2026-11-19T00:00:00+08:00",
   });
@@ -186,8 +190,11 @@ const assetById = new Map(manifest.assets.map((a) => [a.id, a]));
 
 const sceneAsset = params.get("m") === "looks" ? scene(1600, 900) : undefined;
 
+let titleBitmap: ImageBitmap | undefined;
+
 function resolve(assetId: string, layer: Layer): DrawableAsset | undefined {
   if (sceneAsset) return sceneAsset;
+  if (assetId === TITLE_ASSET_ID) return titleBitmap && { source: titleBitmap, width: titleBitmap.width, height: titleBitmap.height, still: true };
   const asset = assetById.get(assetId);
   if (!asset?.width || !asset.height) return undefined;
   const label = layer.kind === "video" ? `video @ ${layer.videoTime?.toFixed(2)}s` : `${asset.width}x${asset.height}`;
@@ -208,6 +215,16 @@ function addFrame(root: HTMLElement, t: number, displayWidth: number): void {
 }
 
 const root = document.getElementById("root")!;
+void (async () => {
+  if (params.has("title")) {
+    const { width, height } = manifest.canvas;
+    titleBitmap = await createImageBitmap(await renderTitleCard({ title: params.get("title")!, subtitle: params.get("subtitle") ?? "", width, height }));
+  }
+  buildSheet();
+  document.title = "playground ready";
+})();
+
+function buildSheet(): void {
 if (params.get("m") === "looks") {
   for (const look of [undefined, ...KNOWN_LOOKS]) {
     const canvas = document.createElement("canvas");
@@ -233,4 +250,4 @@ if (params.get("m") === "looks") {
   const width = manifest.canvas.height > manifest.canvas.width ? 180 : portrait ? 180 : 320;
   for (const t of times) addFrame(root, t, width);
 }
-document.title = "playground ready";
+}

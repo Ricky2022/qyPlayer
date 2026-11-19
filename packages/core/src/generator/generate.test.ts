@@ -652,6 +652,30 @@ describe("指定转场（generator.transition）", () => {
     expect(() => gen({ media: landscapePhotos(2), look: "sepia" as never })).toThrowError(expect.objectContaining({ code: "unknown-look" }));
   });
 
+  const card = { id: "title", src: "media/title.png", mimeType: "image/png", width: 1920, height: 1080 };
+
+  it("片头标题：素材表多一张 PNG，titleCard 从 0.3 秒到 3 秒，淡入淡出各 0.5 秒，清单合法", () => {
+    const m = gen({ media: landscapePhotos(3), titleCard: card, subtitle: "春游" });
+    expect(m.assets.at(-1)).toMatchObject({ id: "title", type: "image", src: "media/title.png", mimeType: "image/png", width: 1920, height: 1080 });
+    expect(m.titleCard).toEqual({ assetId: "title", start: 0.3, duration: 2.7, fadeIn: 0.5, fadeOut: 0.5 });
+    expect(m.subtitle).toBe("春游");
+    expectValid(m);
+  });
+
+  it("第一页不足 3 秒时标题在该页结束时淡出完", () => {
+    const m = gen({ media: [video("v1", 1.5, at(-1)), ...landscapePhotos(2)], titleCard: card });
+    expect(m.pages[0]!.duration).toBeCloseTo(1.5, 6);
+    expect(m.titleCard!.start + m.titleCard!.duration).toBeCloseTo(1.5, 6);
+    expectValid(m);
+  });
+
+  it("没有 titleCard、subtitle 输入就不写这两个字段；标题图片 id 不能和别的素材重复", () => {
+    const m = gen({ media: landscapePhotos(2) });
+    expect(m).not.toHaveProperty("titleCard");
+    expect(m).not.toHaveProperty("subtitle");
+    expect(() => gen({ media: landscapePhotos(2), titleCard: { ...card, id: "m000" } })).toThrowError(expect.objectContaining({ code: "duplicate-media-id" }));
+  });
+
   it("不认识的转场报 unknown-transition", () => {
     expect(() => gen({ media: landscapePhotos(2), transition: "cube" as never })).toThrowError(expect.objectContaining({ code: "unknown-transition" }));
   });

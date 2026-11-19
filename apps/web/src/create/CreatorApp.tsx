@@ -12,7 +12,7 @@ import { InfoIcon } from "../ui/icons";
 import { theme } from "../ui/theme";
 import { useMatchMedia } from "../ui/useMatchMedia";
 import { AssetPanel, type ImportFailure } from "./AssetPanel";
-import { planPackage, type MusicEntry } from "./buildPackage";
+import { planPackageWithTitle, type MusicEntry } from "./buildPackage";
 import { describeBuildError, describeFileError } from "./describe";
 import { addCover } from "./cover";
 import { ConfirmDialog, MessageDialog, ProgressDialog } from "./Dialogs";
@@ -42,6 +42,8 @@ import {
   setLook,
   setMusic,
   setSeed,
+  setShowTitle,
+  setSubtitle,
   setTemplate,
   setTitle,
   setTransition,
@@ -180,8 +182,8 @@ export function CreatorApp() {
   // 标题改了（包括撤销重做）直接更新预览里的标题，不重新生成
   const { applyTitle, result } = preview;
   useEffect(() => {
-    if (applyTitle(doc.title)) bumpTitle((n) => n + 1);
-  }, [applyTitle, doc.title, result]);
+    if (applyTitle(doc.title, doc.subtitle)) bumpTitle((n) => n + 1);
+  }, [applyTitle, doc.title, doc.subtitle, result]);
 
   useEffect(() => {
     if (result) announce(t("previewAnnounce", { pages: result.manifest.pages.length, duration: formatDuration(result.manifest.duration) }));
@@ -292,11 +294,14 @@ export function CreatorApp() {
     saveAbort.current = controller;
     try {
       const music = await resolveMusic(current.music);
-      const planned = planPackage({
-        ...buildOptionsOf(current),
-        ...(music && { music }),
-        defaultTitleWord: t("defaultTitleWord"),
-      });
+      const planned = await planPackageWithTitle(
+        {
+          ...buildOptionsOf(current),
+          ...(music && { music }),
+          defaultTitleWord: t("defaultTitleWord"),
+        },
+        current.showTitle,
+      );
       let { manifest, files } = planned;
       let failedToTranscode: string[] = [];
       if (transcodeRef.current) {
@@ -353,7 +358,7 @@ export function CreatorApp() {
     try {
       const current = currentDoc(editorRef.current);
       const music = await resolveMusic(current.music);
-      const { opened, manifest } = createPreviewPackage(current, { ...(music && { music }), defaultTitleWord: t("defaultTitleWord") });
+      const { opened, manifest } = await createPreviewPackage(current, { ...(music && { music }), defaultTitleWord: t("defaultTitleWord") });
       if (!confirmedLong && manifest.duration > LONG_EXPORT_SECONDS) {
         setConfirmation({
           message: t("exportLongMessage", { duration: formatDuration(manifest.duration) }),
@@ -572,6 +577,8 @@ export function CreatorApp() {
       transcode={{ checked: transcodeSetting.transcode, canChange: transcodeSetting.capabilities.videoEncode, note: transcodeSetting.note }}
       onTranscode={transcodeSetting.setTranscode}
       onTitle={(title) => apply((state) => setTitle(state, title, Date.now()))}
+      onSubtitle={(subtitle) => apply((state) => setSubtitle(state, subtitle, Date.now()))}
+      onShowTitle={(show) => apply((state) => setShowTitle(state, show))}
       onAspect={(aspect) => apply((state) => setAspect(state, aspect))}
       onTemplate={(templateId) => apply((state) => setTemplate(state, templateId))}
       onTransition={(transition) => apply((state) => setTransition(state, transition))}

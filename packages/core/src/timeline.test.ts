@@ -369,6 +369,31 @@ describe("stateAt: Ken Burns（格式 0.3 的 motion）", () => {
   });
 });
 
+describe("stateAt: 片头标题层（格式 0.3）", () => {
+  const titled = variant((m) => {
+    m.assets.push({ id: "t001", type: "image", src: "media/title.png", width: 1920, height: 1080 });
+    m.titleCard = { assetId: "t001", start: 0.3, duration: 2.7, fadeIn: 0.5, fadeOut: 0.5 };
+  });
+  const titleOf = (t: number) => stateAt(titled, t).layers.find((l) => l.role === "title");
+
+  it("显示时间内出现在最上层，盖满画布；之前和之后没有", () => {
+    expect(titleOf(0.2)).toBeUndefined();
+    expect(titleOf(3)).toBeUndefined();
+    expect(stateAt(titled, 1).layers.at(-1)).toMatchObject({ role: "title", assetId: "t001", kind: "image", rect: { x: 0, y: 0, w: 1, h: 1 } });
+  });
+
+  it("淡入、满、淡出", () => {
+    expect(titleOf(0.3 + 0.25)!.opacity).toBeCloseTo(0.5, 6);
+    expect(titleOf(1.5)!.opacity).toBe(1);
+    expect(titleOf(3 - 0.25)!.opacity).toBeCloseTo(0.5, 6);
+    expect(titleOf(0.3)).toBeUndefined();
+  });
+
+  it("没有 titleCard 时不出现", () => {
+    expect(stateAt(base, 1).layers.some((l) => l.role === "title")).toBe(false);
+  });
+});
+
 describe("bgm helpers", () => {
   it("fades in and out per fadeIn / fadeOut (A-03)", () => {
     expect(bgmGainAt(base, 0)).toBe(0);

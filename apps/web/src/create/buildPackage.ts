@@ -1,6 +1,7 @@
-import { defaultAspectRatio, generateManifest, type AspectRatio, type AssetSource, type Manifest, type Look, type MediaInput, type TransitionChoice } from "@qyplayer/core";
+import { CANVAS_SIZE, defaultAspectRatio, generateManifest, type AspectRatio, type AssetSource, type Manifest, type Look, type MediaInput, type TransitionChoice } from "@qyplayer/core";
 import { writePackage } from "@qyplayer/qyp";
 import { extensionForMimeType } from "./mediaType";
+import { TITLE_ASSET_ID, TITLE_PATH, renderTitleCard, type TitleCardRequest } from "./titleCard";
 
 /** 写进清单 generator.version 的应用版本；测试环境没有构建时注入的常量，用 0.0.0 */
 const APP_VERSION = typeof __APP_VERSION__ === "undefined" ? "0.0.0" : __APP_VERSION__;
@@ -53,6 +54,10 @@ export interface BuildOptions {
   seed: number;
   /** 缺省或空白时用生成器的默认标题 */
   title?: string;
+  /** 副标题；写进清单，用于重新打开时还原 */
+  subtitle?: string;
+  /** 画好的片头标题图片（与画布同尺寸的透明 PNG）；缺省则影片没有片头标题 */
+  titleImage?: Blob;
   /** 默认标题里“日期 + 词”的词，界面按语言传入 */
   defaultTitleWord?: string;
 }
@@ -116,9 +121,14 @@ export function planPackage(options: BuildOptions): { manifest: Manifest; files:
   }
 
   const title = options.title?.trim();
+  const subtitle = options.subtitle?.trim();
+  const aspectRatio = options.aspectRatio ?? defaultAspectRatio(media);
+  if (options.titleImage) files.push({ path: TITLE_PATH, data: options.titleImage });
   const manifest = generateManifest({
     media,
-    aspectRatio: options.aspectRatio ?? defaultAspectRatio(media),
+    aspectRatio,
+    ...(options.titleImage && { titleCard: { id: TITLE_ASSET_ID, src: TITLE_PATH, mimeType: "image/png", ...CANVAS_SIZE[aspectRatio] } }),
+    ...(subtitle && { subtitle }),
     templateId: options.templateId,
     seed: options.seed,
     keepOrder: true,
@@ -130,6 +140,25 @@ export function planPackage(options: BuildOptions): { manifest: Manifest; files:
     generator: { name: "qyPlayer web", version: APP_VERSION },
   });
   return { manifest, files };
+}
+
+/** 画片头标题图片的函数；测试里可以换成假的 */
+export type RenderTitleImage = (request: TitleCardRequest) => Promise<Blob>;
+
+/**
+ * 同 planPackage，但 show 为 true 时先生成一次清单得到最终标题和画布尺寸，
+ * 据此画出标题图片再生成第二次。两次的排版相同（标题图片不影响随机数），只有第二次放进了标题。
+ */
+export async function planPackageWithTitle(
+  options: BuildOptions,
+  show: boolean,
+  render: RenderTitleImage = renderTitleCard,
+): Promise<{ manifest: Manifest; files: BlobFile[] }> {
+  const first = planPackage(options);
+  if (!show) return first;
+  const { width, height } = first.manifest.canvas;
+  const titleImage = await render({ title: first.manifest.title, subtitle: first.manifest.subtitle ?? "", width, height });
+  return planPackage({ ...options, titleImage });
 }
 
 /** 按列表顺序生成清单并打成 .qyp */

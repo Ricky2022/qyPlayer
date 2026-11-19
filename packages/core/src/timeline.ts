@@ -4,8 +4,8 @@ import type { Direction, Fit, Frame, Manifest, Motion, Page } from "./manifest";
 export type Rect = Frame;
 
 export interface Layer {
-  /** 特殊图层：backdrop 是页的模糊背景（铺满画面，由渲染器模糊并压暗），缺省为普通素材层 */
-  role?: "backdrop";
+  /** 特殊图层：backdrop 是页的模糊背景（铺满画面，由渲染器模糊并压暗）；title 是片头标题图片（盖满画布，画在滤镜之后）；缺省为普通素材层 */
+  role?: "backdrop" | "title";
   pageId: string;
   assetId: string;
   kind: "image" | "video";
@@ -229,6 +229,26 @@ function pageLayers(
  * 预览和将来的 MP4 导出共用它，渲染器只负责按结果绘制。
  */
 export function stateAt(manifest: Manifest, t: number): FrameState {
+  const state = pagesStateAt(manifest, t);
+  const title = titleLayer(manifest, state.time);
+  if (title) state.layers.push(title);
+  return state;
+}
+
+/** 片头标题图片层：显示时间内出现，按淡入淡出线性变化透明度；不随页转场移动 */
+function titleLayer(manifest: Manifest, time: number): Layer | undefined {
+  const card = manifest.titleCard;
+  if (!card) return undefined;
+  const local = time - card.start;
+  if (local < 0 || local >= card.duration) return undefined;
+  const fadeIn = card.fadeIn > 0 ? local / card.fadeIn : 1;
+  const fadeOut = card.fadeOut > 0 ? (card.duration - local) / card.fadeOut : 1;
+  const opacity = Math.min(1, fadeIn, fadeOut);
+  if (opacity <= 0) return undefined;
+  return { role: "title", pageId: "", assetId: card.assetId, kind: "image", fit: "cover", clip: FULL_CANVAS, rect: FULL_CANVAS, opacity };
+}
+
+function pagesStateAt(manifest: Manifest, t: number): FrameState {
   const pages = manifest.pages;
   const time = Math.min(Math.max(t, 0), manifest.duration);
 

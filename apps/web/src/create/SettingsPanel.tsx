@@ -59,6 +59,8 @@ interface SettingsPanelProps {
   transcode: { checked: boolean; canChange: boolean; note: TranscodeNote };
   onTranscode(on: boolean): void;
   onTitle(title: string): void;
+  onSubtitle(subtitle: string): void;
+  onShowTitle(show: boolean): void;
   onAspect(aspect: AspectChoice): void;
   onTemplate(templateId: string): void;
   onTransition(transition: TransitionSetting): void;
@@ -69,7 +71,7 @@ interface SettingsPanelProps {
 }
 
 /** 设置面板（3A.9）：标题、比例、模板、转场、配乐、换一版 */
-export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, transcode, onTranscode, onTitle, onAspect, onTemplate, onTransition, onLook, onMusic, onPickMusic, onReroll }: SettingsPanelProps) {
+export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, transcode, onTranscode, onTitle, onSubtitle, onShowTitle, onAspect, onTemplate, onTransition, onLook, onMusic, onPickMusic, onReroll }: SettingsPanelProps) {
   const classes = useStyles();
   const { lang, t } = useI18n();
   const ratioName = resolvedAspect === "16:9" ? t("makerLandscape") : t("makerPortrait");
@@ -102,6 +104,13 @@ export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, cu
           {t("makerTitle")}
         </label>
         <input id="qy-title" className={classes.input} value={doc.title} maxLength={100} disabled={disabled} placeholder={placeholderTitle} onChange={(event) => onTitle(event.target.value)} />
+        <label className={classes.label} htmlFor="qy-subtitle" style={{ marginTop: 10 }}>
+          {t("makerSubtitle")}
+        </label>
+        <input id="qy-subtitle" className={classes.input} value={doc.subtitle} maxLength={100} disabled={disabled} placeholder={t("makerSubtitlePlaceholder")} onChange={(event) => onSubtitle(event.target.value)} />
+        <label className={classes.choice}>
+          <input type="checkbox" checked={doc.showTitle} disabled={disabled} onChange={(event) => onShowTitle(event.target.checked)} /> {t("makerShowTitle")}
+        </label>
       </div>
 
       <fieldset className={classes.section}>

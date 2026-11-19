@@ -115,6 +115,8 @@ export async function restorePackage(opened: OpenedPackage, options: RestoreOpti
       aspect: manifest.canvas.aspectRatio,
       templateId,
       transition: TRANSITION_CHOICES.find((choice) => choice === generator?.transition) ?? "auto",
+      subtitle: manifest.subtitle ?? "",
+      showTitle: manifest.titleCard !== undefined,
       look: KNOWN_LOOKS.find((look) => look === manifest.look) ?? "original",
       seed,
       music: await restoreMusic(opened, options.builtinTracks ?? BUILTIN_TRACKS),

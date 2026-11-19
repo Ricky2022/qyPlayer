@@ -76,8 +76,10 @@ export function renderFrame(
   ctx.fillStyle = manifest.canvas.background;
   ctx.fillRect(0, 0, width, height);
 
+  // 标题图片在滤镜之后画，不被滤镜染色
+  const titles = state.layers.filter((layer) => layer.role === "title");
   for (const layer of state.layers) {
-    if (layer.opacity <= 0) continue;
+    if (layer.role === "title" || layer.opacity <= 0) continue;
     const asset = resolve(layer.assetId, layer);
     if (!asset) continue;
 
@@ -94,6 +96,15 @@ export function renderFrame(
 
   const look = knownLook(manifest.look);
   if (look) applyLook(ctx, look, width, height);
+
+  for (const layer of titles) {
+    const asset = layer.opacity > 0 ? resolve(layer.assetId, layer) : undefined;
+    if (!asset || isPlaceholder(asset)) continue;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, layer.opacity);
+    ctx.drawImage(asset.source, 0, 0, asset.width, asset.height, 0, 0, width, height);
+    ctx.restore();
+  }
 
   ctx.restore();
   return state;
