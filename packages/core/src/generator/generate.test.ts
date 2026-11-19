@@ -6,6 +6,7 @@ import {
   GenerateError,
   defaultAspectRatio,
   generateManifest,
+  planPages,
   sortMedia,
   type GenerateOptions,
   type MediaInput,
@@ -683,5 +684,90 @@ describe("指定转场（generator.transition）", () => {
   it("指定转场不改变版式和动效的选择", () => {
     const strip = (m: Manifest) => m.pages.map((p) => p.items.map((i) => [i.assetId, i.frame, i.fit, i.motion]));
     expect(strip(forced("rotate"))).toEqual(strip(gen({ media: landscapePhotos(24), seed: 3, templateId: "lively" })));
+  });
+});
+
+describe("手动编排：planPages 与 options.pages（docs/dev-0.4.1.md 2）", () => {
+  const mixed = (): MediaInput[] => [...landscapePhotos(9), video("v1", 20, at(100)), photo("p1", 1200, 1600, at(101)), photo("p2", 1200, 1600, at(102))];
+  const base = { media: mixed(), seed: 5, templateId: "lively", music: music(40) } as const;
+
+  it("把 planPages 的结果交给 pages，得到与自动生成相同的清单", () => {
+    expect(gen({ ...base, pages: planPages({ aspectRatio: "16:9", templateId: "lively", seed: 5, media: base.media }) })).toEqual(gen(base));
+  });
+
+  it("planPages 只记录选择：单张照片页有 kenBurns，多图页有 enter，视频页有 clipStart，第一页转场是淡入", () => {
+    const plan = planPages({ aspectRatio: "16:9", templateId: "lively", seed: 5, media: base.media });
+    expect(plan[0]!.transition).toEqual({ type: "fade" });
+    for (const page of plan) {
+      expect(page).not.toHaveProperty("duration");
+      for (const item of page.items) {
+        if (item.assetId === "v1") expect(item.clipStart).toBeGreaterThan(0);
+        else if (page.items.length === 1) expect(item.kenBurns).toBeDefined();
+        else expect(item.enter).toBeDefined();
+      }
+    }
+  });
+
+  it("编排里的页顺序、转场、时长、Ken Burns 都按给定的值组装", () => {
+    const media = landscapePhotos(3);
+    const m = gen({
+      media,
+      pages: [
+        { items: [{ assetId: "m002", kenBurns: "none" }], duration: 5 },
+        { items: [{ assetId: "m000", kenBurns: "left" }], transition: { type: "slide", direction: "up" }, duration: 2 },
+        { items: [{ assetId: "m001", kenBurns: "in" }], transition: { type: "rotate" } },
+      ],
+    });
+    expect(m.pages.map((p) => p.items[0]!.assetId)).toEqual(["m002", "m000", "m001"]);
+    expect(m.pages.map((p) => p.duration)).toEqual([5, 2, 3]);
+    expect(m.pages[0]!.transitionIn).toEqual({ type: "fade", duration: 0.6 });
+    expect(m.pages[1]!.transitionIn).toEqual({ type: "slide", direction: "up", duration: 0.6 });
+    expect(m.pages[2]!.transitionIn).toEqual({ type: "rotate", duration: 0.6 });
+    expect(m.pages[0]!.items[0]).not.toHaveProperty("motion");
+    expect(m.pages[1]!.items[0]!.motion).toBeDefined();
+    expectValid(m);
+  });
+
+  it("指定了时长的页不随配乐缩放，其余照片页补上差额", () => {
+    const m = gen({
+      media: landscapePhotos(3),
+      music: music(17),
+      pages: [{ items: [{ assetId: "m000" }], duration: 8 }, { items: [{ assetId: "m001" }] }, { items: [{ assetId: "m002" }] }],
+    });
+    expect(m.pages[0]!.duration).toBe(8);
+    expect(m.pages[1]!.duration).toBe(4.5);
+    expect(m.duration).toBe(17);
+  });
+
+  it("视频页：时长就是片段长度，起点夹在素材内", () => {
+    const media = [video("v1", 20, at(0))];
+    const clip = (clipStart: number | undefined, duration: number | undefined) =>
+      gen({ media, pages: [{ items: [{ assetId: "v1", ...(clipStart !== undefined && { clipStart }) }], ...(duration !== undefined && { duration }) }] }).pages[0]!;
+    expect(clip(2, 10)).toMatchObject({ duration: 10, items: [{ clipStart: 2 }] });
+    expect(clip(18, 10)).toMatchObject({ duration: 10, items: [{ clipStart: 10 }] });
+    expect(clip(undefined, 10)).toMatchObject({ duration: 10, items: [{ clipStart: 5 }] });
+    expect(clip(undefined, 60)).toMatchObject({ duration: 20, items: [{ clipStart: 0 }] });
+  });
+
+  it("多图页的入场按页内顺序错开，缺省为淡入", () => {
+    const m = gen({ media: landscapePhotos(2), pages: [{ items: [{ assetId: "m000" }, { assetId: "m001", enter: { type: "slide", direction: "down" } }] }] });
+    expect(m.pages[0]!.items.map((i) => i.enter)).toEqual([
+      { type: "fade", delay: 0, duration: 0.5 },
+      { type: "slide", direction: "down", delay: 0.15, duration: 0.5 },
+    ]);
+  });
+
+  it("编排不合规时报 invalid-plan", () => {
+    const media = [...landscapePhotos(3), video("v1", 10, at(9))];
+    const run = (pages: GenerateOptions["pages"]) => () => gen({ media, pages });
+    const code = expect.objectContaining({ code: "invalid-plan" });
+    expect(run([])).toThrowError(code);
+    expect(run([{ items: [{ assetId: "m000" }, { assetId: "m001" }, { assetId: "m002" }] }])).toThrowError(code); // 漏了视频
+    expect(run([{ items: [{ assetId: "m000" }, { assetId: "m000" }] }, { items: [{ assetId: "m001" }, { assetId: "m002" }] }, { items: [{ assetId: "v1" }] }])).toThrowError(code); // 重复
+    expect(run([{ items: [{ assetId: "m000" }, { assetId: "v1" }] }, { items: [{ assetId: "m001" }, { assetId: "m002" }] }])).toThrowError(code); // 视频不独占
+    expect(run([{ items: [] }, { items: [{ assetId: "m000" }, { assetId: "m001" }, { assetId: "m002" }, { assetId: "v1" }] }])).toThrowError(code);
+    expect(run([{ items: [{ assetId: "m000" }, { assetId: "m001" }, { assetId: "m002" }, { assetId: "x" }] }])).toThrowError(code); // 未知素材
+    expect(run([{ items: [{ assetId: "m000" }], duration: 0 }, { items: [{ assetId: "m001" }, { assetId: "m002" }] }, { items: [{ assetId: "v1" }] }])).toThrowError(code);
+    expect(run([{ items: [{ assetId: "m000", crop: { zoom: 5, x: 0.5, y: 0.5 } }] }, { items: [{ assetId: "m001" }, { assetId: "m002" }] }, { items: [{ assetId: "v1" }] }])).toThrowError(code);
   });
 });

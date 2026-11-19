@@ -27,7 +27,7 @@ interface ItemPlan {
   assetId: string;
   fit?: "cover" | "contain";                 // 缺省：按裁切损失自动
   crop?: { zoom: number; x: number; y: number }; // 取景，见第 4 节
-  kenBurns?: "none" | "in" | "out" | "left" | "right" | "up" | "down"; // 缺省：自动（单张照片页随机）
+  kenBurns?: "none" | "in" | "out" | "left" | "right" | "up" | "down"; // 缺省按 none 处理；planPages 给每个单张照片页都写上
   clipStart?: number;                        // 仅视频；缺省居中截取
   enter?: Enter;
 }
