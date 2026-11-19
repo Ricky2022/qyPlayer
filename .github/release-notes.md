@@ -10,6 +10,7 @@
 - 手机上的播放行为：方向跟随手机旋转；全屏隐藏系统栏；播放时屏幕常亮；返回键依次退出全屏、退出播放、回到首页，首页再按退出应用。
 - 发布：Windows 与 Android 在同一个标签、同一个 Release；任一平台构建失败就不发布。
 - 已知问题：部分机型的帧率可能达不到 30 帧（手机上的 Canvas 绘制还没有针对性优化）；只提供 arm64 包，32 位设备装不上；手机版只有播放器，制作影片请用 Windows 版或网页版。
+- **已知问题（Android 播放界面）**：系统的 Android System WebView 版本较旧时（实测 Android 11 自带 Chrome 83），播放界面可能黑屏。原因是不支持新版 CSS 特性（`inset` 简写、`aspect-ratio`、flex `gap`），本版已改为兼容写法，但未在该机型上完成验证。遇到黑屏请先尝试更新系统的 Android System WebView。
 
 ### English
 
@@ -21,6 +22,7 @@
 - Phone behaviour: rotation follows the phone, fullscreen hides the system bars, the screen stays on while playing, and the back button leaves fullscreen, then the player, then the home screen; pressing it on the home screen exits the app.
 - Release: Windows and Android ship under one tag and one Release; if either platform fails to build, nothing is published.
 - Known issues: some phones may not reach 30 fps (Canvas drawing on mobile has not been tuned yet); only an arm64 build is provided, so 32-bit devices cannot install it; the mobile build is player-only, so use the Windows or web version to create films.
+- **Known issue (Android player screen)**: when the system Android System WebView is old (Chrome 83 is what Android 11 ships in some regions), the playback screen may stay black because newer CSS features (`inset` shorthand, `aspect-ratio`, flex `gap`) are unsupported. This release switches to compatible CSS, but it has not been verified on that device yet. If you see a black screen, try updating Android System WebView first.
 
 ## 下载 / Downloads
 

@@ -50,6 +50,7 @@ Since 0.5.0 there is an Android player. Install the APK directly; it is not dist
 - The picture follows the phone's rotation, fullscreen hides the system bars, the screen stays on while playing, and the back button leaves fullscreen, then the player, then the home screen.
 - 32-bit devices (armv7, x86) cannot install it. The mobile build is player-only; use the Windows or web version to create films.
 - Frame rate on phones has not been tuned yet; see the known issues in the release notes.
+- **Known issue**: with an old system Android System WebView (Chrome 83 ships on some Android 11 devices), the playback screen may stay black. This release switches to compatible CSS but has not been verified on that device yet; if you see a black screen, try updating Android System WebView first.
 
 ## Status
 
