@@ -20,6 +20,7 @@ function assetNames(version: string): string[] {
     `qyPlayer-${version}-x64-portable.zip`,
     `qyMaker-${version}-Setup-x64.exe`,
     `qyMaker-${version}-x64-portable.zip`,
+    `qyPlayer-${version}-android-arm64.apk`,
   ];
 }
 
@@ -41,7 +42,7 @@ describe("版本号", () => {
 
 describe("README 的下载表格", () => {
   for (const file of ["README.md", "README.en.md"]) {
-    it(`${file}：四个下载链接带当前版本，且没有“最新版”链接`, () => {
+    it(`${file}：五个下载链接带当前版本，且没有“最新版”链接`, () => {
       const text = read(file);
       for (const name of assetNames(VERSION)) {
         expect(text, name).toContain(`https://github.com/Ricky2022/qyPlayer/releases/download/v${VERSION}/${name}`);
@@ -59,7 +60,7 @@ describe("README 的下载表格", () => {
 describe("发布说明", () => {
   const notes = read(".github/release-notes.md");
 
-  it("文件表格含四个带当前版本的文件名", () => {
+  it("文件表格含五个带当前版本的文件名", () => {
     for (const name of assetNames(VERSION)) expect(notes, name).toContain(`\`${name}\``);
   });
 

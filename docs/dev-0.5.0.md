@@ -39,7 +39,8 @@ flowchart LR
 
 - 工作流 `.github/workflows/android.yml`：可手动触发，也被 `release.yml` 调用。Ubuntu、JDK 17、Rust 的 `aarch64-linux-android` 目标、`pnpm --filter @qyplayer/web build:player`、`tauri android build --apk --target aarch64`。手动触发时带 `--debug`，这样可以接桌面 Chrome 的 `chrome://inspect` 调试。
 - `apps/desktop-player/src-tauri/gen/android` 由 `tauri android init` 生成后提交进仓库；`.gitignore` 放开这一条。之后改清单、改 Gradle 都在仓库里改，CI 不再重新生成。
-- `tauri.conf.json` 增加 `bundle.android.minSdkVersion: 29`，应用名与图标见 A-013。
+- 生成出来的工程额外加了一个 `buildSrc/settings.gradle.kts`：buildSrc 是独立的 Gradle 构建，根目录 `settings.gradle` 里的仓库配置对它不生效，而 `kotlin-dsl` 插件要从 Maven Central 拉 kotlin-stdlib，默认只有插件门户能查，CI 上会直接失败。
+- `tauri.conf.json` 增加 `bundle.android.minSdkVersion: 29`，应用名与图标见下一节。
 - 签名：CI 从 Secrets 写出 `keystore.properties`，`gen/android/app/build.gradle.kts` 读它。调试和正式两种构建都用这把密钥，保证两种包可以互相覆盖。
 
 ## 4. 按需读取（Windows 与 Android 共用）
@@ -61,15 +62,18 @@ export interface ByteSource {
 
 ## 5. 用其他应用打开
 
-- `gen/android/app/src/main/AndroidManifest.xml`：给主界面加 VIEW 的 intent-filter，`content` 和 `file` 两种地址，类型 `application/x-qyp`、`application/octet-stream`、`application/zip`；`launchMode` 设为单任务，应用已打开时再点一个文件也由同一个界面接收。
-- 收到文件后流式拷到缓存目录（`content://` 用 `tauri-plugin-fs` 读），记为当前文件，然后通知网页；启动时清掉上次留下的缓存。
-- 接收方式先试 Tauri 的 `RunEvent::Opened`；它是否覆盖冷启动和微信这类来源要在真机上确认，不行就改为在 `MainActivity.kt` 里重写 `onNewIntent` 并读取启动时的 intent，其余不变。
+- `gen/android/app/src/main/AndroidManifest.xml`：给主界面加 VIEW 的 intent-filter，`content` 和 `file` 两种地址，类型 `application/x-qyp`、`application/octet-stream`、`application/zip`；`launchMode` 是 `singleTask`（生成时就是），应用已打开时再点一个文件也由同一个界面接收。
+- **接收方式没有用 `RunEvent::Opened`**：查了 tauri 2.12 的文档，`RunEvent` 只有 `Exit`、`ExitRequested`、`WindowEvent`、`WebviewEvent`、`Ready`、`Resumed`、`MainEventsCleared`、`MenuEvent`、`TrayIconEvent`，没有打开文件的变体（那是 Tauri 1 / macOS 的接口）。所以直接走计划里的退路：
+  - `MainActivity.kt` 在 `onCreate` 和 `onNewIntent` 里读 intent 的 `content:// 或 file://` 地址，用 `contentResolver.openInputStream` 把文件拷进缓存目录 `received/`，再把路径写进 `received/pending.txt`；`onCreate` 里先清掉上次留下的缓存。
+  - 壳在 `setup` 里起一个后台线程，每 0.5 秒看一眼 `pending.txt`；读到新路径就换掉当前文件并发出事件 `qyp-file-received`（载荷是文件名和字节数）。网页收到事件后按 A3 的方式打开。
+  - 冷启动的竞态：`initial_file` 命令自己也会取一次 `pending.txt`，所以网页即使比后台线程先问，也能拿到刚交来的文件；同一个路径只处理一次。
+- 网页侧用 `@tauri-apps/api/event` 的 `listen` 订阅这个事件；启动参数和事件指向同一个文件时只打开一次。
 
 ## 6. 手机上的播放行为
 
-- **返回键**：进入播放、进入全屏时各往浏览历史里加一条，监听 `popstate` 做逐级返回；首页没有历史，交给系统默认（退出应用）。只在 Android 壳里启用，网页版和 Windows 版不变。退路是 `@tauri-apps/api/app` 的 `onBackButtonPress`。
-- **屏幕常亮**：播放时申请网页的 Wake Lock，暂停和结束时释放。WebView 不支持的话，在 `MainActivity.kt` 里给窗口设常亮标志。
-- **文件选择器**：`App.tsx` 的 `accept=".qyp,application/zip"` 在 Android 上可能让 `.qyp` 显示成不可选（系统不认识这个后缀），Android 壳里去掉这个限制，选错文件由现有的校验提示兜住。
+- **返回键**：`@tauri-apps/api/app` 的 `onBackButtonPress` 在已安装的 2.12.5 里有，注册处理者后壳不再自己后退或退出，所以这一版直接用它（比 `popstate` 更可控）：播放界面登记一级返回，先退出全屏，再退出播放界面；都在首页时退出应用。只在 Android 壳里启用，网页版和 Windows 版不变。
+- **屏幕常亮**：播放时申请网页的 Wake Lock，暂停和结束时释放，切到后台由浏览器自动释放、回到前台再申请一次。接口不存在或被拒绝时什么也不做。真机上如果没用，退路是在 `MainActivity.kt` 里给窗口设常亮标志。
+- **文件选择器**：`App.tsx` 的 `accept=".qyp,application/zip"` 在 Android 上会让 `.qyp` 显示成不可选（系统不认识这个后缀），Android 壳里去掉这个限制，选错文件由现有的校验提示兜住。
 
 ## 7. 密钥与 Secrets
 
@@ -127,11 +131,11 @@ Windows 回归（A6 结束时）：装 CI 出的安装包，双击 `.qyp` 能打
 
 | 假设 | 不成立时的退路 |
 | --- | --- |
-| `tauri android init` 和构建在 CI 的 Ubuntu 机器上不需要额外的系统依赖 | 按报错补装 NDK 或 SDK 组件；APK 输出路径以实际为准 |
-| `RunEvent::Opened` 对 `content://` 文件、冷启动都会触发 | 在 `MainActivity.kt` 里重写 `onNewIntent` 并读取启动时的 intent |
-| `tauri-plugin-fs` 能从 Rust 一侧读 `content://` | 在 Kotlin 里把文件拷到缓存，再由 Rust 读缓存文件 |
-| Android WebView 支持 Wake Lock 与网页全屏接口 | Wake Lock 改为在 `MainActivity.kt` 里设窗口常亮标志；全屏改为壳里的系统栏控制 |
-| `onBackButtonPress` 在 2.12.5 里可用 | 沿用 `popstate` 方案 |
+| `tauri android init` 和构建在 CI 的 Ubuntu 机器上不需要额外的系统依赖 | 按报错补装 NDK 或 SDK 组件；APK 输出路径以实际为准。**已遇到一处**：buildSrc 的仓库解析失败，加了 `gen/android/buildSrc/settings.gradle.kts` 解决 |
+| Tauri 有 `RunEvent::Opened` 用来接收别的应用发来的文件 | **不成立**：2.12 的 `RunEvent` 没有这个变体，已改为 `MainActivity` 读 intent + `pending.txt` + 后台线程通知网页 |
+| `tauri-plugin-fs` 能从 Rust 一侧读 `content://` | 没有用：`content://` 由 Kotlin 的 `contentResolver` 读，Rust 只读缓存里的普通文件 |
+| Android WebView 支持 Wake Lock 与网页全屏接口 | 全屏不支持时改为在壳里控制系统栏；Wake Lock 不支持时在 `MainActivity.kt` 里设窗口常亮标志 |
+| 微信等应用用 VIEW intent 交来文件 | 如果实测用的是分享（`ACTION_SEND` + `EXTRA_STREAM`），在清单里再加 SEND 的 intent-filter，并在 `MainActivity` 里读 `EXTRA_STREAM` |
 
 ## 11. 风险
 

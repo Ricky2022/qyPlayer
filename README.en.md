@@ -19,12 +19,12 @@ The interface is available in Chinese and English. It follows the system languag
 
 The player (qyPlayer, 青云播放器) and the creator (qyMaker, 青云制作器) are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
 
-Current version: [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1). The previous version is [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0), and the official version before that is [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1); v0.3.0 was only a preview with no official Release, and everything in it is included in 0.4.0.
+Current version: [v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0). The previous version is [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1), and the official version before that is [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0); v0.3.0 was only a preview with no official Release, and everything in it is included in 0.4.0.
 
 | Program | Installer | Portable |
 | --- | --- | --- |
-| Player | [qyPlayer-0.4.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyPlayer-0.4.1-Setup-x64.exe) | [qyPlayer-0.4.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyPlayer-0.4.1-x64-portable.zip) |
-| Creator | [qyMaker-0.4.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyMaker-0.4.1-Setup-x64.exe) | [qyMaker-0.4.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyMaker-0.4.1-x64-portable.zip) |
+| Player | [qyPlayer-0.5.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-Setup-x64.exe) | [qyPlayer-0.5.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-x64-portable.zip) |
+| Creator | [qyMaker-0.5.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyMaker-0.5.0-Setup-x64.exe) | [qyMaker-0.5.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyMaker-0.5.0-x64-portable.zip) |
 
 All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/releases) page.
 
@@ -36,9 +36,37 @@ All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/release
 - The programs are not code-signed, so Windows SmartScreen may warn about an "unknown publisher" on first run: click "More info", then "Run anyway".
 - The desktop apps are the web app inside the system WebView2, so features and limitations are the same as the web version.
 
+## Download for Android
+
+Since 0.5.0 there is an Android player. Install the APK directly; it is not distributed through app stores. It needs **Android 10 or later** and **arm64** only (most mid-range and high-end phones from 2019 on).
+
+| Program | File |
+| --- | --- |
+| Player | [qyPlayer-0.5.0-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-android-arm64.apk) |
+
+- The first install has to allow "install unknown apps": open the downloaded APK in your file manager and allow that source in the system settings when prompted.
+- In a file manager, WeChat or another app, choose "Open with" and pick qyPlayer to play a `.qyp`; opening another file while the app is running switches to the new film.
+- Packages are read on demand, so a several-hundred-MB package does not have to be loaded into memory first.
+- The picture follows the phone's rotation, fullscreen hides the system bars, the screen stays on while playing, and the back button leaves fullscreen, then the player, then the home screen.
+- 32-bit devices (armv7, x86) cannot install it. The mobile build is player-only; use the Windows or web version to create films.
+- Frame rate on phones has not been tuned yet; see the known issues in the release notes.
+
 ## Status
 
-This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps and AI-assisted editing have not been started (MP4 export is included since 0.3.0).
+The web version, the Windows desktop apps (player and creator) and the Android player all work. macOS, an Android creator, Linux and AI-assisted editing have not been started (MP4 export is included since 0.3.0).
+
+### 0.5.0
+
+0.5.0 adds the **Android player** and switches how the shell opens a file to on-demand reading, which the Windows builds benefit from too. The detailed design is in [`docs/dev-0.5.0.md`](./docs/dev-0.5.0.md) (in Chinese).
+
+0.5.0 adds:
+
+- An Android player (Tauri 2 shell): Android 10 and later, arm64, APK installed directly and not distributed through app stores.
+- Open with: play a `.qyp` from a file manager or WeChat via "Open with"; the registration covers unknown binaries, ZIP and the `.qyp` type itself; a file that is not a `.qyp` gets a clear message.
+- On-demand reading: opening a package reads only the manifest and the cover, media is read when it is needed, so a several-hundred-MB package does not have to be loaded into memory (desktop uses the same path now).
+- Phone behaviour: rotation follows the phone, fullscreen hides the system bars, the screen stays on while playing, and the back button leaves fullscreen, then the player, then the home screen.
+- Release: Windows and Android ship under one tag and one Release; if either platform fails to build, nothing is published.
+- Known issues: some phones may not reach 30 fps (Canvas drawing on mobile is still being tuned); only an arm64 build is provided, so 32-bit devices cannot install it.
 
 ### 0.4.1
 
