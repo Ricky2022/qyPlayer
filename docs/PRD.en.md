@@ -589,6 +589,22 @@ Points to note in the example:
 - Because `bgm` is present, the original sound of `m004` does not play.
 - Cells on multi-photo pages are separated by gaps, which show the canvas background color.
 
+### 7.8 Changes in formats 0.2 and 0.3
+
+- 0.2: every asset must have `mimeType` and `source` (where it came from before transcoding); an optional `cover.jpg` cover is added. 0.1 packages still open.
+- 0.3: only optional fields are added, and the behavior without them is identical to 0.2. Packages of 0.1, 0.2 and 0.3 open; for a newer `formatVersion` the player says it is not supported.
+
+| Where | Field | Description |
+| --- | --- | --- |
+| `canvas` | `backdrop` | `"blur"`: draw a blurred backdrop in empty areas |
+| `pages[].items[]` | `motion` | Push and pan of a single photo, `{ from, to }`, each with `scale`, `x`, `y`, changing steadily over the page |
+| `pages[].transitionIn` | `type` | New value `"rotate"` |
+| Top level | `look` | Whole-film filter: `"mono"`, `"warm"`, `"cool"`, `"vintage"`; absent means original |
+| Top level | `subtitle`, `titleCard` | Subtitle text; the opening title picture (a transparent PNG in the asset table) and when it shows |
+| `generator` | `transition` | The transition the user picked, used to restore editing settings |
+
+The structure of the fields is in [`spec/manifest.schema.json`](../spec/manifest.schema.json); the full description and the drawing order are in [`dev-0.4.0.md`](./dev-0.4.0.md) (in Chinese). A player treats unknown `look` and `backdrop` values as absent.
+
 ## 8. Visual effects
 
 This section lists every effect supported in the first release. All durations are tentative defaults (T-05).
@@ -601,6 +617,7 @@ This section lists every effect supported in the first release. All durations ar
 | `fade` | The previous page fades out while the new page fades in | 0.6 s |
 | `slide` | The new page slides in from one side and pushes the previous page out; four directions | 0.6 s |
 | `zoom` | The previous page grows and fades out; the new page grows from slightly smaller to normal size and fades in | 0.6 s |
+| `rotate` (format 0.3) | The new page turns from 6 degrees and 1.15x to upright and fades in; the previous page turns out by 6 degrees, grows to 1.15x and fades out | 0.6 s |
 
 ### 8.2 Layouts
 
@@ -635,6 +652,14 @@ The first release tentatively ships 3 templates (T-11). Names and parameters are
 | Clean | Mostly fades; a high share of single-photo pages |
 | Lively | Mostly slides and zooms; a high share of multi-photo pages |
 | Classic | A balanced mix of transitions and layouts |
+
+### 8.5 Picture treatment (format 0.3)
+
+- Blurred backdrop: when a page has more than one item, or an item placed with `contain`, empty areas get a blurred backdrop taken from the first item of the page.
+- Card collages: layouts of 2 to 4 have an outer margin of 4% of the short side and a gap of 2%.
+- Push and pan (Ken Burns): single-photo pages only, scaling by at most 8%, always covering the cell.
+- Filters: original, black and white, warm, cool, vintage, applied to the whole film with blend modes.
+- Opening title: a title and an optional subtitle drawn into a transparent picture, fading in and out at the start.
 
 ## 9. Audio rules
 

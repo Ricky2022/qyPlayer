@@ -90,6 +90,13 @@ jobs:
           name: windows-apps
           path: dist-release/*
 
+      # 手动触发时顺便保存构建时解析出的 Cargo.lock：依赖变了以后下载它，提交进仓库
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: cargo-lock
+          path: Cargo.lock
+
       - name: Publish release
         if: github.ref_type == 'tag'
         env:

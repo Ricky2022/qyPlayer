@@ -37,6 +37,23 @@ pub mod commands {
     }
 }
 
+/// 把内容写到目标文件：先写到同目录的临时文件，写完再改名为目标文件名。
+/// 写入失败（磁盘满、权限不够）时删掉临时文件，目标位置不会留下写了一半的文件；已有的同名文件也不会被写坏。
+pub fn write_atomically(target: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    let name = target
+        .file_name()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "目标路径没有文件名"))?;
+    let mut temp_name = std::ffi::OsString::from(".");
+    temp_name.push(name);
+    temp_name.push(".part");
+    let temp = target.with_file_name(temp_name);
+    let result = std::fs::write(&temp, data).and_then(|()| std::fs::rename(&temp, target));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp);
+    }
+    result
+}
+
 /// 给应用注册 open_url 依赖的 opener 插件（插件配置类型不对外公开，所以包一层 Builder）。
 pub fn with_opener<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder.plugin(tauri_plugin_opener::init())
@@ -44,7 +61,42 @@ pub fn with_opener<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Buil
 
 #[cfg(test)]
 mod tests {
-    use super::is_allowed;
+    use super::{is_allowed, write_atomically};
+
+    /// 每个测试一个独立的临时目录，测完删除
+    fn scratch_dir(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("qy-desktop-common-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn writes_new_file_and_replaces_existing_without_leftovers() {
+        let dir = scratch_dir("replace");
+        let target = dir.join("film.qyp");
+        write_atomically(&target, b"one").unwrap();
+        write_atomically(&target, b"two").unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"two");
+        let names: Vec<_> = std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names, vec![std::ffi::OsString::from("film.qyp")]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn failure_leaves_no_partial_file() {
+        let dir = scratch_dir("fail");
+        // 目标是一个已存在的目录：改名会失败，临时文件必须被清理，目录原样保留
+        let target = dir.join("taken");
+        std::fs::create_dir(&target).unwrap();
+        assert!(write_atomically(&target, b"data").is_err());
+        assert!(target.is_dir());
+        let names: Vec<_> = std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names, vec![std::ffi::OsString::from("taken")]);
+        // 目标所在的目录不存在：同样报错且不留任何东西
+        assert!(write_atomically(&dir.join("missing").join("a.qyp"), b"data").is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn allows_repo_and_author_links() {

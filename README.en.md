@@ -19,12 +19,12 @@ The interface is available in Chinese and English. It follows the system languag
 
 The player (qyPlayer, 青云播放器) and the creator (qyMaker, 青云制作器) are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
 
-Current version: [v0.3.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.3.0) (preview). **The official v0.3.0 Release has not been published yet, so the links below only work after it is**; for now you can download preview installers with the same names from the latest successful run on [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml) (`windows-apps` at the bottom of the page). The previous official version is [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1).
+Current version: [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0). The previous official version is [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1); v0.3.0 was only a preview with no official Release, and everything in it is included in 0.4.0.
 
 | Program | Installer | Portable |
 | --- | --- | --- |
-| Player | [qyPlayer-0.3.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyPlayer-0.3.0-Setup-x64.exe) | [qyPlayer-0.3.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyPlayer-0.3.0-x64-portable.zip) |
-| Creator | [qyMaker-0.3.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyMaker-0.3.0-Setup-x64.exe) | [qyMaker-0.3.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyMaker-0.3.0-x64-portable.zip) |
+| Player | [qyPlayer-0.4.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyPlayer-0.4.0-Setup-x64.exe) | [qyPlayer-0.4.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyPlayer-0.4.0-x64-portable.zip) |
+| Creator | [qyMaker-0.4.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyMaker-0.4.0-Setup-x64.exe) | [qyMaker-0.4.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyMaker-0.4.0-x64-portable.zip) |
 
 All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/releases) page.
 
@@ -38,29 +38,37 @@ All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/release
 
 ## Status
 
-This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps and AI-assisted editing have not been started (MP4 export is included in the 0.3.0 preview).
+This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps and AI-assisted editing have not been started (MP4 export is included since 0.3.0).
 
-### 0.3.0 preview (not officially released yet)
+### 0.4.0
 
-The contents of this repository are already the 0.3.0 preview; the detailed plan is in [`docs/dev-0.3.0.md`](./docs/dev-0.3.0.md) (in Chinese). The online demo is already the 0.3.0 preview, and the version inside the apps is already 0.3.0, but the official Release has not been published. Windows preview installers are in the latest successful run on [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml) (`windows-apps` at the bottom of the page). They have not been fully tested, so do not treat them as a release.
+0.4.0 polishes the look and the playback experience after the memory movies in Apple Photos, and finishes the security wrap-up and documentation left over from the 0.3.0 preview. The detailed plan is in [`docs/dev-0.4.0.md`](./docs/dev-0.4.0.md) (in Chinese).
 
-Done:
+New in 0.4.0:
+
+- Picture: empty areas (a photo of a different shape, collages, letterboxing) get a blurred backdrop taken from the current media; collages are now cards with an outer margin and wider gaps; single-photo pages have a slow push and pan (Ken Burns); collages and videos are left alone.
+- Transitions: a new "rotate", and the creator can pick the transition (fade, slide, zoom, rotate); the default follows the style template.
+- Filters: original, black and white, warm, cool and vintage, applied to the whole film.
+- Opening title: a title with an optional subtitle that fades in and out at the start. It is drawn as a transparent picture and stored in the package, so it looks the same on every device; it can be turned off.
+- Length: long, medium and short. Medium and short drop the media taken closest together first (media without a capture time are spread evenly). Media that are not used stay out of the package and are greyed out in the media panel.
+- Player: previous and next page buttons (PageUp, PageDown), and a thumbnail strip at the bottom; click one to jump to that page.
+- Package format 0.3: only optional fields were added; packages of 0.1, 0.2 and 0.3 all open. The 0.3.0 preview cannot open 0.3 packages, so upgrade.
+- Security and build: the desktop apps now run with a Content Security Policy (CSP); the desktop creator writes a temporary file and renames it on save, so a failure never leaves half a file; Rust dependencies are pinned by `Cargo.lock` and CI builds with `--locked`; the About page and `NOTICE` now carry the licenses of libheif (LGPL-3.0), mediabunny (MPL-2.0) and other third-party parts.
+
+Available since 0.3.0:
 
 - A new creator interface: menu bar, three-column layout (three tabs on phones), media panel, auto-updating preview, undo and redo, unsaved-changes prompt, opening an existing `.qyp` to keep editing, shortcuts, accessibility.
-- Package format 0.2: each asset records its `mimeType` and where it came from before transcoding, and the real size is checked on open; a new `cover.jpg` cover; `peekPackage` reads the title, duration, cover and other summary information without unzipping.
+- Package format 0.2: each asset records its `mimeType` and where it came from before transcoding, and the real size is checked on open; a `cover.jpg` cover; `peekPackage` reads the title, duration, cover and other summary information without unzipping.
 - The player checks the media on open, draws a placeholder for media this device cannot decode and tells you, and fades video sound in and out on each page.
 - The creator: HEIC photos are converted to JPEG with a built-in decoder; on save, videos can be trimmed and converted to H.264 + AAC and WAV to AAC (with progress, cancel, and as-is fallback with a message for items that fail); phones get a total-size warning and a limit.
 - Music: 5 built-in CC0 tracks (with preview), imported MP3, M4A and WAV; imported music asks you to confirm you have the rights before saving or exporting.
 - MP4 export: 1920x1080 (1080x1920 for portrait), 30 fps, H.264 + AAC, with progress and cancel; desktop computers only.
 
-Not done yet (the last planned step, S8, is paused):
+To decide, and known issues:
 
-- Security wrap-up: a Content Security Policy (CSP), a reproducible Rust build and a `Cargo.lock` check.
-- Documentation sync: the PRD, `spec`, `NOTICE` and the About page still need the licenses of libheif (LGPL-3.0) and mediabunny (MPL-2.0).
-- Full acceptance testing: with real iPhone HEIC and HEVC media and an Android phone; playing an exported MP4 in the Windows built-in player (so far only checked in Chrome).
-- Release: bump the version to 0.3.0, tag it, update the download links and the release notes.
-- To decide: whether transcoding should cap the bitrate at the source video's bitrate (a low-bitrate source can currently get larger).
-- Known issues: an exported MP4 is held entirely in memory, so a very long film may run out of memory (a film over 10 minutes asks first); Chrome's hardware encoder writes H.264 level 5.0 instead of the 4.0 in the spec, though the stream itself stays within the level 4.0 limits.
+- Whether transcoding should cap the bitrate at the source video's bitrate (a low-bitrate source can currently get larger).
+- An exported MP4 is held entirely in memory, so a very long film may run out of memory (a film over 10 minutes asks first); Chrome's hardware encoder writes H.264 level 5.0 instead of the 4.0 in the spec, though the stream itself stays within the level 4.0 limits.
+- Filters and the blurred backdrop use canvas blend modes; how they look on Safari is decided on a real device.
 
 New in 0.2.0: an immersive player (auto-hiding controls, a big play button, keyboard shortcuts); a bilingual Chinese / English interface; an About page; new Q + cloud icons (a play triangle for the player, a pencil for the creator) and a dedicated `.qyp` file icon; a reworked Windows installer (see above).
 
@@ -70,12 +78,12 @@ What works today:
 - Creating: import photos and videos, reorder or remove them by hand, choose the aspect ratio (landscape 16:9 or portrait 9:16), a style template, a title and music, preview in the page, "another version", and download the `.qyp`.
 - The `.qyp` format: a ZIP containing `manifest.json` and the media. Packages are validated strictly on open; paths that escape the package, remote references and oversized packages are rejected. See [`spec/manifest.schema.json`](./spec/manifest.schema.json) and section 7 of the [PRD](./docs/PRD.en.md).
 
-Known limitations (for the released 0.2.1; details in the [Phase 0 report](./docs/phase0-report.md), in Chinese; see above for what 0.3.0 improves):
+Known limitations:
 
-- Videos must be H.264 MP4 and are packaged **as they are**, with no transcoding or trimming, so the package is as large as the original video.
-- Photos are re-encoded to JPEG in the creator (longest side at most 2560 px). Formats the browser cannot decode (for example HEIC in Chromium) are skipped with a message.
-- Music is either the built-in CC0 track or an imported MP3 or M4A (AAC) file.
-- Tested only in Chromium-based browsers (Chrome, Edge). Firefox, Safari and mobile browsers have **not been tested**.
+- Videos: with the transcode switch on (the default on computers), they are trimmed and converted to H.264 + AAC on save; with it off they are packaged as they are, so the package is as large as the original video. Phones do not transcode.
+- Photos: with transcoding on they are re-encoded to JPEG (longest side at most 2560 px); formats the browser cannot decode (for example HEIC in Chromium) are handled by the creator's built-in decoder.
+- Music is a built-in CC0 track or an imported MP3, M4A (AAC) or WAV file.
+- Mainly tested in Chromium-based browsers (Chrome, Edge); the real-device results for Safari and phone browsers are in the release notes.
 
 ## Tech stack
 

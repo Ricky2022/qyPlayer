@@ -14,6 +14,7 @@ export const AUTHOR_URL = "https://github.com/Ricky2022";
 export const REPO_URL = "https://github.com/Ricky2022/qyPlayer";
 export const RELEASES_URL = `${REPO_URL}/releases/latest`;
 export const LICENSE_URL = `${REPO_URL}/blob/main/LICENSE`;
+export const NOTICE_URL = `${REPO_URL}/blob/main/NOTICE`;
 
 const useStyles = createUseStyles({
   backdrop: {
@@ -119,6 +120,14 @@ export function AboutDialog({ kind, onClose }: AboutDialogProps) {
                   <div key={track.id}>{lang === "zh" ? track.title : track.titleEn}</div>
                 ))}
                 <div>CC0 1.0</div>
+              </dd>
+              <dt>{t("aboutThirdParty")}</dt>
+              <dd>
+                <div>libheif-js (LGPL-3.0)</div>
+                <div>mediabunny (MPL-2.0)</div>
+                <ExternalLink className={classes.link} href={NOTICE_URL}>
+                  NOTICE
+                </ExternalLink>
               </dd>
             </>
           )}

@@ -19,12 +19,12 @@
 
 播放器（青云播放器 / qyPlayer）和制作器（青云制作器 / qyMaker）是两个独立的程序，都只在本机运行。需要 Windows 10 / 11（64 位）。
 
-当前版本：[v0.3.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.3.0)（预览版）。**v0.3.0 的正式 Release 还没有发布，下面的链接要等发布后才能下载**；现在可以从 [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml) 最近一次成功的运行里下载同名的预览安装包（页面底部的 `windows-apps`）。上一个正式版是 [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1)。
+当前版本：[v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0)。上一个正式版是 [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1)；v0.3.0 只是预览版，没有发布正式 Release，它的内容都包含在 0.4.0 里。
 
 | 程序 | 安装包 | 免安装版 |
 | --- | --- | --- |
-| 播放器 | [qyPlayer-0.3.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyPlayer-0.3.0-Setup-x64.exe) | [qyPlayer-0.3.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyPlayer-0.3.0-x64-portable.zip) |
-| 制作器 | [qyMaker-0.3.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyMaker-0.3.0-Setup-x64.exe) | [qyMaker-0.3.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.3.0/qyMaker-0.3.0-x64-portable.zip) |
+| 播放器 | [qyPlayer-0.4.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyPlayer-0.4.0-Setup-x64.exe) | [qyPlayer-0.4.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyPlayer-0.4.0-x64-portable.zip) |
+| 制作器 | [qyMaker-0.4.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyMaker-0.4.0-Setup-x64.exe) | [qyMaker-0.4.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyMaker-0.4.0-x64-portable.zip) |
 
 所有版本见 [Releases](https://github.com/Ricky2022/qyPlayer/releases)。
 
@@ -38,29 +38,37 @@
 
 ## 当前状态
 
-处于**阶段 0（技术预研）**：做了 Web 版和一个 Windows 桌面壳，用来验证技术路线。macOS、手机端、AI 编排都还没有开始（MP4 导出已包含在 0.3.0 预览版里）。
+处于**阶段 0（技术预研）**：做了 Web 版和一个 Windows 桌面壳，用来验证技术路线。macOS、手机端、AI 编排都还没有开始（MP4 导出已包含在 0.3.0 起的版本里）。
 
-### 0.3.0 预览版（尚未正式发布）
+### 0.4.0
 
-本仓库的内容已经是 0.3.0 的预览版，详细方案见 [`docs/dev-0.3.0.md`](./docs/dev-0.3.0.md)。在线试用的网页已经是 0.3.0 预览版；应用内的版本号也已升到 0.3.0，但正式 Release 还没有发布。Windows 预览安装包在 [Actions](https://github.com/Ricky2022/qyPlayer/actions/workflows/release.yml) 最近一次成功的运行里（页面底部的 `windows-apps`），未经完整验收，不要当作正式版使用。
+0.4.0 参照苹果“照片”里的回忆影片优化画面观感和播放体验，同时完成了 0.3.0 预览版遗留的安全收尾和文档，详细方案见 [`docs/dev-0.4.0.md`](./docs/dev-0.4.0.md)。
 
-已经完成：
+0.4.0 新增：
+
+- 画面：留空处（照片比例不合、拼图、留边）画一层模糊背景，取自当前素材；拼图改成卡片式，四周留边、间隙加大；单张照片页有缓慢的推拉平移（Ken Burns），拼图页和视频不加。
+- 转场：新增“旋转”，制作器的设置里可以单独选择转场（淡入淡出、滑动、缩放、旋转），默认跟随风格模板。
+- 滤镜：原片、黑白、暖色、冷色、怀旧五款，整片统一。
+- 片头标题：开头淡入淡出的标题和可选的副标题，制作时画成透明图片放进包里，在哪台设备上看都一样；可以关闭。
+- 影片时长：长、中、短三档，中、短会先去掉拍摄时间挨得最近的素材（没有拍摄时间的均匀抽取）；没选用的素材不进包，素材面板里变灰。
+- 播放器：上一页、下一页按钮（PageUp、PageDown），底部缩略图条，点一下跳到那一页。
+- 包格式 0.3：只增加可选字段，0.1、0.2、0.3 的包都能打开；0.3.0 预览版打不开 0.3 格式的包，需要升级。
+- 安全与构建：桌面程序启用内容安全策略（CSP）；桌面制作器保存文件时先写临时文件再改名，失败不会留下半成品；Rust 依赖版本由 `Cargo.lock` 固定，CI 用 `--locked` 构建；“关于”页和 `NOTICE` 补上 libheif（LGPL-3.0）、mediabunny（MPL-2.0）等第三方许可说明。
+
+0.3.0 起已有的能力：
 
 - 制作器新界面：菜单栏、三栏布局（手机上是三个标签页）、素材面板、自动更新的预览、撤销和重做、未保存提示、打开已有的 `.qyp` 继续编辑、快捷键、无障碍。
-- 包格式 0.2：素材记录 `mimeType` 和转码前的来源，打开时校验实际体积；新增封面 `cover.jpg`；可以用 `peekPackage` 不解压就读出标题、时长、封面等概要信息。
+- 包格式 0.2：素材记录 `mimeType` 和转码前的来源，打开时校验实际体积；封面 `cover.jpg`；可以用 `peekPackage` 不解压就读出标题、时长、封面等概要信息。
 - 播放器打开时预检素材，本机解不了的素材画占位画面并提示，视频原声每页淡入淡出。
 - 制作器：HEIC 照片用内置解码器转成 JPEG；保存时可以把视频裁剪并转成 H.264 + AAC，WAV 转成 AAC（带进度、可取消，失败的素材原样放入并提示）；手机上有素材总量提示和上限。
 - 配乐：5 首内置 CC0 曲目（可试听）、导入 MP3、M4A、WAV；导入的音乐保存和导出前要确认使用权。
 - 导出 MP4：1920×1080（竖屏 1080×1920）、30 帧每秒、H.264 + AAC，带进度和取消；只在电脑上可用。
 
-还没有完成（计划中的最后一步 S8，已暂停）：
+待决定与已知问题：
 
-- 安全收尾：内容安全策略（CSP）、可复现的 Rust 构建与 `Cargo.lock` 检查。
-- 文档同步：PRD、`spec`、`NOTICE` 和“关于”页里补上 libheif（LGPL-3.0）、mediabunny（MPL-2.0）的许可说明。
-- 完整验收：用真实 iPhone 的 HEIC、HEVC 素材和 Android 手机验证；导出的 MP4 在 Windows 自带播放器里播放（目前只在 Chrome 里验证过）。
-- 发布：版本号升到 0.3.0、打标签、更新下载链接和发布说明。
-- 待决定：转码码率是否不超过源视频码率（目前低码率的源视频转码后可能变大）。
-- 已知问题：导出的 MP4 先整个放在内存里，很长的影片可能内存不足（超过 10 分钟会先提示）；Chrome 的硬件编码器写入的 H.264 级别是 5.0 而不是规格里的 4.0，码流本身没有超出 4.0 的限制。
+- 转码码率是否不超过源视频码率（目前低码率的源视频转码后可能变大）。
+- 导出的 MP4 先整个放在内存里，很长的影片可能内存不足（超过 10 分钟会先提示）；Chrome 的硬件编码器写入的 H.264 级别是 5.0 而不是规格里的 4.0，码流本身没有超出 4.0 的限制。
+- 滤镜和模糊背景用到 Canvas 的混合模式，Safari 上的效果以真机为准。
 
 0.2.0 的变化：播放器改成沉浸式界面（控制条自动隐藏、大播放按钮、快捷键）；中英双语界面；新增“关于”页；全新的 Q + 云图标（播放器带播放三角，制作器带铅笔），`.qyp` 文件也有专用图标；Windows 安装包重做（见上）。
 
@@ -70,12 +78,12 @@
 - 制作：导入照片和视频，手动调整顺序或删除，选画面比例（横屏 16:9 或竖屏 9:16）、风格模板、标题和配乐，页内预览，“换一版”，下载 `.qyp`。
 - `.qyp` 格式：一个 ZIP，内含 `manifest.json` 和素材。打开时严格校验，拒绝越界路径、远程引用、超限体积。规范见 [`spec/manifest.schema.json`](./spec/manifest.schema.json) 和 [PRD 第 7 节](./docs/PRD.md#7-包格式规范v01)。
 
-已知限制（针对已发布的 0.2.1，详见 [阶段 0 报告](./docs/phase0-report.md)；0.3.0 已改进的部分见上）：
+已知限制：
 
-- 视频只支持 H.264 编码的 MP4，并且**原样打包**，不转码、不裁剪，所以包的体积等于原视频大小。
-- 照片在制作页里重新编码为 JPEG（长边不超过 2560 像素）。浏览器解码不了的格式（例如 Chromium 里的 HEIC）会被跳过并提示。
-- 配乐支持内置 CC0 曲目，或导入 MP3 和 M4A（AAC）。
-- 只在 Chromium 内核浏览器（Chrome、Edge）里实测过。Firefox、Safari 和手机浏览器**没有测过**。
+- 视频：转码开关打开时（电脑上默认），保存时把视频裁剪并转成 H.264 + AAC；关闭时原样放入，包的体积等于原视频大小。手机上不转码。
+- 照片：转码打开时重新编码为 JPEG（长边不超过 2560 像素）；浏览器解码不了的格式（例如 Chromium 里的 HEIC）由制作器内置的解码器处理。
+- 配乐支持内置 CC0 曲目，或导入 MP3、M4A（AAC）和 WAV。
+- 主要在 Chromium 内核浏览器（Chrome、Edge）里实测；Safari 和手机浏览器的真机验收见发布说明。
 
 ## 技术栈
 

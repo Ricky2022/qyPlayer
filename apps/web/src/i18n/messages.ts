@@ -76,6 +76,7 @@ export const zh = {
   aboutSource: "源代码",
   aboutDownloads: "下载页",
   aboutMusic: "内置配乐",
+  aboutThirdParty: "第三方组件",
   aboutLanguage: "语言",
 
   // 制作页
@@ -309,6 +310,7 @@ export const en: Record<MessageKey, string> = {
   aboutSource: "Source code",
   aboutDownloads: "Downloads",
   aboutMusic: "Built-in music",
+  aboutThirdParty: "Third-party parts",
   aboutLanguage: "Language",
 
   makerBackToPlayer: "← Back to the player",

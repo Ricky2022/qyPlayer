@@ -2,4 +2,26 @@ qyPlayer
 Copyright 2026 The qyPlayer Authors
 
 This product is licensed under the Apache License, Version 2.0.
-Third-party dependency notices are collected here as dependencies are added.
+
+Third-party components that carry their own license terms
+(the license of every other dependency is recorded in its own package):
+
+1. libheif-js 1.23.5 (LGPL-3.0)
+   An Emscripten build of libheif (https://github.com/strukturag/libheif,
+   LGPL-3.0). Used only by qyMaker to decode HEIC/HEIF photos.
+   Source and license: https://github.com/catdad-experiments/libheif-js
+   The library is shipped as separate files (libheif.js and libheif.wasm) and
+   is loaded only when a HEIC photo is imported; it is not merged into the
+   application code. The qyPlayer source in this repository is the
+   corresponding application source, and the dependency is pinned in
+   pnpm-lock.yaml, so you can rebuild the application with a modified
+   libheif-js.
+
+2. mediabunny 1.66.0 (MPL-2.0)
+   Used by qyMaker to read, transcode and mux audio and video, and to export
+   MP4. Source and license: https://github.com/Vanilagy/mediabunny
+   The files of mediabunny are used unmodified.
+
+3. Sample media and built-in music
+   Only CC0 or public-domain works. Author, source and license of each item:
+   fixtures/SOURCES.md

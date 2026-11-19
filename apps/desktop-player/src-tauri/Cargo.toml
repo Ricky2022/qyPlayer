@@ -1,6 +1,6 @@
 [package]
 name = "qyplayer"
-version = "0.3.0"
+version = "0.4.0"
 description = "qyPlayer 播放器：本机播放 .qyp 回忆影片"
 license = "Apache-2.0"
 edition = "2021"

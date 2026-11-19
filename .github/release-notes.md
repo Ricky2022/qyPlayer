@@ -1,35 +1,39 @@
-## 青云播放器 0.3.0 / qyPlayer 0.3.0
+## 青云播放器 0.4.0 / qyPlayer 0.4.0
 
 ### 中文
 
-- 制作器全新界面：菜单栏、三栏布局（手机上是三个标签页）、自动更新的预览、撤销和重做、打开已有的 `.qyp` 继续编辑。
-- 制作器支持 HEIC 照片（内置解码器转成 JPEG）；保存时可以把视频裁剪并转成 H.264 + AAC，包更小、更通用；手机上有素材总量提示和上限。
-- 配乐：5 首内置 CC0 曲目（可试听），也可以导入 MP3、M4A、WAV；导入的音乐保存和导出前要确认使用权。
-- 导出 MP4（电脑上）：1920×1080（竖屏 1080×1920）、30 帧每秒、H.264 + AAC。
-- 包格式 0.2：记录素材类型和转码来源、封面；打开时校验实际体积。旧的 0.1 包仍可以打开，0.2 包不能被 0.2.x 及更早的播放器打开。
-- 播放器打开时预检素材，本机解不了的素材显示占位画面并提示；视频原声每页淡入淡出。
+0.4.0 参照苹果“照片”里的回忆影片，优化画面观感和播放体验，并包含 0.3.0 预览版的全部内容（0.3.0 没有发布正式 Release）。
 
-这是**预览版**：内容安全策略、许可说明页和真机验收还没有完成，详见 README 的“0.3.0 预览版”一节。
+- 画面：留空处画模糊背景；拼图改成卡片式；单张照片页有缓慢的推拉平移。
+- 转场新增“旋转”，制作器里可以单独选择转场；新增 5 款滤镜（原片、黑白、暖色、冷色、怀旧）。
+- 片头标题：开头淡入淡出的标题和可选的副标题，制作时画成图片放进包里，可以关闭。
+- 影片时长分长、中、短三档；没选用的素材不进包。
+- 播放器：上一页、下一页按钮（PageUp、PageDown）和底部缩略图条。
+- 包格式 0.3（只增加可选字段）：0.1、0.2、0.3 的包都能打开；0.3.0 预览版打不开 0.3 的包，请升级。
+- 来自 0.3.0：全新制作器界面、HEIC 照片、保存时转码、5 首内置 CC0 配乐、导入 MP3 / M4A / WAV、导出 MP4、包格式 0.2、播放前素材预检。
+- 安全与构建：桌面程序启用内容安全策略；制作器保存文件先写临时文件再改名；Rust 依赖由 `Cargo.lock` 固定；“关于”页和 `NOTICE` 补上 libheif（LGPL-3.0）、mediabunny（MPL-2.0）等许可说明。
 
 ### English
 
-- A new creator interface: menu bar, three-column layout (three tabs on phones), auto-updating preview, undo and redo, and opening an existing `.qyp` to keep editing.
-- The creator supports HEIC photos (converted to JPEG with a built-in decoder); on save, videos can be trimmed and converted to H.264 + AAC for smaller, more compatible packages; phones get a total-size warning and a limit.
-- Music: 5 built-in CC0 tracks (with preview), plus imported MP3, M4A and WAV; imported music asks you to confirm the rights before saving or exporting.
-- MP4 export (on computers): 1920x1080 (1080x1920 for portrait), 30 fps, H.264 + AAC.
-- Package format 0.2: records each asset's type and transcoding origin, and a cover; the real size is checked on open. Old 0.1 packages still open; 0.2 packages cannot be opened by players 0.2.x and earlier.
-- The player checks the media on open and shows a placeholder with a message for media this device cannot decode; video sound fades in and out on each page.
+0.4.0 polishes the look and playback after the memory movies in Apple Photos, and includes everything from the 0.3.0 preview (0.3.0 never had an official Release).
 
-This is a **preview**: the Content Security Policy, the license notices page and real-device testing are not finished yet; see the "0.3.0 preview" section of the README.
+- Picture: a blurred backdrop in empty areas; collages are now cards; single-photo pages get a slow push and pan.
+- A new "rotate" transition, and the creator can pick the transition; 5 filters (original, black and white, warm, cool, vintage).
+- Opening title: a title and an optional subtitle that fade in and out at the start, drawn into a picture inside the package; it can be turned off.
+- Three lengths (long, medium, short); media that are not used stay out of the package.
+- Player: previous and next page buttons (PageUp, PageDown) and a thumbnail strip at the bottom.
+- Package format 0.3 (only optional fields added): packages of 0.1, 0.2 and 0.3 open; the 0.3.0 preview cannot open 0.3 packages, so please upgrade.
+- From 0.3.0: a new creator interface, HEIC photos, transcoding on save, 5 built-in CC0 tracks, importing MP3 / M4A / WAV, MP4 export, package format 0.2, and a media check before playback.
+- Security and build: the desktop apps run with a Content Security Policy; the creator writes a temporary file and renames it on save; Rust dependencies are pinned by `Cargo.lock`; the About page and `NOTICE` now carry the licenses of libheif (LGPL-3.0), mediabunny (MPL-2.0) and others.
 
 ## Windows 版 / Windows downloads
 
 | 文件 / File | 说明 / Description |
 | --- | --- |
-| `qyPlayer-0.3.0-Setup-x64.exe` | 播放器安装包，装好后双击 .qyp 文件即可播放 / Player installer |
-| `qyPlayer-0.3.0-x64-portable.zip` | 播放器免安装版，解压后运行 `qyPlayer.exe` / Player, portable |
-| `qyMaker-0.3.0-Setup-x64.exe` | 制作器安装包 / Creator installer |
-| `qyMaker-0.3.0-x64-portable.zip` | 制作器免安装版，解压后运行 `qyMaker.exe` / Creator, portable |
+| `qyPlayer-0.4.0-Setup-x64.exe` | 播放器安装包，装好后双击 .qyp 文件即可播放 / Player installer |
+| `qyPlayer-0.4.0-x64-portable.zip` | 播放器免安装版，解压后运行 `qyPlayer.exe` / Player, portable |
+| `qyMaker-0.4.0-Setup-x64.exe` | 制作器安装包 / Creator installer |
+| `qyMaker-0.4.0-x64-portable.zip` | 制作器免安装版，解压后运行 `qyMaker.exe` / Creator, portable |
 
 系统要求：Windows 10 / 11（64 位）。安装包会在系统缺少 WebView2 时自动安装；免安装版需要系统已有 WebView2（Windows 10 / 11 一般自带）。
 Requires Windows 10 / 11 (64-bit). The installers install WebView2 when it is missing; the portable zips need it already present.
