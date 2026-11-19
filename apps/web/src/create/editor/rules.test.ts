@@ -32,7 +32,7 @@ describe("拖入文件分类（3A.5）", () => {
   });
 });
 
-const base: MenuContext = { mediaCount: 3, busy: false, canUndo: true, canRedo: true, canExport: true };
+const base: MenuContext = { mediaCount: 3, busy: false, canUndo: true, canRedo: true, canExport: true, manualPages: true };
 
 describe("菜单可用状态（3A.3）", () => {
   it("一般情况下全部可用", () => {
@@ -47,6 +47,12 @@ describe("菜单可用状态（3A.3）", () => {
   it("只有 1 个素材：可以保存，不能排序", () => {
     expect(menuStatus({ ...base, mediaCount: 1 })).toMatchObject({ save: "enabled", sortByTime: "disabled" });
     expect(menuStatus({ ...base, mediaCount: 2 }).sortByTime).toBe("enabled");
+  });
+
+  it("恢复自动编排：只有做过单页修改（手动编排）且不忙时可用", () => {
+    expect(menuStatus(base).resetPages).toBe("enabled");
+    expect(menuStatus({ ...base, manualPages: false }).resetPages).toBe("disabled");
+    expect(menuStatus({ ...base, busy: true }).resetPages).toBe("disabled");
   });
 
   it("素材数 99 可以添加，100 不可以", () => {

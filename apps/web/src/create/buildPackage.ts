@@ -1,4 +1,4 @@
-import { CANVAS_SIZE, defaultAspectRatio, generateManifest, type AspectRatio, type AssetSource, type Manifest, type Look, type MediaInput, type TransitionChoice } from "@qyplayer/core";
+import { CANVAS_SIZE, defaultAspectRatio, generateManifest, planPages, type AspectRatio, type AssetSource, type Manifest, type Look, type MediaInput, type PagePlan, type TransitionChoice } from "@qyplayer/core";
 import { writePackage } from "@qyplayer/qyp";
 import { extensionForMimeType } from "./mediaType";
 import { TITLE_ASSET_ID, TITLE_PATH, renderTitleCard, type TitleCardRequest } from "./titleCard";
@@ -52,6 +52,8 @@ export interface BuildOptions {
   /** 缺省表示原片 */
   look?: Look;
   seed: number;
+  /** 手动编排（单页编辑），素材用 idFor(位置) 的 id；缺省表示自动编排。给了就写进清单的 generator.plan */
+  pages?: readonly PagePlan[];
   /** 缺省或空白时用生成器的默认标题 */
   title?: string;
   /** 副标题；写进清单，用于重新打开时还原 */
@@ -83,27 +85,45 @@ function extensionFor(entry: MediaEntry): string {
   return extensionForMimeType(entry.mimeType) ?? (entry.type === "image" ? ".jpg" : ".mp4");
 }
 
-/** 按列表顺序生成清单，并列出要放进包里的文件。素材统一重命名为 media/m001.jpg 这样的包内路径，不把用户的文件名带进路径。 */
-export function planPackage(options: BuildOptions): { manifest: Manifest; files: BlobFile[] } {
-  const files: BlobFile[] = [];
-  const media: MediaInput[] = options.media.map((entry, index) => {
-    const id = idFor(index);
-    const src = `media/${id}${extensionFor(entry)}`;
-    files.push({ path: src, data: entry.blob });
-    return {
-      id,
-      type: entry.type,
-      src,
-      mimeType: entry.mimeType,
-      source: entry.source,
-      fileName: entry.fileName,
-      width: entry.width,
-      height: entry.height,
-      ...(entry.duration !== undefined && { duration: entry.duration }),
-      ...(entry.hasAudio !== undefined && { hasAudio: entry.hasAudio }),
-      ...(entry.capturedAt !== undefined && { capturedAt: entry.capturedAt }),
-    };
+/** 第 index 个素材交给生成器的描述；包内路径统一重命名为 media/m001.jpg 这样，不把用户的文件名带进路径 */
+export function mediaInputOf(entry: MediaEntry, index: number): MediaInput {
+  const id = idFor(index);
+  return {
+    id,
+    type: entry.type,
+    src: `media/${id}${extensionFor(entry)}`,
+    mimeType: entry.mimeType,
+    source: entry.source,
+    fileName: entry.fileName,
+    width: entry.width,
+    height: entry.height,
+    ...(entry.duration !== undefined && { duration: entry.duration }),
+    ...(entry.hasAudio !== undefined && { hasAudio: entry.hasAudio }),
+    ...(entry.capturedAt !== undefined && { capturedAt: entry.capturedAt }),
+  };
+}
+
+/** 画面比例：指定了用指定的，否则按素材方向自动选 */
+function aspectOf(options: Pick<BuildOptions, "media" | "aspectRatio">): AspectRatio {
+  return options.aspectRatio ?? defaultAspectRatio(options.media.map(mediaInputOf));
+}
+
+/** 只做自动编排（不打包）：输入与 planPackage 里的自动编排完全相同，所以结果相同 */
+export function planPagesFor(options: Pick<BuildOptions, "media" | "aspectRatio" | "templateId" | "seed" | "transition">): PagePlan[] {
+  return planPages({
+    media: options.media.map(mediaInputOf),
+    aspectRatio: aspectOf(options),
+    templateId: options.templateId,
+    seed: options.seed,
+    keepOrder: true,
+    ...(options.transition && { transition: options.transition }),
   });
+}
+
+/** 按列表顺序生成清单，并列出要放进包里的文件。 */
+export function planPackage(options: BuildOptions): { manifest: Manifest; files: BlobFile[] } {
+  const media = options.media.map(mediaInputOf);
+  const files: BlobFile[] = options.media.map((entry, index) => ({ path: media[index]!.src, data: entry.blob }));
 
   let music;
   if (options.music) {
@@ -122,7 +142,7 @@ export function planPackage(options: BuildOptions): { manifest: Manifest; files:
 
   const title = options.title?.trim();
   const subtitle = options.subtitle?.trim();
-  const aspectRatio = options.aspectRatio ?? defaultAspectRatio(media);
+  const aspectRatio = aspectOf(options);
   if (options.titleImage) files.push({ path: TITLE_PATH, data: options.titleImage });
   const manifest = generateManifest({
     media,
@@ -132,6 +152,7 @@ export function planPackage(options: BuildOptions): { manifest: Manifest; files:
     templateId: options.templateId,
     seed: options.seed,
     keepOrder: true,
+    ...(options.pages && { pages: options.pages }),
     ...(options.transition && { transition: options.transition }),
     ...(options.look && { look: options.look }),
     ...(title && { title }),
@@ -139,6 +160,8 @@ export function planPackage(options: BuildOptions): { manifest: Manifest; files:
     ...(music && { music }),
     generator: { name: "qyPlayer web", version: APP_VERSION },
   });
+  // 手动编排写进 generator.plan（私有数据，播放器不读），重新打开时据此还原
+  if (options.pages && manifest.generator) manifest.generator.plan = options.pages;
   return { manifest, files };
 }
 

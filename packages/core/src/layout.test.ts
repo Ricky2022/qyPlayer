@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellAspect, coverCropLoss, layoutFrames } from "./layout";
+import { LAYOUTS, cellAspect, coverCropLoss, defaultLayout, layoutFrames } from "./layout";
 
 describe("layoutFrames", () => {
   it("single item fills the canvas", () => {
@@ -70,6 +70,51 @@ describe("layoutFrames", () => {
       const bottom = (1 - Math.max(...frames.map((f) => f.y + f.h))) * height;
       for (const margin of [left, top, right, bottom]) expect(margin).toBeCloseTo(43.2, 0);
     }
+  });
+});
+
+describe("版式表", () => {
+  const COUNTS = [1, 2, 3, 4] as const;
+
+  it.each(["16:9", "9:16"] as const)("%s: 缺省版式等于 defaultLayout 指定的版式", (ratio) => {
+    for (const count of COUNTS) expect(layoutFrames(count, ratio)).toEqual(layoutFrames(count, ratio, defaultLayout(count, ratio)));
+  });
+
+  it.each(["16:9", "9:16"] as const)("%s: 每种版式的格子都在画布内、互不重叠、第 1 格最大", (ratio) => {
+    for (const count of COUNTS)
+      for (const layout of LAYOUTS[count]) {
+        const frames = layoutFrames(count, ratio, layout);
+        expect(frames).toHaveLength(count);
+        const areas = frames.map((f) => f.w * f.h);
+        if (count > 1 && layout !== "grid" && layout !== "side" && layout !== "stack") expect(areas[0]).toBe(Math.max(...areas));
+        frames.forEach((f, i) => {
+          expect(f.x).toBeGreaterThanOrEqual(0);
+          expect(f.y).toBeGreaterThanOrEqual(0);
+          expect(f.x + f.w).toBeLessThanOrEqual(1 + 1e-9);
+          expect(f.y + f.h).toBeLessThanOrEqual(1 + 1e-9);
+          frames.slice(i + 1).forEach((g) => {
+            const overlap = f.x < g.x + g.w - 1e-9 && g.x < f.x + f.w - 1e-9 && f.y < g.y + g.h - 1e-9 && g.y < f.y + f.h - 1e-9;
+            expect(overlap, `${layout} ${i}`).toBe(false);
+          });
+        });
+      }
+  });
+
+  it("不同版式确实不同；对该张数无效的编号退回缺省", () => {
+    expect(layoutFrames(2, "16:9", "stack")).not.toEqual(layoutFrames(2, "16:9", "side"));
+    expect(layoutFrames(3, "16:9", "big-right")[0]!.x).toBeGreaterThan(0.4);
+    expect(layoutFrames(3, "16:9", "big-bottom")[0]!.y).toBeGreaterThan(0.4);
+    expect(layoutFrames(2, "16:9", "grid")).toEqual(layoutFrames(2, "16:9"));
+    expect(layoutFrames(4, "9:16", "nope")).toEqual(layoutFrames(4, "9:16"));
+  });
+
+  it("4 张的 big-left / big-top：第 1 格占半边，其余三格等大排在另一边", () => {
+    const left = layoutFrames(4, "16:9", "big-left");
+    expect(left[0]!.h).toBeGreaterThan(left[1]!.h * 2);
+    expect(new Set(left.slice(1).map((f) => f.x)).size).toBe(1);
+    const top = layoutFrames(4, "9:16", "big-top");
+    expect(top[0]!.w).toBeGreaterThan(top[1]!.w * 2);
+    expect(new Set(top.slice(1).map((f) => f.y)).size).toBe(1);
   });
 });
 

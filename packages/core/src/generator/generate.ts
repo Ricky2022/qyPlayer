@@ -1,6 +1,8 @@
+import { framedItem } from "../framing";
 import { CANVAS_SIZE, cellAspect, coverCropLoss, layoutFrames } from "../layout";
 import { CURRENT_FORMAT_VERSION, KNOWN_LOOKS, type Look, type Asset, type AssetSource, type AspectRatio, type Bgm, type Direction, type Enter, type Fit, type Item, type Manifest, type Motion, type Page, type TitleCard, type TransitionIn } from "../manifest";
 import { createRng, type Rng } from "./rng";
+import { planProblems, type EnterChoice, type ItemPlan, type KenBurns, type PagePlan } from "./plan";
 import { findTemplate, type Template } from "./templates";
 
 /** 生成器的取值常量。数值对应 PRD 第 14.1 节的暂定值，编号见注释。 */
@@ -99,9 +101,11 @@ export interface GenerateOptions {
   /** 缺省时取当前时间 */
   createdAt?: string;
   generator?: { name: string; version: string };
+  /** 手动编排（docs/dev-0.4.1.md 2）：给了就不再自动分页，按它排页；缺省时由 planPages 自动编排 */
+  pages?: readonly PagePlan[];
 }
 
-export type GenerateErrorCode = "no-media" | "too-many-media" | "unknown-template" | "unknown-transition" | "unknown-look" | "invalid-media" | "duplicate-media-id";
+export type GenerateErrorCode = "no-media" | "too-many-media" | "unknown-template" | "unknown-transition" | "unknown-look" | "invalid-media" | "duplicate-media-id" | "invalid-plan";
 
 /** 用户可以指定的转场（缺省跟随模板）。首页固定淡入 */
 export const TRANSITION_CHOICES = ["fade", "slide", "zoom", "rotate"] as const;
@@ -220,19 +224,25 @@ const round3 = (n: number): number => Math.round(n * 1000) / 1000;
 /** 动效使用独立的随机数流：加不加动效都不改变版式、转场和入场的选择结果 */
 const MOTION_SEED_SALT = 0x4b1d;
 
+/** 单张照片页 Ken Burns 的种类（docs/dev-0.4.0.md 4.2）：cover 从六种里随机，contain 只有推近和拉远 */
+function pickKenBurns(rng: Rng, fit: Fit): KenBurns {
+  if (fit === "contain") return rng.next() < 0.5 ? "in" : "out";
+  return rng.pick(["in", "out", "left", "right", "up", "down"] as const);
+}
+
 /**
- * 单张照片页的 Ken Burns（docs/dev-0.4.0.md 4.2）。cover：推近、拉远、或保持放大并沿四个方向之一平移，
- * 偏移不超过 (scale-1)/2，所以素材始终盖满格子；contain：只在 0.94 到 1.00 之间缩放，不超出格子。
+ * Ken Burns 种类对应的 motion。cover：推近、拉远、或保持放大并沿四个方向之一平移，
+ * 偏移不超过 (scale-1)/2，所以素材始终盖满格子；contain：只在 0.94 到 1.00 之间缩放，不超出格子（方向类按不动处理）。
+ * 缺省和 none 没有 motion。
  */
-function pickMotion(rng: Rng, fit: Fit): Motion {
+export function motionFor(kind: KenBurns | undefined, fit: Fit): Motion | undefined {
   const { kenBurnsMaxScale: max, kenBurnsContainMinScale: min, kenBurnsPanOffset: d } = GENERATOR_LIMITS;
   const still = { x: 0, y: 0 };
   if (fit === "contain") {
-    const zoomIn = rng.next() < 0.5;
-    const [from, to] = zoomIn ? [min, 1] : [1, min];
-    return { from: { scale: from, ...still }, to: { scale: to, ...still } };
+    if (kind === "in") return { from: { scale: min, ...still }, to: { scale: 1, ...still } };
+    if (kind === "out") return { from: { scale: 1, ...still }, to: { scale: min, ...still } };
+    return undefined;
   }
-  const kind = rng.pick(["in", "out", "left", "right", "up", "down"] as const);
   switch (kind) {
     case "in":
       return { from: { scale: 1, ...still }, to: { scale: max, ...still } };
@@ -246,15 +256,26 @@ function pickMotion(rng: Rng, fit: Fit): Motion {
       return { from: { scale: max, x: 0, y: d }, to: { scale: max, x: 0, y: -d } };
     case "down":
       return { from: { scale: max, x: 0, y: -d }, to: { scale: max, x: 0, y: d } };
+    default:
+      return undefined;
   }
 }
 
-interface PageDraft {
-  items: { media: MediaInput; frame: Item["frame"]; clipStart?: number }[];
+/** 没指定 fit 时的自动选择：裁切损失超过阈值就完整显示（PRD F-GEN-04、T-20） */
+function autoFit(media: Pick<MediaInput, "width" | "height">, frame: Item["frame"], aspectRatio: AspectRatio): Fit {
+  return coverCropLoss(media.width, media.height, cellAspect(frame, aspectRatio)) > GENERATOR_LIMITS.cropLossThreshold ? "contain" : "cover";
+}
+
+/** 组装用的页草稿：该页的素材和时长（毫秒） */
+interface Draft {
+  plan: PagePlan;
+  media: MediaInput[];
   multi: boolean;
-  /** 毫秒 */
-  baseMs: number;
   isVideo: boolean;
+  baseMs: number;
+  /** 时长已由编排指定（视频页的片段长度也算），不随配乐缩放 */
+  fixed: boolean;
+  clipStart?: number;
 }
 
 function validateInput(options: GenerateOptions): Template {
@@ -295,75 +316,128 @@ function validateInput(options: GenerateOptions): Template {
   return template;
 }
 
+/** 视频页的片段（秒）：长度不超过素材时长和 wanted；起点缺省居中，指定时夹在素材内 */
+function videoClip(media: MediaInput, wanted: number | undefined, clipStart: number | undefined): { seconds: number; start: number } {
+  const seconds = Math.min(media.duration!, wanted ?? GENERATOR_LIMITS.maxVideoClipSeconds);
+  const last = Math.max(0, media.duration! - seconds);
+  const start = clipStart !== undefined ? Math.min(Math.max(0, clipStart), last) : media.duration! > seconds ? round3(last / 2) : 0;
+  return { seconds, start };
+}
+
 /**
- * 规则式自动生成（PRD 6.3）：素材 + 选项 + 种子 → 清单。纯函数，不访问文件、网络和界面。
- * 视频的截取通过 clipStart 表达，素材本身不改动；导出为包时才真正裁剪视频（PRD F-PKG-02）。
+ * 自动编排：素材 + 选项 + 种子 → 页的编排（分页、版式匹配、转场、入场、Ken Burns 种类）。纯函数。
+ * 随机数的消耗顺序与 0.4.0 的整片生成完全一致，所以同样的输入得到同样的影片。
  */
-export function generateManifest(options: GenerateOptions): Manifest {
+export function planPages(options: GenerateOptions): PagePlan[] {
   const template = validateInput(options);
+  return planWith(options, template, options.keepOrder ? [...options.media] : sortMedia(options.media));
+}
+
+function planWith(options: GenerateOptions, template: Template, ordered: readonly MediaInput[]): PagePlan[] {
   const rng = createRng(options.seed);
   const motionRng = createRng((options.seed ^ MOTION_SEED_SALT) >>> 0);
   const { aspectRatio } = options;
-
-  const ordered = options.keepOrder ? [...options.media] : sortMedia(options.media);
   const groups = groupMedia(ordered, template, rng);
 
-  // 1. 页草稿：版式、裁切方式、视频截取
-  const drafts: PageDraft[] = groups.map((group): PageDraft => {
+  let previous: TransitionIn | undefined;
+  return groups.map((group, index): PagePlan => {
+    const transition = index === 0 ? ({ type: "fade" } as TransitionIn) : pickTransition(template, rng, previous, options.transition);
+    previous = transition;
+    const base = { transition: { type: transition.type, ...(transition.direction !== undefined && { direction: transition.direction }) } };
+
     if (group.kind === "video") {
-      const v = group.item;
-      const clipSeconds = Math.min(v.duration!, GENERATOR_LIMITS.maxVideoClipSeconds);
-      const clipStart = v.duration! > clipSeconds ? round3((v.duration! - clipSeconds) / 2) : 0;
-      return {
-        items: [{ media: v, frame: layoutFrames(1, aspectRatio)[0]!, clipStart }],
-        multi: false,
-        baseMs: Math.floor(clipSeconds * 1000),
-        isVideo: true,
-      };
+      const { start } = videoClip(group.item, undefined, undefined);
+      return { items: [{ assetId: group.item.id, clipStart: start }], ...base };
     }
     const placed = matchToCells(group.items, aspectRatio);
     const multi = placed.length > 1;
-    return {
-      items: placed.map((p) => ({ media: p.photo, frame: p.frame })),
-      multi,
-      baseMs: Math.round((multi ? GENERATOR_LIMITS.baseMultiSeconds : GENERATOR_LIMITS.baseSingleSeconds) * 1000),
-      isVideo: false,
-    };
+    const items = placed.map((p): ItemPlan => {
+      const item: ItemPlan = { assetId: p.photo.id };
+      if (!multi) item.kenBurns = pickKenBurns(motionRng, autoFit(p.photo, p.frame, aspectRatio));
+      else item.enter = pickEnter(template, rng);
+      return item;
+    });
+    return { items, ...base };
+  });
+}
+
+/**
+ * 规则式自动生成（PRD 6.3）：素材 + 选项 + 种子 → 清单。纯函数，不访问文件、网络和界面。
+ * 视频的截取通过 clipStart 表达，素材本身不改动；导出为包时才真正裁剪视频（PRD F-PKG-02）。
+ * 给了 options.pages 就按这份编排组装（单页编辑），否则先自动编排。
+ */
+export function generateManifest(options: GenerateOptions): Manifest {
+  const template = validateInput(options);
+  const { aspectRatio } = options;
+
+  let ordered: readonly MediaInput[];
+  let plans: readonly PagePlan[];
+  if (options.pages) {
+    const problem = planProblems(options.pages, options.media);
+    if (problem) throw new GenerateError("invalid-plan", problem);
+    ordered = [...options.media];
+    plans = options.pages;
+  } else {
+    ordered = options.keepOrder ? [...options.media] : sortMedia(options.media);
+    plans = planWith(options, template, ordered);
+  }
+  const byId = new Map(ordered.map((m) => [m.id, m]));
+
+  // 1. 页草稿：该页的素材、时长（毫秒）
+  const drafts = plans.map((plan): Draft => {
+    const media = plan.items.map((it) => byId.get(it.assetId)!);
+    const multi = media.length > 1;
+    if (media[0]!.type === "video") {
+      const { seconds, start } = videoClip(media[0]!, plan.duration, plan.items[0]!.clipStart);
+      return { plan, media, multi, isVideo: true, baseMs: Math.floor(seconds * 1000), fixed: true, clipStart: start };
+    }
+    if (plan.duration !== undefined) return { plan, media, multi, isVideo: false, baseMs: Math.round(plan.duration * 1000), fixed: true };
+    const base = multi ? GENERATOR_LIMITS.baseMultiSeconds : GENERATOR_LIMITS.baseSingleSeconds;
+    return { plan, media, multi, isVideo: false, baseMs: Math.round(base * 1000), fixed: false };
   });
 
-  // 2. 节奏（PRD 6.3.1）：按音乐时长缩放照片页
-  const videoMs = drafts.filter((d) => d.isVideo).reduce((s, d) => s + d.baseMs, 0);
-  const photoMs = drafts.filter((d) => !d.isVideo).reduce((s, d) => s + d.baseMs, 0);
+  // 2. 节奏（PRD 6.3.1）：按音乐时长缩放没有指定时长的照片页
+  const fixedMs = drafts.filter((d) => d.fixed).reduce((s, d) => s + d.baseMs, 0);
+  const autoMs = drafts.filter((d) => !d.fixed).reduce((s, d) => s + d.baseMs, 0);
   let scale = 1;
-  if (options.music && photoMs > 0) {
+  if (options.music && autoMs > 0) {
     const musicMs = options.music.duration * 1000;
-    scale = Math.min(GENERATOR_LIMITS.maxScale, Math.max(GENERATOR_LIMITS.minScale, (musicMs - videoMs) / photoMs));
+    scale = Math.min(GENERATOR_LIMITS.maxScale, Math.max(GENERATOR_LIMITS.minScale, (musicMs - fixedMs) / autoMs));
   }
-  const durationsMs = drafts.map((d) => (d.isVideo ? d.baseMs : Math.round(d.baseMs * scale)));
+  const durationsMs = drafts.map((d) => (d.fixed ? d.baseMs : Math.round(d.baseMs * scale)));
   const totalMs = durationsMs.reduce((s, d) => s + d, 0);
 
   // 3. 转场、入场、组装页
   const pages: Page[] = [];
   let startMs = 0;
-  let previousTransition: TransitionIn | undefined;
   drafts.forEach((draft, index) => {
     const duration = durationsMs[index]! / 1000;
     const trSeconds = round3(Math.min(GENERATOR_LIMITS.transitionSeconds, duration / 2));
-    const transition = index === 0 ? ({ type: "fade", duration: trSeconds } as TransitionIn) : pickTransition(template, rng, previousTransition, trSeconds, options.transition);
-    previousTransition = transition;
+    const choice = index === 0 ? undefined : draft.plan.transition;
+    const transition: TransitionIn =
+      choice?.type === "slide"
+        ? { type: "slide", direction: choice.direction ?? "left", duration: trSeconds }
+        : { type: choice?.type ?? "fade", duration: trSeconds };
 
-    const items: Item[] = draft.items.map((it, itemIndex) => {
-      const cropLoss = coverCropLoss(it.media.width, it.media.height, cellAspect(it.frame, aspectRatio));
-      const item: Item = {
-        assetId: it.media.id,
-        frame: it.frame,
-        fit: cropLoss > GENERATOR_LIMITS.cropLossThreshold ? "contain" : "cover",
-      };
-      if (it.clipStart !== undefined) item.clipStart = it.clipStart;
-      if (!draft.multi && !draft.isVideo) item.motion = pickMotion(motionRng, item.fit!);
+    const frames = layoutFrames(draft.media.length as PageSize, aspectRatio, draft.plan.layout);
+    const items: Item[] = draft.plan.items.map((it, itemIndex) => {
+      const media = draft.media[itemIndex]!;
+      const frame = frames[itemIndex]!;
+      const item: Item = { assetId: media.id, frame, fit: it.fit ?? autoFit(media, frame, aspectRatio) };
+      if (draft.clipStart !== undefined) item.clipStart = draft.clipStart;
+      const kenBurns = draft.multi ? undefined : it.kenBurns;
+      if (it.crop && media.type === "image" && it.fit !== "contain") {
+        // 取景：按完整显示再放大平移，Ken Burns 叠加在取景之上（docs/dev-0.4.1.md 4）
+        const framed = framedItem(media, cellAspect(frame, aspectRatio), it.crop, kenBurns);
+        item.fit = framed.fit;
+        item.motion = framed.motion;
+      } else if (!draft.multi && !draft.isVideo) {
+        const motion = motionFor(kenBurns, item.fit!);
+        if (motion) item.motion = motion;
+      }
       if (draft.multi) {
         // PRD 8.3：入场延迟从页开始计时，与转场并行；多图页内各图依次错开
-        item.enter = pickEnter(template, rng, round3(itemIndex * GENERATOR_LIMITS.enterStaggerSeconds));
+        item.enter = enterOf(it.enter, round3(itemIndex * GENERATOR_LIMITS.enterStaggerSeconds));
       }
       return item;
     });
@@ -451,7 +525,6 @@ function randomId(): string {
   return (globalThis as unknown as { crypto: { randomUUID(): string } }).crypto.randomUUID();
 }
 
-/** 选转场：尽量不与上一页重复（同类型，或同为滑动且方向相同）。 */
 /** 标题从 0.3 秒显示到 3 秒；第一页或整片不足 3 秒则在其结束时淡出完 */
 function titleCardTiming(assetId: string, firstPageSeconds: number, filmSeconds: number): TitleCard {
   const start = GENERATOR_LIMITS.titleStartSeconds;
@@ -461,11 +534,12 @@ function titleCardTiming(assetId: string, firstPageSeconds: number, filmSeconds:
   return { assetId, start, duration, fadeIn: fade, fadeOut: fade };
 }
 
-function pickTransition(template: Template, rng: Rng, previous: TransitionIn | undefined, duration: number, forced?: TransitionChoice): TransitionIn {
+/** 选转场：尽量不与上一页重复（同类型，或同为滑动且方向相同）。时长由组装部分算 */
+function pickTransition(template: Template, rng: Rng, previous: TransitionIn | undefined, forced?: TransitionChoice): TransitionIn {
   const type: string = forced ?? pickTransitionType(template, rng, previous);
-  if (type !== "slide") return { type, duration };
+  if (type !== "slide") return { type, duration: 0 };
   const directions = previous?.type === "slide" ? DIRECTIONS.filter((d) => d !== previous.direction) : DIRECTIONS;
-  return { type, direction: rng.pick(directions), duration };
+  return { type, direction: rng.pick(directions), duration: 0 };
 }
 
 function pickTransitionType(template: Template, rng: Rng, previous: TransitionIn | undefined): string {
@@ -474,8 +548,14 @@ function pickTransitionType(template: Template, rng: Rng, previous: TransitionIn
   return rng.weighted(pool.map((t) => ({ value: t.type, weight: t.weight })));
 }
 
-function pickEnter(template: Template, rng: Rng, delay: number): Enter {
+/** 入场的选择（类型和方向）；延迟和时长由组装部分按页内顺序算 */
+function pickEnter(template: Template, rng: Rng): EnterChoice {
   const type = rng.weighted(template.enters.map((e) => ({ value: e.type, weight: e.weight })));
+  return type === "slide" ? { type, direction: rng.pick(DIRECTIONS) } : { type };
+}
+
+function enterOf(choice: EnterChoice | undefined, delay: number): Enter {
+  const type = choice?.type ?? "fade";
   const duration = GENERATOR_LIMITS.enterSeconds;
-  return type === "slide" ? { type, direction: rng.pick(DIRECTIONS), delay, duration } : { type, delay, duration };
+  return type === "slide" ? { type, direction: choice?.direction ?? "left", delay, duration } : { type, delay, duration };
 }

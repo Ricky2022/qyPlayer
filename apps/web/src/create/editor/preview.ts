@@ -2,6 +2,7 @@
 import type { Manifest } from "@qyplayer/core";
 import { QypError, type OpenedPackage } from "@qyplayer/qyp";
 import { planPackageWithTitle, type BlobFile, type BuildOptions, type MusicEntry, type RenderTitleImage } from "../buildPackage";
+import { pagesToPlan } from "./pages";
 import { selectedMedia, type EditorDoc } from "./state";
 
 export interface PreviewOptions {
@@ -41,8 +42,10 @@ export function memoryPackage(manifest: Manifest, files: readonly BlobFile[]): M
 
 /** 编辑内容对应的生成选项（不含配乐和默认标题的词，由调用方按需补上）。预览、保存、导出共用，保证三者一致 */
 export function buildOptionsOf(doc: EditorDoc): BuildOptions {
+  const media = selectedMedia(doc);
   return {
-    media: selectedMedia(doc),
+    media,
+    ...(doc.pages && { pages: pagesToPlan(doc.pages, media.map((m) => m.key)) }),
     ...(doc.aspect !== "auto" && { aspectRatio: doc.aspect }),
     templateId: doc.templateId,
     seed: doc.seed,

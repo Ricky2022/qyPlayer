@@ -1,8 +1,15 @@
-## 青云播放器 0.4.0 / qyPlayer 0.4.0
+## 青云播放器 0.4.1 / qyPlayer 0.4.1
 
 ### 中文
 
-0.4.0 参照苹果“照片”里的回忆影片，优化画面观感和播放体验，并包含 0.3.0 预览版的全部内容（0.3.0 没有发布正式 Release）。
+0.4.1 给制作器加上单页编辑，并把播放器的缩略图条改为可选。内容包含 0.4.0 和 0.3.0 预览版的全部内容（0.3.0 没有发布正式 Release）。
+
+- 单页编辑：预览下方的页面条可以选页、拖动调换顺序、删除；“本页”面板可改单页的时长、转场、拼图版式、照片的显示方式和页内顺序；可以把照片移到相邻页、拆页、合并页。
+- 取景：拖动、放大照片，单张照片页可选镜头动画；视频页可设置片段的起点和长度。
+- 做过单页修改后再改整片设置（风格、重新编排、时长、素材排序）会先提示；可以撤销，“编辑”菜单里可以恢复自动编排。手动调整随 `.qyp` 保存，包格式仍是 0.3，0.4.0 的播放器能照常打开。
+- 播放器：底部缩略图条改为可选，默认不显示。
+
+### 0.4.0 的内容 / What 0.4.0 added
 
 - 画面：留空处画模糊背景；拼图改成卡片式；单张照片页有缓慢的推拉平移。
 - 转场新增“旋转”，制作器里可以单独选择转场；新增 5 款滤镜（原片、黑白、暖色、冷色、怀旧）。
@@ -15,7 +22,14 @@
 
 ### English
 
-0.4.0 polishes the look and playback after the memory movies in Apple Photos, and includes everything from the 0.3.0 preview (0.3.0 never had an official Release).
+0.4.1 adds single-page editing to the creator and makes the player's thumbnail strip optional. It includes everything from 0.4.0 and the 0.3.0 preview (0.3.0 never had an official Release).
+
+- Single-page editing: the page strip under the preview selects, reorders and deletes pages; the "This page" panel changes the duration, transition, collage layout, how each photo is shown and its order; photos can move to a neighbouring page, be split out, or pages merged.
+- Framing: drag and zoom a photo, pick a camera motion on single-photo pages; set where a video clip starts and how long it is.
+- After a single-page edit, changing a whole-film setting (style, rearranging, length, sorting) warns first; edits can be undone and "Restore automatic arrangement" is in the Edit menu. Manual edits are saved in the `.qyp`; the package format is still 0.3 and the 0.4.0 player opens it as usual.
+- Player: the thumbnail strip at the bottom is optional and off by default.
+
+### What 0.4.0 added
 
 - Picture: a blurred backdrop in empty areas; collages are now cards; single-photo pages get a slow push and pan.
 - A new "rotate" transition, and the creator can pick the transition; 5 filters (original, black and white, warm, cool, vintage).
@@ -30,10 +44,10 @@
 
 | 文件 / File | 说明 / Description |
 | --- | --- |
-| `qyPlayer-0.4.0-Setup-x64.exe` | 播放器安装包，装好后双击 .qyp 文件即可播放 / Player installer |
-| `qyPlayer-0.4.0-x64-portable.zip` | 播放器免安装版，解压后运行 `qyPlayer.exe` / Player, portable |
-| `qyMaker-0.4.0-Setup-x64.exe` | 制作器安装包 / Creator installer |
-| `qyMaker-0.4.0-x64-portable.zip` | 制作器免安装版，解压后运行 `qyMaker.exe` / Creator, portable |
+| `qyPlayer-0.4.1-Setup-x64.exe` | 播放器安装包，装好后双击 .qyp 文件即可播放 / Player installer |
+| `qyPlayer-0.4.1-x64-portable.zip` | 播放器免安装版，解压后运行 `qyPlayer.exe` / Player, portable |
+| `qyMaker-0.4.1-Setup-x64.exe` | 制作器安装包 / Creator installer |
+| `qyMaker-0.4.1-x64-portable.zip` | 制作器免安装版，解压后运行 `qyMaker.exe` / Creator, portable |
 
 系统要求：Windows 10 / 11（64 位）。安装包会在系统缺少 WebView2 时自动安装；免安装版需要系统已有 WebView2（Windows 10 / 11 一般自带）。
 Requires Windows 10 / 11 (64-bit). The installers install WebView2 when it is missing; the portable zips need it already present.

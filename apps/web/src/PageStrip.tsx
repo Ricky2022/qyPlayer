@@ -23,17 +23,8 @@ const useStyles = createUseStyles({
   },
 });
 
-interface PageTileProps {
-  controller: PlaybackController;
-  index: number;
-  current: boolean;
-  stripRef: RefObject<HTMLDivElement | null>;
-}
-
-/** 一页的缩略图按钮：滚动到可见范围内才请求缩略图（一次画一个，由控制器排队） */
-function PageTile({ controller, index, current, stripRef }: PageTileProps) {
-  const classes = useStyles();
-  const { t } = useI18n();
+/** 一页的缩略图：按钮滚动到可见范围内才向控制器请求（一次画一个，由控制器排队），画好后画进 canvas；返回两个元素的 ref */
+export function useLazyThumbnail(controller: PlaybackController, index: number, stripRef: RefObject<HTMLElement | null>): { buttonRef: RefObject<HTMLButtonElement | null>; canvasRef: RefObject<HTMLCanvasElement | null> } {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -66,6 +57,22 @@ function PageTile({ controller, index, current, stripRef }: PageTileProps) {
       observer.disconnect();
     };
   }, [controller, index, stripRef]);
+
+  return { buttonRef, canvasRef };
+}
+
+interface PageTileProps {
+  controller: PlaybackController;
+  index: number;
+  current: boolean;
+  stripRef: RefObject<HTMLDivElement | null>;
+}
+
+/** 一页的缩略图按钮 */
+function PageTile({ controller, index, current, stripRef }: PageTileProps) {
+  const classes = useStyles();
+  const { t } = useI18n();
+  const { buttonRef, canvasRef } = useLazyThumbnail(controller, index, stripRef);
 
   const aspect = controller.canvas.width / controller.canvas.height;
   return (

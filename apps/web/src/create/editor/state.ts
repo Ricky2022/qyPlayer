@@ -3,11 +3,14 @@
 import { GENERATOR_LIMITS, selectByLength, type AspectRatio, type LengthChoice, type Look, type TransitionChoice } from "@qyplayer/core";
 import type { MediaEntry, MusicEntry } from "../buildPackage";
 import { moveItem, sortByCapturedAt } from "../files";
+import { applyTransitionToAll, autoPages, followPageOrder, reconcilePages, type EditorPage, type PageContext, type PlanningInput } from "./pages";
 
 /** 撤销栈最多保留的步数（3A.11） */
 export const MAX_HISTORY = 50;
 /** 标题连续输入时，两次输入间隔不超过这个毫秒数就合并为一步（3A.11） */
 export const TITLE_MERGE_MS = 1000;
+/** 滑块等连续调整同一项时，两次调整间隔不超过这个毫秒数就合并为一步（docs/dev-0.4.1.md 5） */
+export const TWEAK_MERGE_MS = 1000;
 
 /** 列表里的一个素材 */
 export interface EditorMedia extends MediaEntry {
@@ -48,9 +51,11 @@ export interface EditorDoc {
   length: LengthChoice;
   music: MusicChoice;
   seed: number;
+  /** 单页编辑后的手动编排；null 表示自动编排（素材 + 设置 + 种子决定整部影片）。素材用 EditorMedia.key 标识 */
+  pages: readonly EditorPage[] | null;
 }
 
-/** 新建或打开时用来整体替换编辑内容 */
+/** 新建或打开时用来整体替换编辑内容；pages 里的素材 key 是素材在 media 里的位置加 1（loadEditor 就是这样编 key 的） */
 export interface EditorContent extends Omit<EditorDoc, "media"> {
   media: readonly EditorMediaInput[];
 }
@@ -73,10 +78,12 @@ export interface EditorState {
   readonly defaultTemplateId: string;
   /** 最近一步是标题输入时，该次输入的时间；用于合并连续输入 */
   readonly lastTitleAt: number | null;
+  /** 最近一步是滑块类调整时，调整的项和时间；用于合并连续调整 */
+  readonly lastTweak: { key: string; at: number } | null;
 }
 
 function initialDoc(seed: number, templateId: string): EditorDoc {
-  return { media: [], title: "", subtitle: "", showTitle: true, aspect: "auto", templateId, transition: "auto", look: "original", length: "long", music: { kind: "none" }, seed };
+  return { media: [], title: "", subtitle: "", showTitle: true, aspect: "auto", templateId, transition: "auto", look: "original", length: "long", music: { kind: "none" }, seed, pages: null };
 }
 
 /** 创建空的编辑状态；种子由调用方随机给出，保持函数纯净 */
@@ -90,6 +97,7 @@ export function createEditor(seed: number, defaultTemplateId: string): EditorSta
     nextEntryId: 1,
     defaultTemplateId,
     lastTitleAt: null,
+    lastTweak: null,
   };
 }
 
@@ -107,7 +115,7 @@ export function referencedBlobs(state: EditorState): Set<Blob> {
   return blobs;
 }
 
-function commit(state: EditorState, doc: EditorDoc, titleAt: number | null = null): EditorState {
+function commit(state: EditorState, doc: EditorDoc, titleAt: number | null = null, tweak: EditorState["lastTweak"] = null): EditorState {
   const past = [...state.past, state.present].slice(-MAX_HISTORY);
   return {
     ...state,
@@ -116,7 +124,25 @@ function commit(state: EditorState, doc: EditorDoc, titleAt: number | null = nul
     future: [],
     nextEntryId: state.nextEntryId + 1,
     lastTitleAt: titleAt,
+    lastTweak: tweak,
   };
+}
+
+/** 入选的素材 + 影响编排的设置，单页编辑用它算自动编排和对齐 */
+function planningInputOf(doc: EditorDoc): PlanningInput {
+  return { ...doc, media: selectedMedia(doc) };
+}
+
+function pageContextOf(doc: EditorDoc): PageContext {
+  const videos = new Set(doc.media.filter((m) => m.type === "video").map((m) => m.key));
+  return { isVideo: (key) => videos.has(key) };
+}
+
+/** 换一份素材列表；手动编排时让页跟着对齐（去掉没了的素材，新素材分页接在末尾） */
+function withMedia(doc: EditorDoc, media: readonly EditorMedia[]): EditorDoc {
+  const next = { ...doc, media };
+  if (doc.pages === null) return next;
+  return { ...next, pages: reconcilePages(doc.pages, planningInputOf(next), pageContextOf(next)) };
 }
 
 export interface AddResult {
@@ -133,21 +159,21 @@ export function addMedia(state: EditorState, inputs: readonly EditorMediaInput[]
   const rejected = inputs.length - accepted.length;
   if (accepted.length === 0) return { state, rejected };
   const added = accepted.map((input, index) => ({ ...input, key: state.nextKey + index }));
-  const next = commit({ ...state, nextKey: state.nextKey + accepted.length }, { ...doc, media: [...doc.media, ...added] });
+  const next = commit({ ...state, nextKey: state.nextKey + accepted.length }, withMedia(doc, [...doc.media, ...added]));
   return { state: next, rejected };
 }
 
 export function removeMedia(state: EditorState, key: number): EditorState {
   const doc = state.present.doc;
   if (!doc.media.some((m) => m.key === key)) return state;
-  return commit(state, { ...doc, media: doc.media.filter((m) => m.key !== key) });
+  return commit(state, withMedia(doc, doc.media.filter((m) => m.key !== key)));
 }
 
 /** 把第 from 项移到第 to 项的位置（拖动和 Alt+方向键都用它） */
 export function moveMedia(state: EditorState, from: number, to: number): EditorState {
   const doc = state.present.doc;
   if (from === to || from < 0 || to < 0 || from >= doc.media.length || to >= doc.media.length) return state;
-  return commit(state, { ...doc, media: moveItem(doc.media, from, to - from) });
+  return commit(state, { ...doc, media: moveItem(doc.media, from, to - from), pages: null });
 }
 
 /** 按拍摄时间升序重排整个列表 */
@@ -155,7 +181,7 @@ export function sortMediaByCapturedAt(state: EditorState): EditorState {
   const doc = state.present.doc;
   const sorted = sortByCapturedAt(doc.media, (m) => m);
   if (sorted.every((m, i) => m === doc.media[i])) return state;
-  return commit(state, { ...doc, media: sorted });
+  return commit(state, { ...doc, media: sorted, pages: null });
 }
 
 export function setAspect(state: EditorState, aspect: AspectChoice): EditorState {
@@ -165,17 +191,20 @@ export function setAspect(state: EditorState, aspect: AspectChoice): EditorState
 
 export function setTemplate(state: EditorState, templateId: string): EditorState {
   const doc = state.present.doc;
-  return doc.templateId === templateId ? state : commit(state, { ...doc, templateId });
+  return doc.templateId === templateId ? state : commit(state, { ...doc, templateId, pages: null });
 }
 
 export function setTransition(state: EditorState, transition: TransitionSetting): EditorState {
   const doc = state.present.doc;
-  return doc.transition === transition ? state : commit(state, { ...doc, transition });
+  if (doc.transition === transition) return state;
+  // 手动编排时，固定类型的全片转场覆盖各页的转场；选回“跟随模板”不改各页已有的转场
+  const pages = doc.pages && transition !== "auto" ? applyTransitionToAll(doc.pages, transition) : doc.pages;
+  return commit(state, { ...doc, transition, pages });
 }
 
 export function setLength(state: EditorState, length: LengthChoice): EditorState {
   const doc = state.present.doc;
-  return doc.length === length ? state : commit(state, { ...doc, length });
+  return doc.length === length ? state : commit(state, { ...doc, length, pages: null });
 }
 
 /** 当前档位下入选的素材（保持列表顺序）。生成、保存、导出都只用这些 */
@@ -204,7 +233,7 @@ export function setMusic(state: EditorState, music: MusicChoice): EditorState {
 /** “换一版”：换一个随机种子 */
 export function setSeed(state: EditorState, seed: number): EditorState {
   const doc = state.present.doc;
-  return doc.seed === seed ? state : commit(state, { ...doc, seed });
+  return doc.seed === seed ? state : commit(state, { ...doc, seed, pages: null });
 }
 
 /**
@@ -225,7 +254,7 @@ function setText(state: EditorState, field: "title" | "subtitle", value: string,
   if (doc[field] === value) return state;
   const mergeable = state.lastTitleAt !== null && at - state.lastTitleAt <= TITLE_MERGE_MS && state.present.id !== state.savedId;
   if (mergeable) {
-    return { ...state, present: { id: state.present.id, doc: { ...doc, [field]: value } }, lastTitleAt: at };
+    return { ...state, present: { id: state.present.id, doc: { ...doc, [field]: value } }, lastTitleAt: at, lastTweak: null };
   }
   return commit(state, { ...doc, [field]: value }, at);
 }
@@ -244,6 +273,7 @@ export function undo(state: EditorState): EditorState {
     present: previous,
     future: [state.present, ...state.future],
     lastTitleAt: null,
+    lastTweak: null,
   };
 }
 
@@ -256,12 +286,13 @@ export function redo(state: EditorState): EditorState {
     present: next,
     future: rest,
     lastTitleAt: null,
+    lastTweak: null,
   };
 }
 
 /** 保存成功后调用：把当前位置记为已保存 */
 export function markSaved(state: EditorState): EditorState {
-  return { ...state, savedId: state.present.id, lastTitleAt: null };
+  return { ...state, savedId: state.present.id, lastTitleAt: null, lastTweak: null };
 }
 
 /** 新建：回到与 createEditor 完全相同的初始状态，历史清空 */
@@ -281,5 +312,45 @@ export function loadEditor(state: EditorState, content: EditorContent): EditorSt
     nextEntryId: 1,
     defaultTemplateId: state.defaultTemplateId,
     lastTitleAt: null,
+    lastTweak: null,
   };
+}
+
+// ---------- 单页编辑（docs/dev-0.4.1.md 2） ----------
+
+/**
+ * 修改手动编排：第一次修改时先把当前自动编排存成手动编排（画面不变），再应用 update。
+ * update 返回 null（不允许）或原数组（没有变化）时状态不变。素材列表的顺序随之跟随页的顺序。
+ * 传了 tweakKey 的连续调整（滑块、拖动取景）间隔不超过 TWEAK_MERGE_MS 时合并成一步撤销；at 是此刻的毫秒时间戳。
+ */
+export function editPages(
+  state: EditorState,
+  update: (pages: readonly EditorPage[], ctx: PageContext) => readonly EditorPage[] | null,
+  tweak?: { key: string; at: number },
+): EditorState {
+  const doc = state.present.doc;
+  const base = doc.pages ?? autoPages(planningInputOf(doc));
+  const next = update(base, pageContextOf(doc));
+  if (next === null || next === base) return state;
+  const edited: EditorDoc = { ...doc, pages: next, media: followPageOrder(doc.media, next) };
+  const last = state.lastTweak;
+  const mergeable = tweak && doc.pages !== null && last?.key === tweak.key && tweak.at - last.at <= TWEAK_MERGE_MS && state.present.id !== state.savedId;
+  if (mergeable) return { ...state, present: { id: state.present.id, doc: edited }, lastTitleAt: null, lastTweak: tweak };
+  return commit(state, edited, null, tweak ?? null);
+}
+
+/** 删除一页：这一页的素材一并从影片里去掉（可撤销） */
+export function removePage(state: EditorState, pageIndex: number): EditorState {
+  const doc = state.present.doc;
+  const base = doc.pages ?? autoPages(planningInputOf(doc));
+  const page = base[pageIndex];
+  if (!page) return state;
+  const gone = new Set(page.items.map((item) => item.key));
+  return commit(state, withMedia({ ...doc, pages: base }, doc.media.filter((m) => !gone.has(m.key))));
+}
+
+/** 恢复自动编排：丢掉所有单页修改，按当前素材和设置重新编排 */
+export function resetPages(state: EditorState): EditorState {
+  const doc = state.present.doc;
+  return doc.pages === null ? state : commit(state, { ...doc, pages: null });
 }

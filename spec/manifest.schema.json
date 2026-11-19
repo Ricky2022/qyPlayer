@@ -18,7 +18,8 @@
         "version": { "type": "string" },
         "templateId": { "type": "string" },
         "seed": { "type": "integer" },
-        "transition": { "type": "string" }
+        "transition": { "type": "string" },
+        "plan": { "description": "Private. The page plan the creator saved after single-page edits (used to continue editing); players ignore it." }
       }
     },
     "canvas": {

@@ -19,12 +19,12 @@ The interface is available in Chinese and English. It follows the system languag
 
 The player (qyPlayer, 青云播放器) and the creator (qyMaker, 青云制作器) are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
 
-Current version: [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0). The previous official version is [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1); v0.3.0 was only a preview with no official Release, and everything in it is included in 0.4.0.
+Current version: [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1). The previous version is [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0), and the official version before that is [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1); v0.3.0 was only a preview with no official Release, and everything in it is included in 0.4.0.
 
 | Program | Installer | Portable |
 | --- | --- | --- |
-| Player | [qyPlayer-0.4.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyPlayer-0.4.0-Setup-x64.exe) | [qyPlayer-0.4.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyPlayer-0.4.0-x64-portable.zip) |
-| Creator | [qyMaker-0.4.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyMaker-0.4.0-Setup-x64.exe) | [qyMaker-0.4.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyMaker-0.4.0-x64-portable.zip) |
+| Player | [qyPlayer-0.4.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyPlayer-0.4.1-Setup-x64.exe) | [qyPlayer-0.4.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyPlayer-0.4.1-x64-portable.zip) |
+| Creator | [qyMaker-0.4.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyMaker-0.4.1-Setup-x64.exe) | [qyMaker-0.4.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyMaker-0.4.1-x64-portable.zip) |
 
 All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/releases) page.
 
@@ -39,6 +39,21 @@ All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/release
 ## Status
 
 This is **Phase 0 (technical research)**: the Web version and a Windows desktop shell exist, to validate the technical approach. macOS, mobile apps and AI-assisted editing have not been started (MP4 export is included since 0.3.0).
+
+### 0.4.1
+
+0.4.1 adds **single-page editing** to the creator: once the film is generated you can change just one page instead of starting over. The detailed design is in [`docs/dev-0.4.1.md`](./docs/dev-0.4.1.md) (in Chinese).
+
+New in 0.4.1:
+
+- Page strip: a row of page thumbnails under the preview; click one to select it and jump to that page; drag to reorder pages; with a page selected, Alt+←/→ moves it and Delete removes it. On a phone, tap "Edit this page" to open the "This page" tab in Settings.
+- "This page" panel: the duration of a page (photo pages), the transition into the page, the layout of a collage (side by side, stacked, four positions of the big photo, grid and so on), and for each photo how it is shown (automatic, fill, show whole) and its order within the page.
+- Changing what a page holds: move a photo to the previous or next page, split a photo out of a collage into its own page, merge with the next page, delete a page (its media are removed too).
+- Framing: drag a photo to reposition it and zoom up to 3×; a single-photo page can also pick a camera motion (zoom in, zoom out, drift in four directions, or none).
+- Video pages: set where the clip starts and how long it is; saving keeps only that part of the video.
+- Together with the whole-film settings: after a single-page edit, changing the style, rearranging, changing the film length or sorting the media by hand first warns that the manual edits will be discarded; the title, aspect ratio, filter and music are not affected. Everything can be undone, and "Restore automatic arrangement" is in the Edit menu. The manual edits are saved in the `.qyp` and continue when it is reopened.
+- Player: the thumbnail strip at the bottom is now optional and off by default; turn it on with the button at the right of the control bar. The choice is remembered.
+- The package format is still 0.3. The record of the manual edits is stored in `generator.plan` (private, players ignore it), so the 0.4.0 player opens packages made by 0.4.1 as usual.
 
 ### 0.4.0
 

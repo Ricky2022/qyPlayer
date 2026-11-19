@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { createUseStyles } from "react-jss";
 import { useI18n } from "../i18n";
 import type { PlaybackController } from "../player/PlaybackController";
@@ -61,10 +62,12 @@ interface PreviewPaneProps {
   /** 已翻译的生成错误；有值时显示在状态行下面 */
   error: string | null;
   layoutMayDiffer: boolean;
+  /** 播放器下面的页面条（单页编辑） */
+  strip?: ReactNode;
 }
 
-/** 预览区（3A.8）：状态行 + 内嵌播放器 */
-export function PreviewPane({ controller, pages, duration, updating, error, layoutMayDiffer }: PreviewPaneProps) {
+/** 预览区（3A.8）：状态行 + 内嵌播放器 + 页面条 */
+export function PreviewPane({ controller, pages, duration, updating, error, layoutMayDiffer, strip }: PreviewPaneProps) {
   const classes = useStyles();
   const { t } = useI18n();
   return (
@@ -80,6 +83,7 @@ export function PreviewPane({ controller, pages, duration, updating, error, layo
         </p>
       )}
       <div className={classes.stage}>{controller && <PlayerView controller={controller} />}</div>
+      {controller && strip}
     </div>
   );
 }

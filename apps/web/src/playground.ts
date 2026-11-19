@@ -6,8 +6,10 @@
 //                                         用生成器按一组横竖混合的素材生成清单，每页取一帧（0.4.0 的画面效果）
 //   /playground.html?m=gen&title=标题&subtitle=副标题&t=1.5
 //                                         在 gen 模式的第一页上叠片头标题图片（与制作器画的是同一张）
+//   /playground.html?m=layouts&aspect=9:16
+//                                         每种版式一页（再加几页取景示例），每页取一帧（0.4.1 的版式与取景）
 //   /playground.html?m=looks              同一张模拟照片套上 原片 和 四款滤镜 的对比
-import { CANVAS_SIZE, generateManifest, KNOWN_LOOKS, validateManifest, type Layer, type Manifest, type MediaInput } from "@qyplayer/core";
+import { CANVAS_SIZE, LAYOUTS, generateManifest, KNOWN_LOOKS, validateManifest, type Layer, type Manifest, type MediaInput, type PagePlan } from "@qyplayer/core";
 import { renderFrame, type DrawableAsset } from "@qyplayer/renderer";
 import { TITLE_ASSET_ID, TITLE_PATH, renderTitleCard } from "./create/titleCard";
 import example from "../../../spec/examples/example.manifest.json";
@@ -90,6 +92,32 @@ function generatedManifest(): Manifest {
   });
 }
 
+/** 版式联系表：每个张数的每种版式一页，再加三页取景（放大 2 倍取左上、右下、居中），都由 options.pages 手工编排 */
+function layoutsManifest(): Manifest {
+  const sizes: [number, number][] = [[2560, 1707], [1707, 2560], [2560, 1440], [1200, 1200]];
+  const media: MediaInput[] = [];
+  const photo = (): string => {
+    const [width, height] = sizes[media.length % sizes.length]!;
+    const id = `l${String(media.length + 1).padStart(2, "0")}`;
+    media.push({ id, type: "image", src: `media/${id}.jpg`, mimeType: "image/jpeg", source: { mimeType: "image/jpeg", transcoded: false }, fileName: `${id}.jpg`, width, height, capturedAt: new Date(Date.UTC(2026, 9, 1, 8, media.length)).toISOString() });
+    return id;
+  };
+  const pages: PagePlan[] = [];
+  for (const count of [1, 2, 3, 4] as const)
+    for (const layout of LAYOUTS[count]) pages.push({ layout, items: Array.from({ length: count }, () => ({ assetId: photo() })), duration: 3 });
+  for (const [x, y] of [[0, 0], [1, 1], [0.5, 0.5]] as const) pages.push({ items: [{ assetId: photo(), crop: { zoom: 2, x, y } }], duration: 3 });
+  return generateManifest({
+    media,
+    pages,
+    aspectRatio: params.get("aspect") === "9:16" ? "9:16" : "16:9",
+    templateId: "classic",
+    seed: 1,
+    keepOrder: true,
+    id: "playground-layouts",
+    createdAt: "2026-11-19T00:00:00+08:00",
+  });
+}
+
 /** 滤镜对比用的单张照片清单 */
 function looksManifest(): Manifest {
   return generateManifest({
@@ -142,7 +170,7 @@ function scene(width: number, height: number): DrawableAsset {
 
 function pickManifest(): Manifest {
   const mode = params.get("m");
-  const raw = mode === "looks" ? looksManifest() : mode === "portrait" ? portraitManifest() : mode === "gen" ? generatedManifest() : (example as unknown as Manifest);
+  const raw = mode === "looks" ? looksManifest() : mode === "portrait" ? portraitManifest() : mode === "gen" || mode === "layouts" ? (mode === "gen" ? generatedManifest() : layoutsManifest()) : (example as unknown as Manifest);
   const result = validateManifest(raw);
   if (!result.ok) throw new Error("playground manifest invalid: " + JSON.stringify(result.errors));
   return result.manifest!;
@@ -241,7 +269,7 @@ if (params.get("m") === "looks") {
   addFrame(root, Number(params.get("t")), Number(params.get("w") ?? 960));
 } else {
   const portrait = params.get("m") === "portrait";
-  const generated = params.get("m") === "gen";
+  const generated = params.get("m") === "gen" || params.get("m") === "layouts";
   const times = generated
     ? manifest.pages.map((p) => p.start + p.duration * 0.75)
     : portrait
