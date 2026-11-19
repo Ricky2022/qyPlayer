@@ -1,5 +1,5 @@
 // 页面条和“本页”面板发出的操作：一个操作对应编辑状态上的一步（docs/dev-0.4.1.md 7）。
-import type { PagePlan } from "@qyplayer/core";
+import type { Crop, KenBurns, PagePlan } from "@qyplayer/core";
 import {
   MAX_PAGE_SECONDS,
   MIN_PAGE_SECONDS,
@@ -26,7 +26,11 @@ export type PageAction =
   | { kind: "moveItem"; index: number; from: number; to: number }
   | { kind: "movePhoto"; index: number; item: number; direction: -1 | 1 }
   | { kind: "split"; index: number; item: number }
-  | { kind: "merge"; index: number };
+  | { kind: "merge"; index: number }
+  /** 取景对话框的结果：crop 为 undefined 表示不取景。有取景时显示方式恢复自动（取景只在“铺满”下生效） */
+  | { kind: "framing"; index: number; item: number; crop: Crop | undefined; kenBurns: KenBurns | undefined }
+  /** 视频页的片段：起点和长度（秒）。调用方已按素材时长限制；at 同 duration，用于合并滑块的连续调整 */
+  | { kind: "clip"; index: number; start: number; length: number; at: number };
 
 export interface ActionResult {
   state: EditorState;
@@ -89,6 +93,23 @@ export function applyPageAction(state: EditorState, action: PageAction): ActionR
       const select = key === undefined ? undefined : pageOfKey(next, key);
       return select === undefined ? { state: next } : { state: next, select };
     }
+    case "framing":
+      return {
+        state: editPages(state, (pages) =>
+          updateItem(pages, action.index, action.item, { crop: action.crop, kenBurns: action.kenBurns, ...(action.crop && { fit: undefined }) }),
+        ),
+      };
+    case "clip":
+      return {
+        state: editPages(
+          state,
+          (pages) => {
+            const withLength = updatePage(pages, action.index, { duration: action.length });
+            return withLength && updateItem(withLength, action.index, 0, { clipStart: action.start });
+          },
+          { key: `clip:${action.index}`, at: action.at },
+        ),
+      };
     case "merge": {
       const next = editPages(state, (pages, ctx) => mergeWithNext(pages, ctx, action.index));
       return next === state ? { state } : { state: next, select: action.index };

@@ -92,3 +92,32 @@ describe("页操作 → 编辑状态", () => {
     expect(manual(added)[0]!.duration).toBe(7);
   });
 });
+
+describe("取景和视频片段", () => {
+  it("framing：写入取景和 Ken Burns，显示方式恢复自动；crop 为 undefined 时去掉取景", () => {
+    const state = filmState();
+    const pages = pagesOf(state);
+    const single = pages.findIndex((p) => p.items.length === 1 && p.items[0]!.kenBurns !== undefined);
+    expect(single).toBeGreaterThanOrEqual(0);
+    const withFit = applyPageAction(state, { kind: "fit", index: single, item: 0, fit: "contain" }).state;
+    const framed = applyPageAction(withFit, { kind: "framing", index: single, item: 0, crop: { zoom: 2, x: 0.2, y: 0.8 }, kenBurns: "left" }).state;
+    expect(manual(framed)[single]!.items[0]).toMatchObject({ crop: { zoom: 2, x: 0.2, y: 0.8 }, kenBurns: "left" });
+    expect(manual(framed)[single]!.items[0]).not.toHaveProperty("fit");
+    const cleared = applyPageAction(framed, { kind: "framing", index: single, item: 0, crop: undefined, kenBurns: "none" }).state;
+    expect(manual(cleared)[single]!.items[0]).not.toHaveProperty("crop");
+    expect(manual(cleared)[single]!.items[0]!.kenBurns).toBe("none");
+  });
+
+  it("clip：视频页的长度写进页的 duration，起点写进素材；连续拖动合并成一步", () => {
+    const state = filmState();
+    const pages = pagesOf(state);
+    const video = pages.findIndex((p) => p.items[0]!.clipStart !== undefined);
+    expect(video).toBeGreaterThanOrEqual(0);
+    const a = applyPageAction(state, { kind: "clip", index: video, start: 3, length: 5, at: 0 }).state;
+    expect(manual(a)[video]!.duration).toBe(5);
+    expect(manual(a)[video]!.items[0]!.clipStart).toBe(3);
+    const b = applyPageAction(a, { kind: "clip", index: video, start: 4, length: 6, at: 400 }).state;
+    expect(manual(b)[video]).toMatchObject({ duration: 6, items: [{ clipStart: 4 }] });
+    expect(currentDoc(undo(b)).pages).toBeNull();
+  });
+});

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
-import { GENERATOR_LIMITS, TEMPLATES, defaultAspectRatio } from "@qyplayer/core";
+import { GENERATOR_LIMITS, TEMPLATES, cellAspect, defaultAspectRatio, layoutFrames } from "@qyplayer/core";
 import { PACKAGE_LIMITS, openPackage, writePackage } from "@qyplayer/qyp";
 import { AboutDialog } from "../AboutDialog";
 import { isDesktop, saveBlob } from "../desktop";
@@ -64,6 +64,7 @@ import { LONG_EXPORT_SECONDS } from "./export/spec";
 import { formatDuration, safeFileName, sortByCapturedAt } from "./files";
 import { ImportError, importMedia, importMusic } from "./importers";
 import { MenuBar, type BarCommand, type MenuGroup } from "./MenuBar";
+import { FramingDialog } from "./FramingDialog";
 import { PagePanel } from "./PagePanel";
 import { EmptyState, PreviewPane } from "./PreviewPane";
 import { RightPanel, type PanelMode } from "./RightPanel";
@@ -163,6 +164,8 @@ export function CreatorApp() {
   const [tab, setTab] = useState<Tab>("media");
   const [selectedPage, setSelectedPage] = useState<number | null>(null);
   const [panelMode, setPanelMode] = useState<PanelMode>("film");
+  /** 正在取景的照片：第 index 页的第 item 张 */
+  const [framing, setFraming] = useState<{ index: number; item: number } | null>(null);
   const selectedPageRef = useRef(selectedPage);
   selectedPageRef.current = selectedPage;
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
@@ -187,7 +190,7 @@ export function CreatorApp() {
   const busy = importing !== null || working !== null;
   const busyRef = useRef(busy);
   busyRef.current = busy;
-  const modalOpen = confirmation !== null || errorMessage !== null || savedNote !== null || progress !== null || exportProgress !== null || aboutOpen;
+  const modalOpen = confirmation !== null || errorMessage !== null || savedNote !== null || progress !== null || exportProgress !== null || aboutOpen || framing !== null;
   const dirty = isDirty(editor);
 
   // 转码开关关闭时丢弃转码缓存（5.5）
@@ -707,18 +710,23 @@ export function CreatorApp() {
     />
   );
 
+  const pageAspect = aspectChoice === "auto" ? resolvedAspect : aspectChoice;
+  const framingPage = framing ? pagePlan[framing.index] : undefined;
+  const framingItem = framingPage?.items[framing?.item ?? 0];
+  const framingMedia = framingItem && mediaByKey.get(framingItem.key);
   const pagePanel = (
     <PagePanel
       index={selected}
       pages={pagePlan}
       actualDuration={(selected !== null && result?.manifest.pages[selected]?.duration) || 4}
-      aspect={aspectChoice === "auto" ? resolvedAspect : aspectChoice}
+      aspect={pageAspect}
       mediaOf={(key) => {
         const m = mediaByKey.get(key);
-        return m && { name: m.fileName, url: urlFor(m), video: m.type === "video" };
+        return m && { name: m.fileName, url: urlFor(m), video: m.type === "video", duration: m.duration ?? 0 };
       }}
       ctx={pageContext}
       onAction={onPageAction}
+      onFrame={(item) => selected !== null && setFraming({ index: selected, item })}
     />
   );
   const rightPanel = <RightPanel mode={panelMode} onMode={setPanelMode} disabled={empty} film={settings} page={pagePanel} />;
@@ -873,6 +881,24 @@ export function CreatorApp() {
           }
           fraction={exportProgress.fraction}
           onCancel={() => saveAbort.current?.abort()}
+        />
+      )}
+      {framing && framingPage && framingItem && framingMedia && (
+        <FramingDialog
+          key={`${framing.index}-${framing.item}`}
+          name={framingMedia.fileName}
+          url={urlFor(framingMedia)}
+          asset={{ width: framingMedia.width, height: framingMedia.height }}
+          cellAspect={cellAspect(layoutFrames(framingPage.items.length as 1 | 2 | 3 | 4, pageAspect, framingPage.layout)[framing.item]!, pageAspect)}
+          initialCrop={framingItem.crop}
+          initialKenBurns={framingItem.kenBurns}
+          showKenBurns={framingPage.items.length === 1}
+          fitIsContain={framingItem.fit === "contain"}
+          onCancel={() => setFraming(null)}
+          onDone={(crop, kenBurns) => {
+            onPageAction({ kind: "framing", index: framing.index, item: framing.item, crop, kenBurns });
+            setFraming(null);
+          }}
         />
       )}
       {aboutOpen && <AboutDialog kind="maker" onClose={() => setAboutOpen(false)} />}

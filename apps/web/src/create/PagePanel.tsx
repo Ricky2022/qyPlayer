@@ -3,7 +3,7 @@ import { defaultLayout, type AspectRatio } from "@qyplayer/core";
 import { useI18n, type MessageKey } from "../i18n";
 import { theme } from "../ui/theme";
 import type { PageAction } from "./editor/pageActions";
-import { MAX_PAGE_SECONDS, MIN_PAGE_SECONDS, PAGE_SECONDS_STEP, layoutsOf, mergeWithNext, movePhoto, type EditorPage, type PageContext } from "./editor/pages";
+import { MAX_CLIP_SECONDS, MAX_PAGE_SECONDS, MIN_CLIP_SECONDS, MIN_PAGE_SECONDS, PAGE_SECONDS_STEP, layoutsOf, mergeWithNext, movePhoto, type EditorPage, type PageContext } from "./editor/pages";
 
 const useStyles = createUseStyles({
   panel: { height: "100%", overflowY: "auto", boxSizing: "border-box", padding: "4px 14px 20px" },
@@ -40,6 +40,8 @@ export interface PageMediaInfo {
   name: string;
   url: string;
   video: boolean;
+  /** 视频素材的总时长（秒）；照片为 0 */
+  duration: number;
 }
 
 interface PagePanelProps {
@@ -54,6 +56,8 @@ interface PagePanelProps {
   mediaOf: (key: number) => PageMediaInfo | undefined;
   ctx: PageContext;
   onAction(action: PageAction): void;
+  /** 打开第 position 张照片的取景对话框 */
+  onFrame(position: number): void;
 }
 
 const LAYOUT_LABELS: Record<string, MessageKey> = {
@@ -82,8 +86,47 @@ function parseTransition(value: string): { type: string; direction?: string } | 
   return direction ? { type: type!, direction } : { type: value };
 }
 
+interface ClipControlsProps {
+  index: number;
+  page: EditorPage;
+  /** 视频素材的总时长（秒） */
+  total: number;
+  actualDuration: number;
+  onAction(action: PageAction): void;
+}
+
+/** 视频页的片段：起点和长度（docs/dev-0.4.1.md 4）；保存时视频按这一段裁剪 */
+function ClipControls({ index, page, total, actualDuration, onAction }: ClipControlsProps) {
+  const classes = useStyles();
+  const { t } = useI18n();
+  const maxLength = Math.min(total, MAX_CLIP_SECONDS);
+  const minLength = Math.min(MIN_CLIP_SECONDS, maxLength);
+  const length = Math.min(maxLength, Math.max(minLength, page.duration ?? actualDuration));
+  const start = Math.min(page.items[0]!.clipStart ?? 0, Math.max(0, total - length));
+  const send = (nextStart: number, nextLength: number): void => {
+    const l = Math.min(maxLength, Math.max(minLength, nextLength));
+    onAction({ kind: "clip", index, start: Math.min(Math.max(0, nextStart), Math.max(0, total - l)), length: l, at: Date.now() });
+  };
+  return (
+    <fieldset className={classes.section}>
+      <legend className={classes.legend}>{t("pageClip")}</legend>
+      <label className={classes.choice} htmlFor="qy-clip-length">
+        {t("pageClipLength")}
+      </label>
+      <input id="qy-clip-length" className={classes.slider} type="range" min={minLength} max={maxLength} step={PAGE_SECONDS_STEP} value={length} onChange={(event) => send(start, Number(event.target.value))} />
+      <span className={classes.value}>{t("pageDurationValue", { seconds: length })}</span>
+      <label className={classes.choice} htmlFor="qy-clip-start">
+        {t("pageClipStart")}
+      </label>
+      <input id="qy-clip-start" className={classes.slider} type="range" min={0} max={Math.max(0, total - length)} step={PAGE_SECONDS_STEP} value={start} disabled={total - length <= 0} onChange={(event) => send(Number(event.target.value), length)} />
+      <span className={classes.value}>{t("pageDurationValue", { seconds: start })}</span>
+      <p className={classes.hint}>{t("pageClipNote", { duration: Math.round(total * 10) / 10 })}</p>
+    </fieldset>
+  );
+}
+
 /** “本页”面板（docs/dev-0.4.1.md 7）：按页的类型（单张、拼图、视频）显示适用的控件 */
-export function PagePanel({ index, pages, actualDuration, aspect, mediaOf, ctx, onAction }: PagePanelProps) {
+export function PagePanel({ index, pages, actualDuration, aspect, mediaOf, ctx, onAction, onFrame }: PagePanelProps) {
   const classes = useStyles();
   const { t } = useI18n();
   const page = index === null ? undefined : pages[index];
@@ -102,12 +145,15 @@ export function PagePanel({ index, pages, actualDuration, aspect, mediaOf, ctx, 
   const fixedSeconds = page.duration;
   const auto = fixedSeconds === undefined;
   const layouts = layoutsOf(page);
+  const videoInfo = isVideo ? mediaOf(page.items[0]!.key) : undefined;
   const currentLayout = page.layout && layouts.includes(page.layout) ? page.layout : defaultLayout(count as 1 | 2 | 3 | 4, aspect);
 
   return (
     <div className={classes.panel}>
       <h2 className={classes.title}>{t("pageTitle", { page: index + 1, total: pages.length })}</h2>
       <p className={classes.kind}>{kind}</p>
+
+      {videoInfo && videoInfo.duration > 0 && <ClipControls index={index} page={page} total={videoInfo.duration} actualDuration={actualDuration} onAction={act} />}
 
       {!isVideo && (
         <fieldset className={classes.section}>
@@ -196,6 +242,12 @@ export function PagePanel({ index, pages, actualDuration, aspect, mediaOf, ctx, 
                     <option value="contain">{t("pageFitContain")}</option>
                   </select>
                 </label>
+                <div className={classes.row}>
+                  <button className={classes.small} onClick={() => onFrame(position)}>
+                    {t("pageFrame")}
+                  </button>
+                  {item.crop && <span className={classes.value}>{t("pageFrameSummary", { zoom: Math.round(item.crop.zoom * 100) / 100 })}</span>}
+                </div>
                 <div className={classes.row}>
                   {count > 1 && (
                     <>
