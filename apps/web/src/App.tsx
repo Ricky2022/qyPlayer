@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { openPackage } from "@qyplayer/qyp";
 import type { ByteSource } from "@qyplayer/qyp";
 import { AboutDialog } from "./AboutDialog";
+import { isAndroidShell } from "./android";
 import { RECEIVED_FILE_EVENT, isDesktop, readInitialFile, shellFile } from "./desktop";
 import { useI18n, type MessageKey } from "./i18n";
 import { describeError } from "./messages";
@@ -193,7 +194,9 @@ export function App({ initialSource }: AppProps) {
         <input
           ref={inputRef}
           type="file"
-          accept=".qyp,application/zip"
+          // Android 的系统文件选择器按 accept 过滤，它不认识 .qyp，会把我们的包显示成不可选；
+          // 壳里干脆不限类型，选错文件由打开时的校验给出提示
+          {...(isAndroidShell() ? {} : { accept: ".qyp,application/zip" })}
           hidden
           onChange={(e) => {
             const file = e.target.files?.[0];

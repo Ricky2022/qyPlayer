@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { onBack, useScreenWakeLock } from "./android";
 import { createUseStyles } from "react-jss";
 import { useI18n, type MessageKey } from "./i18n";
 import type { PlaybackController, PlayerWarning, PlayState } from "./player/PlaybackController";
@@ -153,6 +154,25 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
     if (document.fullscreenElement) void document.exitFullscreen();
     else void rootRef.current?.requestFullscreen();
   };
+
+  // Android：播放时屏幕常亮（暂停、结束、切到后台时释放）
+  useScreenWakeLock(playState === "playing");
+
+  // Android：返回键先退出全屏，再退出播放界面；回到首页再按就退出应用（见 android.ts）
+  useEffect(
+    () =>
+      onBack(() => {
+        if (document.fullscreenElement) {
+          void document.exitFullscreen();
+          return true;
+        }
+        // 内嵌预览（没有返回按钮）不接管返回键
+        if (!onClose) return false;
+        onClose();
+        return true;
+      }),
+    [onClose],
+  );
 
   const toggleStrip = (): void => {
     saveFilmstripSetting(!stripOn);
