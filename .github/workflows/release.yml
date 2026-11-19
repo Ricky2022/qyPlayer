@@ -1,7 +1,7 @@
-name: Release Windows apps
+name: Release qyPlayer
 
-# 推送 v* 标签时：检查通过后在 Windows 机器上构建播放器和制作器，发布 GitHub Release。
-# 手动触发只构建并把文件作为 Actions 附件保存，不发布 Release，用来在打标签前验证构建。
+# 推送 v* 标签时：检查 → 构建 Windows 播放器、制作器与 Android APK → 全部成功后发布同一个 GitHub Release。
+# 任一平台构建失败就不发布。手动触发只构建并把文件作为 Actions 附件保存，不发布 Release，用来在打标签前验证。
 on:
   push:
     tags: ["v*"]
@@ -11,7 +11,47 @@ permissions:
   contents: write # 创建 Release 需要
 
 jobs:
+  # 检查：代码风格、类型、单元测试、Rust 测试、标签与版本号是否一致
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      - name: Test desktop shared crate
+        run: cargo test --locked -p qy-desktop-common
+
+      - name: Check tag matches app version
+        if: github.ref_type == 'tag'
+        run: |
+          $files = "apps/desktop-player/src-tauri/tauri.conf.json", "apps/desktop-maker/src-tauri/tauri.conf.json", "apps/web/package.json"
+          foreach ($file in $files) {
+            $version = (Get-Content $file -Raw | ConvertFrom-Json).version
+            if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "$file version v$version does not match tag $env:GITHUB_REF_NAME" }
+          }
+
   windows:
+    needs: check
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -35,24 +75,6 @@ jobs:
         run: |
           $version = (Get-Content apps/desktop-player/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           "APP_VERSION=$version" >> $env:GITHUB_ENV
-
-      - run: pnpm lint
-
-      - run: pnpm typecheck
-
-      - run: pnpm test
-
-      - name: Test desktop shared crate
-        run: cargo test --locked -p qy-desktop-common
-
-      - name: Check tag matches app version
-        if: github.ref_type == 'tag'
-        run: |
-          $files = "apps/desktop-player/src-tauri/tauri.conf.json", "apps/desktop-maker/src-tauri/tauri.conf.json", "apps/web/package.json"
-          foreach ($file in $files) {
-            $version = (Get-Content $file -Raw | ConvertFrom-Json).version
-            if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "$file version v$version does not match tag $env:GITHUB_REF_NAME" }
-          }
 
       # 内置配乐只放进制作器：制作器的网页构建会把它带上，播放器的网页构建不带
       - name: Download built-in music
@@ -97,8 +119,35 @@ jobs:
           name: cargo-lock
           path: Cargo.lock
 
-      - name: Publish release
-        if: github.ref_type == 'tag'
+  # Android 播放器：同一个工作流也可以单独手动触发（出调试包）
+  android:
+    needs: check
+    uses: ./.github/workflows/android.yml
+    with:
+      mode: release
+    secrets: inherit
+
+  # 发布：Windows 与 Android 都构建成功，并且这次运行是推标签，才创建一个 Release
+  publish:
+    needs: [windows, android]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: windows-apps
+          path: dist-release
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: android-apk
+          path: dist-release
+
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME dist-release/* --title $env:GITHUB_REF_NAME --notes-file .github/release-notes.md
+        run: |
+          ls -l dist-release
+          gh release create "$GITHUB_REF_NAME" dist-release/* --title "$GITHUB_REF_NAME" --notes-file .github/release-notes.md

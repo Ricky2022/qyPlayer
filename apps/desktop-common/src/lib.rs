@@ -22,9 +22,20 @@ pub mod commands {
     use super::is_allowed;
 
     /// 随界面语言更新窗口标题。
+    ///
+    /// 改标题是桌面专用的接口（Android 的 Activity 没有可改的标题栏），手机端直接成功返回，
+    /// 免得这层壳编译到手机目标时报找不到方法。
     #[tauri::command]
     pub fn set_title(window: tauri::WebviewWindow, title: String) -> Result<(), String> {
-        window.set_title(&title).map_err(|e| e.to_string())
+        #[cfg(not(target_os = "android"))]
+        {
+            window.set_title(&title).map_err(|e| e.to_string())
+        }
+        #[cfg(target_os = "android")]
+        {
+            let _ = (window, title);
+            Ok(())
+        }
     }
 
     /// 用系统默认浏览器打开链接。
@@ -54,6 +65,36 @@ pub fn write_atomically(target: &std::path::Path, data: &[u8]) -> std::io::Resul
     result
 }
 
+/// 读出文件 `[offset, offset + length)` 这一段，用于网页按需读取交给播放器的那个包。
+///
+/// - 范围超出文件末尾时返回错误，不返回残缺的数据：网页按错误的偏移要内容时，宁可报错也不能悄悄给少了。
+/// - `length` 为 0 时返回空（偏移仍然要在文件范围内）。
+/// - 文件比上次看到的小了（被换掉或截断）同样报错。
+pub fn read_range(path: &std::path::Path, offset: u64, length: u64) -> std::io::Result<Vec<u8>> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let size = std::fs::metadata(path)?.len();
+    let end = offset.checked_add(length).ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("读取范围溢出：偏移 {offset}、长度 {length}"))
+    })?;
+    if end > size {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("读取范围超出文件末尾：偏移 {offset}、长度 {length}、文件 {size} 字节"),
+        ));
+    }
+
+    let capacity = usize::try_from(length)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("一次读取的字节数过大：{length}")))?;
+    let mut buffer = vec![0u8; capacity];
+    if length > 0 {
+        let mut file = std::fs::File::open(path)?;
+        file.seek(SeekFrom::Start(offset))?;
+        file.read_exact(&mut buffer)?;
+    }
+    Ok(buffer)
+}
+
 /// 给应用注册 open_url 依赖的 opener 插件（插件配置类型不对外公开，所以包一层 Builder）。
 pub fn with_opener<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder.plugin(tauri_plugin_opener::init())
@@ -61,7 +102,7 @@ pub fn with_opener<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Buil
 
 #[cfg(test)]
 mod tests {
-    use super::{is_allowed, write_atomically};
+    use super::{is_allowed, read_range, write_atomically};
 
     /// 每个测试一个独立的临时目录，测完删除
     fn scratch_dir(name: &str) -> std::path::PathBuf {
@@ -113,5 +154,36 @@ mod tests {
         assert!(!is_allowed("http://github.com/Ricky2022"));
         assert!(!is_allowed("file:///C:/Windows/System32/calc.exe"));
         assert!(!is_allowed("https://example.com/https://github.com/Ricky2022"));
+    }
+
+    #[test]
+    fn reads_the_requested_range() {
+        let dir = scratch_dir("range");
+        let target = dir.join("film.qyp");
+        std::fs::write(&target, b"0123456789").unwrap();
+        assert_eq!(read_range(&target, 0, 4).unwrap(), b"0123");
+        assert_eq!(read_range(&target, 6, 4).unwrap(), b"6789");
+        // 整份读完
+        assert_eq!(read_range(&target, 0, 10).unwrap(), b"0123456789");
+        // 末尾、长度为 0 是允许的，返回空
+        assert_eq!(read_range(&target, 10, 0).unwrap(), Vec::<u8>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn rejects_ranges_past_the_end() {
+        let dir = scratch_dir("range-past-end");
+        let target = dir.join("film.qyp");
+        std::fs::write(&target, b"0123456789").unwrap();
+        // 读不满请求的长度：报错，不返回残缺数据
+        assert!(read_range(&target, 6, 5).is_err());
+        // 偏移已经超过文件末尾
+        assert!(read_range(&target, 11, 0).is_err());
+        assert!(read_range(&target, u64::MAX, 0).is_err());
+        // 偏移加长度溢出
+        assert!(read_range(&target, u64::MAX - 1, 4).is_err());
+        // 文件不存在
+        assert!(read_range(&dir.join("missing.qyp"), 0, 1).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

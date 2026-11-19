@@ -18,7 +18,7 @@ export const NOTICE_URL = `${REPO_URL}/blob/main/NOTICE`;
 
 const useStyles = createUseStyles({
   backdrop: {
-    position: "fixed", inset: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+    position: "fixed", top: 0, right: 0, bottom: 0, left: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
     background: "rgba(0, 0, 0, 0.62)", backdropFilter: "blur(4px)",
   },
   dialog: {
@@ -31,7 +31,7 @@ const useStyles = createUseStyles({
     "&:hover": { background: theme.surfaceHover, color: theme.text },
     "&:focus-visible": { outline: `2px solid ${theme.accent}` },
   },
-  head: { display: "flex", alignItems: "center", gap: 16, marginBottom: 16 },
+  head: { display: "flex", alignItems: "center", marginBottom: 16, "& > * + *": { marginLeft: 16 } },
   name: { margin: 0, fontSize: 22 },
   version: { margin: "2px 0 0", color: theme.muted, fontSize: 14 },
   text: { margin: "0 0 10px", lineHeight: 1.6, color: "#c5cedc", fontSize: 14 },

@@ -12,11 +12,11 @@ export default defineConfig(
 
   {
     // 网页代码跑在浏览器里；构建脚本、配置文件和测试跑在 Node 里
-    files: ["apps/web/**/*.{ts,tsx}", "packages/renderer/**/*.ts", "packages/qyp/**/*.ts"],
+    files: ["apps/web/**/*.{ts,tsx}", "apps/web/boot-guard.js", "packages/renderer/**/*.ts", "packages/qyp/**/*.ts"],
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ["scripts/**/*.ts", "*.config.{js,ts}", "apps/web/vite.config.ts", "**/*.test.ts"],
+    files: ["scripts/**/*.ts", "assets/**/*.mjs", "*.config.{js,ts}", "apps/web/vite.config.ts", "**/*.test.ts"],
     languageOptions: { globals: globals.node },
   },
 

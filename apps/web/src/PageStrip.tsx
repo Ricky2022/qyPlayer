@@ -9,7 +9,7 @@ const TILE_HEIGHT = 56;
 
 const useStyles = createUseStyles({
   strip: {
-    display: "flex", gap: 6, overflowX: "auto", padding: "4px 0 8px", scrollBehavior: "smooth", scrollbarWidth: "thin",
+    display: "flex", overflowX: "auto", "& > * + *": { marginLeft: 6 }, padding: "4px 0 8px", scrollBehavior: "smooth", scrollbarWidth: "thin",
   },
   tile: {
     position: "relative", flex: "none", height: TILE_HEIGHT, padding: 0, border: "2px solid transparent", borderRadius: 4, overflow: "hidden", background: "#1b2230", cursor: "pointer",

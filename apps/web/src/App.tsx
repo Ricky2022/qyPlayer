@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
+import { listen } from "@tauri-apps/api/event";
 import { openPackage } from "@qyplayer/qyp";
+import type { ByteSource } from "@qyplayer/qyp";
 import { AboutDialog } from "./AboutDialog";
-import { isDesktop, readInitialFile } from "./desktop";
+import { isAndroidShell } from "./android";
+import { RECEIVED_FILE_EVENT, isDesktop, readInitialFile, shellFile } from "./desktop";
 import { useI18n, type MessageKey } from "./i18n";
 import { describeError } from "./messages";
 import { PlaybackController } from "./player/PlaybackController";
@@ -21,9 +24,9 @@ const useStyles = createUseStyles({
     position: "relative", height: "100%", display: "flex", flexDirection: "column", boxSizing: "border-box", overflow: "auto",
     background: "radial-gradient(900px 520px at 50% 28%, rgba(56, 189, 248, 0.13), transparent 70%), " + theme.bg,
   },
-  topbar: { display: "flex", justifyContent: "flex-end", gap: 8, padding: "14px 18px" },
+  topbar: { display: "flex", justifyContent: "flex-end", padding: "14px 18px", "& > * + *": { marginLeft: 8 } },
   tool: {
-    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", border: `1px solid ${theme.border}`, borderRadius: 999,
+    display: "inline-flex", alignItems: "center", padding: "6px 12px", "& > * + *": { marginLeft: 6 }, border: `1px solid ${theme.border}`, borderRadius: 999,
     background: "transparent", color: theme.text, font: "inherit", fontSize: 14, cursor: "pointer",
     "&:hover": { background: theme.surfaceHover },
     "&:focus-visible": { outline: `2px solid ${theme.accent}` },
@@ -40,7 +43,7 @@ const useStyles = createUseStyles({
   },
   hint: { margin: "18px 0 0", color: theme.muted, fontSize: 14 },
   privacy: { margin: "4px 0 0", color: theme.muted, fontSize: 13 },
-  samples: { marginTop: 28, color: theme.muted, fontSize: 14, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 8 },
+  samples: { marginTop: 28, color: theme.muted, fontSize: 14, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", "& > * + *": { marginLeft: 8 } },
   sample: {
     padding: "5px 14px", border: `1px solid ${theme.border}`, borderRadius: 999, background: theme.surface, color: theme.text, font: "inherit", fontSize: 14, cursor: "pointer",
     "&:hover:not(:disabled)": { background: theme.surfaceHover },
@@ -51,7 +54,7 @@ const useStyles = createUseStyles({
     maxWidth: 520, marginTop: 20, padding: "10px 14px", borderRadius: 8, background: theme.dangerBg, color: theme.danger, textAlign: "left", whiteSpace: "pre-line", fontSize: 14,
   },
   dropOverlay: {
-    position: "absolute", inset: 12, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "center", border: `2px dashed ${theme.accent}`, borderRadius: 18,
+    position: "absolute", top: 12, right: 12, bottom: 12, left: 12, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "center", border: `2px dashed ${theme.accent}`, borderRadius: 18,
     background: "rgba(7, 11, 18, 0.82)", color: theme.accent, fontSize: 22, fontWeight: 600, pointerEvents: "none",
   },
 });
@@ -81,7 +84,7 @@ export function App({ initialSource }: AppProps) {
   const [aboutOpen, setAboutOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const open = useCallback(async (source: Blob) => {
+  const open = useCallback(async (source: Blob | ByteSource) => {
     setBusy(true);
     setError(null);
     setSampleError(null);
@@ -105,13 +108,52 @@ export function App({ initialSource }: AppProps) {
     if (initialSource) void initialSource().then(open, (e: unknown) => setError(e));
   }, [initialSource, open]);
 
-  // 桌面程序：双击 .qyp 启动时，直接打开命令行里带的文件
+  // 桌面和手机壳：系统把 .qyp 交给播放器启动时，直接打开那个文件（按偏移读，不整个读进内存）
+  const openedShellFile = useRef<string | null>(null);
+  const openShellFile = useCallback(
+    (name: string, size: number) => {
+      // 启动参数和“收到文件”的事件可能指向同一个文件，只打开一次
+      const key = `${name}\u0000${size}`;
+      if (openedShellFile.current === key) return;
+      openedShellFile.current = key;
+      void open(shellFile(name, size).source);
+    },
+    [open],
+  );
+
   useEffect(() => {
     void readInitialFile().then(
-      (file) => (file ? open(file) : undefined),
+      (file) => {
+        if (file) openShellFile(file.name, file.source.size);
+      },
       (e: unknown) => setError(e),
     );
-  }, [open]);
+  }, [openShellFile]);
+
+  // 手机壳：应用已经打开时，别的应用又发来一个 .qyp（见 desktop.ts 的 RECEIVED_FILE_EVENT）
+  useEffect(() => {
+    if (!isDesktop()) return;
+    let stop: (() => void) | undefined;
+    void listen<[string, number]>(RECEIVED_FILE_EVENT, (event) => openShellFile(event.payload[0], event.payload[1]))
+      .then((fn) => {
+        stop = fn;
+      })
+      .catch(() => undefined);
+    return () => stop?.();
+  }, [openShellFile]);
+
+  // 兜底：事件因为权限或时序没送到时，回到前台再问一次壳有没有新文件
+  useEffect(() => {
+    if (!isAndroidShell()) return;
+    const check = (): void => {
+      if (document.visibilityState !== "visible") return;
+      void readInitialFile().then((file) => {
+        if (file) openShellFile(file.name, file.source.size);
+      }, () => undefined);
+    };
+    document.addEventListener("visibilitychange", check);
+    return () => document.removeEventListener("visibilitychange", check);
+  }, [openShellFile]);
 
   const openSample = async (file: string): Promise<void> => {
     setBusy(true);
@@ -167,7 +209,9 @@ export function App({ initialSource }: AppProps) {
         <input
           ref={inputRef}
           type="file"
-          accept=".qyp,application/zip"
+          // Android 的系统文件选择器按 accept 过滤，它不认识 .qyp，会把我们的包显示成不可选；
+          // 壳里干脆不限类型，选错文件由打开时的校验给出提示
+          {...(isAndroidShell() ? {} : { accept: ".qyp,application/zip" })}
           hidden
           onChange={(e) => {
             const file = e.target.files?.[0];

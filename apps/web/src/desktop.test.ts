@@ -33,19 +33,20 @@ describe("readInitialFile", () => {
     expect(await readInitialFile()).toBeNull();
     expect(invoke).not.toHaveBeenCalled();
   });
-  it("没有启动参数时返回 null", async () => {
+  it("没有系统交来的文件时返回 null", async () => {
     setDesktop(true);
     invoke.mockResolvedValueOnce(null);
     expect(await readInitialFile()).toBeNull();
     expect(invoke).toHaveBeenCalledTimes(1);
   });
-  it("读出文件内容并取路径末段作文件名", async () => {
+  it("返回文件名、大小，内容按偏移向壳里要", async () => {
     setDesktop(true);
-    invoke.mockResolvedValueOnce("C:\\Users\\a\\我的影片.qyp").mockResolvedValueOnce(new Uint8Array([1, 2, 3]).buffer);
+    invoke.mockResolvedValueOnce(["我的影片.qyp", 42]).mockResolvedValueOnce(new Uint8Array([7, 8, 9]).buffer);
     const file = await readInitialFile();
     expect(file?.name).toBe("我的影片.qyp");
-    expect(file?.size).toBe(3);
-    expect(invoke).toHaveBeenLastCalledWith("read_file", { path: "C:\\Users\\a\\我的影片.qyp" });
+    expect(file?.source.size).toBe(42);
+    await expect(file!.source.read(4, 3)).resolves.toEqual(new Uint8Array([7, 8, 9]));
+    expect(invoke).toHaveBeenLastCalledWith("read_range", { offset: 4, length: 3 });
   });
 });
 

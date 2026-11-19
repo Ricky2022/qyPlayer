@@ -1,9 +1,15 @@
 [package]
 name = "qyplayer"
-version = "0.4.1"
+version = "0.5.0"
 description = "qyPlayer 播放器：本机播放 .qyp 回忆影片"
 license = "Apache-2.0"
 edition = "2021"
+
+# 手机端要把这层壳编译成库（`cdylib` 给 Android、`staticlib` 给 iOS），桌面端用 `rlib`。
+# 库名加 `_lib` 后缀，避免和同名的可执行文件在 Windows 上撞名。
+[lib]
+name = "qyplayer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = "2"
@@ -11,3 +17,11 @@ tauri-build = "2"
 [dependencies]
 tauri = "2"
 qy-desktop-common = { path = "../../desktop-common" }
+# 桌面和手机都用它打开外部链接；这里必须直接依赖，不能只靠 qy-desktop-common 间接带进来：
+# `tauri android init/build` 只把应用 crate 直接依赖的插件的 Android 端 Kotlin 代码加进 Gradle 工程，
+# 少这一步会在手机上缺少 app.tauri.opener.OpenerPlugin，插件初始化失败，应用一启动就退出。
+tauri-plugin-opener = "2"
+
+# `desktop`、`mobile` 由 tauri-build 按目标平台设置，这里声明一下免得 rustc 报未定义的 cfg
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(desktop)', 'cfg(mobile)'] }

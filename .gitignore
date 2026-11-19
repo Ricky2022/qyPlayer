@@ -18,3 +18,20 @@ apps/web/public/samples/
 # Rust / Tauri 构建产物
 /target/
 apps/*/src-tauri/gen/
+
+# Android 工程：由 CI 上的 tauri android init 生成后提交进仓库（0.5.0 起），只忽略构建产物和签名密钥
+!apps/desktop-player/src-tauri/gen/
+# Tauri 构建时生成的权限 schema
+apps/desktop-player/src-tauri/gen/schemas/
+apps/desktop-player/src-tauri/gen/android/.gradle/
+apps/desktop-player/src-tauri/gen/android/build/
+apps/desktop-player/src-tauri/gen/android/app/build/
+apps/desktop-player/src-tauri/gen/android/local.properties
+apps/desktop-player/src-tauri/gen/android/keystore.properties
+apps/desktop-player/src-tauri/gen/android/app/*.p12
+# 由 tauri android build 在构建时生成
+apps/desktop-player/src-tauri/gen/android/tauri.build.gradle.kts
+apps/desktop-player/src-tauri/gen/android/tauri.settings.gradle
+apps/desktop-player/src-tauri/gen/android/app/tauri.properties
+apps/desktop-player/src-tauri/gen/android/app/src/main/jniLibs/
+apps/desktop-player/src-tauri/gen/android/app/src/main/assets/

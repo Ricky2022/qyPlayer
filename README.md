@@ -19,12 +19,12 @@
 
 播放器（青云播放器 / qyPlayer）和制作器（青云制作器 / qyMaker）是两个独立的程序，都只在本机运行。需要 Windows 10 / 11（64 位）。
 
-当前版本：[v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1)。上一个版本是 [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0)，更早的正式版是 [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1)；v0.3.0 只是预览版，没有发布正式 Release，它的内容都包含在 0.4.0 里。
+当前版本：[v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0)。上一个版本是 [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1)，更早的正式版是 [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0)；v0.3.0 只是预览版，没有发布正式 Release，它的内容都包含在 0.4.0 里。
 
 | 程序 | 安装包 | 免安装版 |
 | --- | --- | --- |
-| 播放器 | [qyPlayer-0.4.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyPlayer-0.4.1-Setup-x64.exe) | [qyPlayer-0.4.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyPlayer-0.4.1-x64-portable.zip) |
-| 制作器 | [qyMaker-0.4.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyMaker-0.4.1-Setup-x64.exe) | [qyMaker-0.4.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyMaker-0.4.1-x64-portable.zip) |
+| 播放器 | [qyPlayer-0.5.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-Setup-x64.exe) | [qyPlayer-0.5.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-x64-portable.zip) |
+| 制作器 | [qyMaker-0.5.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyMaker-0.5.0-Setup-x64.exe) | [qyMaker-0.5.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyMaker-0.5.0-x64-portable.zip) |
 
 所有版本见 [Releases](https://github.com/Ricky2022/qyPlayer/releases)。
 
@@ -36,9 +36,38 @@
 - 程序没有代码签名，第一次运行时 Windows SmartScreen 可能提示“未知发布者”：点“更多信息”，再点“仍要运行”。
 - 桌面版就是把网页版装进系统自带的 WebView2 窗口里，功能和限制与网页版一致。
 
+## 下载 Android 版
+
+0.5.0 起有 Android 播放器，直接下载 APK 安装，不上应用商店。需要 **Android 10 及以上**，只支持 **arm64**（2019 年以后的中高端手机基本都是）。
+
+| 程序 | 文件 |
+| --- | --- |
+| 播放器 | [qyPlayer-0.5.0-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-android-arm64.apk) |
+
+- 第一次安装要允许“安装未知来源应用”：在文件管理器里点开下载的 APK，按提示在系统设置里为这个来源打开权限。
+- 在文件管理器、微信等应用里选“用其他应用打开”，选“青云播放器”就能播放 `.qyp`；应用已经在运行时再打开一个文件，会换成新的一部。
+- 打开包时按需读取，几百 MB 的包也不用等整个文件载入内存。
+- 影片方向跟随手机旋转；全屏时隐藏系统栏；播放时屏幕不会自动熄灭；返回键依次退出全屏、退出播放、回到首页。
+- 32 位设备（armv7、x86）装不上。手机版只有播放器，制作影片请用 Windows 版或网页版。
+- 性能不达标的机型请留意播放是否流畅：这一版对手机上的帧率还没有做针对性优化（见发布说明的已知问题）。
+- **已知问题**：系统的 Android System WebView 版本较旧时（实测 Android 11 自带 Chrome 83），播放界面可能黑屏。本版已把界面改成兼容写法，但还没在该机型上验证完；遇到黑屏请先尝试更新系统的 Android System WebView。
+
 ## 当前状态
 
-处于**阶段 0（技术预研）**：做了 Web 版和一个 Windows 桌面壳，用来验证技术路线。macOS、手机端、AI 编排都还没有开始（MP4 导出已包含在 0.3.0 起的版本里）。
+Web 版、Windows 桌面版（播放器和制作器）和 Android 播放器都已可用；macOS、Android 制作器、Linux 和 AI 编排还没有开始（MP4 导出已包含在 0.3.0 起的版本里）。
+
+### 0.5.0
+
+0.5.0 新增 **Android 播放器**，并把“壳打开文件”改成按需读取，Windows 版同时受益。详细设计见 [`docs/dev-0.5.0.md`](./docs/dev-0.5.0.md)。
+
+0.5.0 新增：
+
+- Android 播放器（Tauri 2 套壳）：Android 10 及以上、arm64，APK 直接下载安装，不上应用商店。
+- 用其他应用打开：在文件管理器、微信里选“用其他应用打开”就能播放 `.qyp`，注册范围覆盖未知二进制、ZIP 和 `.qyp` 自己的类型；不是 `.qyp` 的文件会给出提示。
+- 按需读取：打开包时只读清单和封面，素材用到才读，几百 MB 的包也不用整个载入内存（桌面版同样改用这条路径）。
+- 手机上的播放行为：方向跟随旋转、全屏隐藏系统栏、播放时屏幕常亮、返回键依次退出全屏 / 播放界面 / 首页。
+- 发布：Windows 与 Android 在同一个标签、同一个 Release；任一平台构建失败就不发布。
+- 已知问题：部分机型的帧率可能达不到 30 帧（手机上的 Canvas 绘制还在优化）；只提供 arm64 包，32 位设备装不上。
 
 ### 0.4.1
 

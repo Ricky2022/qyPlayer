@@ -1,4 +1,4 @@
-import { BlobReader, ZipReader, type Entry, type FileEntry } from "@zip.js/zip.js";
+import { BlobReader, Reader, ZipReader, type Entry, type FileEntry } from "@zip.js/zip.js";
 import { checkPackagePath, referencedPaths, validateManifest, type Manifest, type ValidationIssue } from "@qyplayer/core";
 
 export const PACKAGE_LIMITS = {
@@ -7,6 +7,18 @@ export const PACKAGE_LIMITS = {
   /** manifest.json 本身的体积上限，防止巨型 JSON 拖垮解析 */
   maxManifestBytes: 8 * 1024 * 1024,
 } as const;
+
+/**
+ * 可以按偏移读取的来源。
+ * 桌面和手机壳里的文件走这个接口：包不必整个读进内存，打开时只读中央目录和清单。
+ */
+export interface ByteSource {
+  readonly size: number;
+  read(offset: number, length: number): Promise<Uint8Array>;
+}
+
+/** 打开包的来源：内存里的 Blob（网页、测试），或壳按偏移读的 ByteSource */
+export type PackageSource = Blob | ByteSource;
 
 export type QypErrorCode =
   | "not-a-zip"
@@ -67,15 +79,83 @@ function isFile(entry: Entry): entry is FileEntry {
   return !entry.directory;
 }
 
+function isByteSource(source: PackageSource): source is ByteSource {
+  return typeof (source as Partial<ByteSource>).read === "function";
+}
+
 const LOCAL_HEADER_SIGNATURE = 0x04034b50;
 const DATA_DESCRIPTOR_SIGNATURE = 0x08074b50;
 const LOCAL_HEADER_BYTES = 30;
 const DATA_DESCRIPTOR_BYTES = 16;
 /** ZIP64 或未知大小的占位值，不参与比较 */
 const UNKNOWN_SIZE = 0xffffffff;
+/** 从 ByteSource 取一段内容时每次读的字节数，避免一次申请过大的内存 */
+const SLICE_CHUNK_BYTES = 32 * 1024 * 1024;
 
-async function readBytes(source: Blob, start: number, length: number): Promise<DataView> {
-  return new DataView(await source.slice(start, start + length).arrayBuffer());
+/**
+ * 按偏移读一个来源。来源是 Blob 时用 slice（浏览器里不复制内存）；
+ * 是 ByteSource 时每次都按范围读，所以打开包和读单个素材都不需要整个文件。
+ */
+interface PackageReader {
+  readonly size: number;
+  read(offset: number, length: number): Promise<Uint8Array>;
+  /** 取 [start, end) 这一段作为 Blob。知道类型的用途（图片、视频）由这个 Blob 带上 MIME */
+  slice(start: number, end: number, type: string): Promise<Blob>;
+}
+
+/** 从 ByteSource 读恰好 want 字节；读不满说明来源和它声明的大小不一致 */
+async function readExactly(source: ByteSource, offset: number, length: number): Promise<Uint8Array> {
+  const want = Math.max(0, Math.min(length, source.size - offset));
+  if (want === 0) return new Uint8Array(0);
+  const bytes = await source.read(offset, want);
+  if (bytes.byteLength !== want) {
+    throw new QypError("size-mismatch", `the source returned ${bytes.byteLength} bytes instead of ${want} at offset ${offset}`);
+  }
+  return bytes;
+}
+
+function readerFor(source: PackageSource): PackageReader {
+  if (isByteSource(source)) {
+    return {
+      size: source.size,
+      read: (offset, length) => readExactly(source, offset, length),
+      async slice(start, end, type) {
+        const chunks: Uint8Array[] = [];
+        for (let at = start; at < end; at += SLICE_CHUNK_BYTES) {
+          chunks.push(await readExactly(source, at, Math.min(SLICE_CHUNK_BYTES, end - at)));
+        }
+        return new Blob(chunks as BlobPart[], { type });
+      },
+    };
+  }
+
+  const blob = source;
+  return {
+    size: blob.size,
+    read: async (offset, length) => new Uint8Array(await blob.slice(offset, Math.min(offset + length, blob.size)).arrayBuffer()),
+    slice: (start, end, type) => Promise.resolve(blob.slice(start, end, type)),
+  };
+}
+
+/** 让 zip.js 按偏移读来源：ZIP 的中央目录在文件末尾，随机访问是必须的 */
+class ByteSourceReader extends Reader<ByteSource> {
+  constructor(private readonly source: ByteSource) {
+    super(source);
+    this.size = source.size;
+  }
+
+  override readUint8Array(index: number, length: number): Promise<Uint8Array> {
+    return readExactly(this.source, index, length);
+  }
+}
+
+function zipReaderFor(source: PackageSource): ZipReader<unknown> {
+  return isByteSource(source) ? new ZipReader<unknown>(new ByteSourceReader(source)) : new ZipReader<unknown>(new BlobReader(source));
+}
+
+async function readBytes(reader: PackageReader, start: number, length: number): Promise<DataView> {
+  const bytes = await reader.read(start, length);
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
 
 function sizeMismatch(path: string, detail: string): QypError {
@@ -90,10 +170,10 @@ function sizeMismatch(path: string, detail: string): QypError {
  * - 压缩的条目解压，边写边计数，超过声明的大小立即中止，结束时必须恰好等于声明的大小。
  * 声明的大小与实际不符一律抛出 size-mismatch。
  */
-async function readEntry(source: Blob, entry: FileEntry, type: string): Promise<Blob> {
+async function readEntry(reader: PackageReader, entry: FileEntry, type: string): Promise<Blob> {
   const path = entry.filename;
   const declared = entry.uncompressedSize;
-  const header = await readBytes(source, entry.offset, LOCAL_HEADER_BYTES);
+  const header = await readBytes(reader, entry.offset, LOCAL_HEADER_BYTES);
   if (header.byteLength < LOCAL_HEADER_BYTES || header.getUint32(0, true) !== LOCAL_HEADER_SIGNATURE) {
     throw new QypError("not-a-zip", `"${path}" has no valid local file header`);
   }
@@ -111,18 +191,18 @@ async function readEntry(source: Blob, entry: FileEntry, type: string): Promise<
   }
   const start = entry.offset + LOCAL_HEADER_BYTES + header.getUint16(26, true) + header.getUint16(28, true);
   const end = start + declared;
-  if (end > source.size) throw sizeMismatch(path, "the data runs past the end of the file");
+  if (end > reader.size) throw sizeMismatch(path, "the data runs past the end of the file");
 
   if (hasDescriptor && !entry.zip64) {
     // 本地文件头里的大小是 0，真实大小只在数据后面的数据描述符里：它必须紧跟在声明的数据之后，且大小相符
-    const descriptor = await readBytes(source, end, DATA_DESCRIPTOR_BYTES);
+    const descriptor = await readBytes(reader, end, DATA_DESCRIPTOR_BYTES);
     const signed = descriptor.byteLength >= 4 && descriptor.getUint32(0, true) === DATA_DESCRIPTOR_SIGNATURE;
     if (!signed || descriptor.byteLength < DATA_DESCRIPTOR_BYTES) throw sizeMismatch(path, "no data descriptor after the declared data");
     if (descriptor.getUint32(8, true) !== declared || descriptor.getUint32(12, true) !== declared) {
       throw sizeMismatch(path, "the data descriptor disagrees with the directory");
     }
   }
-  return source.slice(start, end, type);
+  return reader.slice(start, end, type);
 }
 
 /** 把错误和它的 cause 链上的消息拼起来，便于按关键字归类 */
@@ -167,10 +247,12 @@ function classify(issues: ValidationIssue[]): QypErrorCode {
 }
 
 /** 读出 ZIP 的中央目录（只读文件尾部）。不是 ZIP 或条目名不安全时抛 QypError */
-async function listEntries(reader: ZipReader<Blob>): Promise<Entry[]> {
+async function listEntries(reader: ZipReader<unknown>): Promise<Entry[]> {
   try {
     return await reader.getEntries();
   } catch (cause) {
+    // 来源自己报的错（例如读不满声明的大小）原样抛出，其余的归为“不是 ZIP”
+    if (cause instanceof QypError) throw cause;
     // zip.js 自己也会拒绝 ../ 之类的条目名，这是第二层防线；按消息归类，不认识的一律当作不是 ZIP
     const unsafe = cause instanceof Error && /unsafe filename/i.test(cause.message);
     throw new QypError(unsafe ? "unsafe-entry" : "not-a-zip", `cannot read ZIP: ${String(cause)}`);
@@ -178,7 +260,7 @@ async function listEntries(reader: ZipReader<Blob>): Promise<Entry[]> {
 }
 
 /** 读出并校验 manifest.json（openPackage 和 peekPackage 共用） */
-async function readManifest(source: Blob, files: Map<string, FileEntry>): Promise<{ manifest: Manifest; warnings: ValidationIssue[] }> {
+async function readManifest(reader: PackageReader, files: Map<string, FileEntry>): Promise<{ manifest: Manifest; warnings: ValidationIssue[] }> {
   const manifestEntry = files.get("manifest.json");
   if (!manifestEntry) throw new QypError("missing-manifest", "manifest.json not found at the package root");
   if (manifestEntry.uncompressedSize > PACKAGE_LIMITS.maxManifestBytes) {
@@ -187,7 +269,7 @@ async function readManifest(source: Blob, files: Map<string, FileEntry>): Promis
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await (await readEntry(source, manifestEntry, "application/json")).text());
+    parsed = JSON.parse(await (await readEntry(reader, manifestEntry, "application/json")).text());
   } catch (cause) {
     if (cause instanceof QypError) throw cause;
     throw new QypError("invalid-json", `manifest.json is not valid JSON: ${String(cause)}`);
@@ -203,16 +285,18 @@ async function readManifest(source: Blob, files: Map<string, FileEntry>): Promis
 /**
  * 打开 .qyp 包并完成全部校验（PRD F-PKG-05、F-PKG-06）。
  * 只读取 ZIP 的中央目录和 manifest.json，素材在 readBlob 被调用时才读取（PRD N-PERF-04）。
+ * 来源可以是 Blob（网页），也可以是壳按偏移读的 ByteSource（桌面和手机，整个包不进内存）。
  * 任何一步失败都抛出 QypError，不会写入包外的任何位置，也不会发起网络请求。
  */
-export async function openPackage(source: Blob, options: OpenOptions = {}): Promise<OpenedPackage> {
+export async function openPackage(source: PackageSource, options: OpenOptions = {}): Promise<OpenedPackage> {
   const maxBytes = options.maxUncompressedBytes ?? PACKAGE_LIMITS.maxUncompressedBytes;
-  const reader = new ZipReader(new BlobReader(source));
+  const files = readerFor(source);
+  const reader = zipReaderFor(source);
 
   try {
     const entries = await listEntries(reader);
 
-    const files = new Map<string, FileEntry>();
+    const byName = new Map<string, FileEntry>();
     let total = 0;
     for (const entry of entries) {
       const name = entry.directory ? entry.filename.replace(/\/$/, "") : entry.filename;
@@ -220,15 +304,15 @@ export async function openPackage(source: Blob, options: OpenOptions = {}): Prom
       const problem = checkPackagePath(name);
       if (problem) throw new QypError("unsafe-entry", `unsafe entry "${entry.filename}" in package: ${problem}`);
       if (!isFile(entry)) continue;
-      if (files.has(entry.filename)) throw new QypError("unsafe-entry", `duplicate entry "${entry.filename}" in package`);
-      files.set(entry.filename, entry);
+      if (byName.has(entry.filename)) throw new QypError("unsafe-entry", `duplicate entry "${entry.filename}" in package`);
+      byName.set(entry.filename, entry);
       total += entry.uncompressedSize;
       if (total > maxBytes) throw new QypError("too-large", `uncompressed size exceeds the limit of ${maxBytes} bytes`);
     }
 
-    const { manifest, warnings } = await readManifest(source, files);
+    const { manifest, warnings } = await readManifest(files, byName);
 
-    const missing = referencedPaths(manifest).filter((p) => !files.has(p));
+    const missing = referencedPaths(manifest).filter((p) => !byName.has(p));
     if (missing.length > 0) {
       throw new QypError("missing-file", `${missing.length} referenced file(s) are missing from the package`, [], missing);
     }
@@ -237,9 +321,9 @@ export async function openPackage(source: Blob, options: OpenOptions = {}): Prom
       manifest,
       warnings,
       async readBlob(path: string): Promise<Blob> {
-        const entry = files.get(path);
+        const entry = byName.get(path);
         if (!entry) throw new QypError("missing-file", `no such file in package: ${path}`, [], [path]);
-        return readEntry(source, entry, mimeForPath(path));
+        return readEntry(files, entry, mimeForPath(path));
       },
       close: () => reader.close(),
     };
@@ -272,17 +356,18 @@ export interface PackageSummary {
  * 只读三小段：文件尾的中央目录、manifest.json、封面。不读素材，不检查素材是否缺失、大小是否一致。
  * 清单本身仍会校验；包不是 ZIP 或清单无效时抛 QypError。想播放请用 openPackage。
  */
-export async function peekPackage(source: Blob): Promise<PackageSummary> {
-  const reader = new ZipReader(new BlobReader(source));
+export async function peekPackage(source: PackageSource): Promise<PackageSummary> {
+  const reader = zipReaderFor(source);
+  const files = readerFor(source);
   try {
-    const files = new Map<string, FileEntry>();
-    for (const entry of await listEntries(reader)) if (isFile(entry)) files.set(entry.filename, entry);
-    const { manifest } = await readManifest(source, files);
+    const byName = new Map<string, FileEntry>();
+    for (const entry of await listEntries(reader)) if (isFile(entry)) byName.set(entry.filename, entry);
+    const { manifest } = await readManifest(files, byName);
 
     let cover: Blob | undefined;
-    const coverEntry = manifest.cover ? files.get(manifest.cover) : undefined;
+    const coverEntry = manifest.cover ? byName.get(manifest.cover) : undefined;
     if (manifest.cover && coverEntry) {
-      cover = await readEntry(source, coverEntry, mimeForPath(manifest.cover)).catch(() => undefined);
+      cover = await readEntry(files, coverEntry, mimeForPath(manifest.cover)).catch(() => undefined);
     }
 
     const count = (type: string): number => manifest.assets.filter((a) => a.type === type).length;
@@ -296,7 +381,7 @@ export async function peekPackage(source: Blob): Promise<PackageSummary> {
       videoCount: count("video"),
       hasMusic: manifest.bgm !== undefined,
       formatVersion: manifest.formatVersion,
-      totalBytes: source.size,
+      totalBytes: files.size,
       cover,
     };
   } finally {

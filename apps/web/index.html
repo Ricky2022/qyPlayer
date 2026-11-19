@@ -5,9 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>qyPlayer</title>
     <link rel="icon" type="image/svg+xml" href="../../assets/icons/qyplayer.svg" />
+    <!-- 开机占位：脚本没跑起来时至少能看出“HTML 加载到了”，而不是一片白 -->
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: #070b12;
+        color: #94a3b8;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      #qy-boot {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="qy-boot">正在载入青云播放器…</div></div>
+    <!-- 主脚本之前先跑守卫：主脚本没加载或解析失败时，它会把原因显示在屏幕上 -->
+    <script src="./boot-guard.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
