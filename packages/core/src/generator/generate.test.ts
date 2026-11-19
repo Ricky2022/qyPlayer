@@ -539,3 +539,86 @@ describe("素材信息和格式版本", () => {
     expectValid(m);
   });
 });
+
+describe("Ken Burns（格式 0.3 的 motion）", () => {
+  const mixed = (n: number): MediaInput[] => Array.from({ length: n }, (_, i) => (i % 3 === 1 ? photo(`m${i}`, 1707, 2560, at(i)) : photo(`m${i}`, 2560, 1707, at(i))));
+
+  it("只有单张照片页有 motion：拼图页和视频页没有", () => {
+    const m = gen({ media: [...mixed(20), video("v1", 6, at(30))], seed: 7 });
+    let single = 0;
+    for (const page of m.pages) {
+      const isVideo = page.items.some((i) => m.assets.find((a) => a.id === i.assetId)!.type === "video");
+      for (const item of page.items) {
+        if (page.items.length === 1 && !isVideo) {
+          single++;
+          expect(item.motion).toBeDefined();
+        } else {
+          expect(item.motion).toBeUndefined();
+        }
+      }
+    }
+    expect(single).toBeGreaterThan(3);
+    expectValid(m);
+  });
+
+  it("cover 的照片始终盖满格子：scale 不小于 1，偏移不超过 (scale-1)/2，两端都满足", () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const m = gen({ media: mixed(24), seed, templateId: "clean" });
+      for (const item of m.pages.flatMap((p) => p.items)) {
+        if (!item.motion || item.fit !== "cover") continue;
+        for (const s of [item.motion.from, item.motion.to]) {
+          expect(s.scale).toBeGreaterThanOrEqual(1);
+          expect(s.scale).toBeLessThanOrEqual(GENERATOR_LIMITS.kenBurnsMaxScale + 1e-9);
+          expect(Math.abs(s.x)).toBeLessThanOrEqual((s.scale - 1) / 2 + 1e-9);
+          expect(Math.abs(s.y)).toBeLessThanOrEqual((s.scale - 1) / 2 + 1e-9);
+        }
+      }
+    }
+  });
+
+  it("contain 的照片只在 0.94 到 1.00 之间缩放，不超出格子，不平移", () => {
+    let seen = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const m = gen({ media: mixed(24), seed, templateId: "clean" });
+      for (const item of m.pages.flatMap((p) => p.items)) {
+        if (!item.motion || item.fit !== "contain") continue;
+        seen++;
+        for (const s of [item.motion.from, item.motion.to]) {
+          expect(s.scale).toBeGreaterThanOrEqual(GENERATOR_LIMITS.kenBurnsContainMinScale - 1e-9);
+          expect(s.scale).toBeLessThanOrEqual(1);
+          expect([s.x, s.y]).toEqual([0, 0]);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(10);
+  });
+
+  it("六种动作都会出现（推近、拉远、四个方向的平移）", () => {
+    const kinds = new Set<string>();
+    for (let seed = 1; seed <= 30; seed++) {
+      const m = gen({ media: landscapePhotos(30), seed, templateId: "clean" });
+      for (const { motion } of m.pages.flatMap((p) => p.items)) {
+        if (!motion) continue;
+        const { from, to } = motion;
+        if (from.scale < to.scale) kinds.add("in");
+        else if (from.scale > to.scale) kinds.add("out");
+        else if (to.x > from.x) kinds.add("right");
+        else if (to.x < from.x) kinds.add("left");
+        else if (to.y > from.y) kinds.add("down");
+        else kinds.add("up");
+      }
+    }
+    expect([...kinds].sort()).toEqual(["down", "in", "left", "out", "right", "up"]);
+  });
+
+  it("相同输入和种子得到相同的动效；动效不影响转场和版式的选择", () => {
+    const a = gen({ media: mixed(24), seed: 11 });
+    const b = gen({ media: mixed(24), seed: 11 });
+    expect(a).toEqual(b);
+    const stripped = JSON.parse(JSON.stringify(a)) as Manifest;
+    for (const page of stripped.pages) for (const item of page.items) delete item.motion;
+    expect(stripped.pages.map((p) => [p.transitionIn, p.items.map((i) => [i.assetId, i.frame, i.fit, i.enter])])).toEqual(
+      a.pages.map((p) => [p.transitionIn, p.items.map((i) => [i.assetId, i.frame, i.fit, i.enter])]),
+    );
+  });
+});

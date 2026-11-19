@@ -295,6 +295,50 @@ describe("stateAt: 模糊背景层（格式 0.3）", () => {
   });
 });
 
+describe("stateAt: Ken Burns（格式 0.3 的 motion）", () => {
+  // p001 [0, 4.8)：单张 cover 照片 m001，格子铺满画布
+  const withMotion = (motion: unknown): Manifest => variant((m) => (m.pages[0].items[0].motion = motion));
+  const zoomIn = withMotion({ from: { scale: 1, x: 0, y: 0 }, to: { scale: 1.1, x: 0.04, y: -0.02 } });
+
+  it("整页时长内匀速从 from 变到 to：中点在两者正中间，末尾到达 to", () => {
+    const mid = stateAt(zoomIn, 2.4).layers[0]!.rect;
+    expect(mid.w).toBeCloseTo(1.05, 10);
+    expect(mid.h).toBeCloseTo(1.05, 10);
+    // 偏移以格子宽、高为单位，围绕格子中心
+    expect(mid.x).toBeCloseTo(0.5 + 0.02 - 1.05 / 2, 10);
+    expect(mid.y).toBeCloseTo(0.5 - 0.01 - 1.05 / 2, 10);
+    const end = stateAt(zoomIn, 4.79).layers[0]!.rect;
+    expect(end.w).toBeCloseTo(1.1, 2);
+  });
+
+  it("裁切区域仍是格子本身，素材超出格子的部分不可见", () => {
+    expect(stateAt(zoomIn, 3).layers[0]!.clip).toEqual({ x: 0, y: 0, w: 1, h: 1 });
+  });
+
+  it("没有 motion 时内容矩形不变", () => {
+    expect(stateAt(base, 3).layers[0]!.rect).toEqual({ x: 0, y: 0, w: 1, h: 1 });
+  });
+
+  it("与入场动画叠加：缩放相乘", () => {
+    const m = variant((x) => {
+      x.pages[1].items[0].motion = { from: { scale: 1.1, x: 0, y: 0 }, to: { scale: 1.1, x: 0, y: 0 } };
+      x.pages[1].items[0].enter = { type: "scale", delay: 0, duration: 0.5 };
+    });
+    // 入场结束后（页内 1 秒）缩放为 1 × 1.1
+    const layer = stateAt(m, 4.8 + 1).layers.find((l) => l.assetId === "m002")!;
+    expect(layer.rect.w).toBeCloseTo(0.4972 * 1.1, 10);
+  });
+
+  it("转场中上一页停在它最后一刻的 motion 状态", () => {
+    const m = variant((x) => {
+      x.pages[0].items[0].motion = { from: { scale: 1, x: 0, y: 0 }, to: { scale: 1.08, x: 0, y: 0 } };
+    });
+    const outgoing = stateAt(m, 4.8 + 0.1).layers[0]!;
+    expect(outgoing.assetId).toBe("m001");
+    expect(outgoing.rect.w).toBeGreaterThanOrEqual(1.08 - 1e-9);
+  });
+});
+
 describe("bgm helpers", () => {
   it("fades in and out per fadeIn / fadeOut (A-03)", () => {
     expect(bgmGainAt(base, 0)).toBe(0);

@@ -1,4 +1,4 @@
-import type { Direction, Fit, Frame, Manifest, Page } from "./manifest";
+import type { Direction, Fit, Frame, Manifest, Motion, Page } from "./manifest";
 
 /** 画布归一化坐标下的矩形：与 Frame 同义，坐标和尺寸都是画布宽高的比例 */
 export type Rect = Frame;
@@ -124,6 +124,14 @@ function enterState(enter: NonNullable<Page["items"][number]["enter"]>, pageTime
   }
 }
 
+/** Ken Burns 在页内时刻 pageTime 的状态：整页时长内从 from 匀速变到 to；没有 motion 时不变 */
+function motionState(motion: Motion | undefined, pageTime: number, pageDuration: number): { scale: number; x: number; y: number } {
+  if (!motion) return { scale: 1, x: 0, y: 0 };
+  const p = pageDuration > 0 ? Math.min(1, Math.max(0, pageTime / pageDuration)) : 1;
+  const lerp = (a: number, b: number): number => a + (b - a) * p;
+  return { scale: lerp(motion.from.scale, motion.to.scale), x: lerp(motion.from.x, motion.to.x), y: lerp(motion.from.y, motion.to.y) };
+}
+
 function transformRect(r: Rect, t: PageTransform): Rect {
   return {
     x: 0.5 + (r.x - 0.5) * t.scale + t.offsetX,
@@ -152,13 +160,16 @@ function pageLayers(
     if (!asset || (asset.type !== "image" && asset.type !== "video")) continue;
 
     const enter = item.enter ? enterState(item.enter, pageTime) : { opacity: 1, scale: 1, offsetX: 0, offsetY: 0 };
+    const motion = motionState(item.motion, pageTime, page.duration);
     const f = item.frame;
     const cell: Rect = f;
+    // 入场动画与 Ken Burns 叠加：缩放相乘，偏移相加（偏移以格子宽、高为单位）
+    const scale = enter.scale * motion.scale;
     const content: Rect = {
-      x: f.x + f.w / 2 + enter.offsetX * f.w - (f.w * enter.scale) / 2,
-      y: f.y + f.h / 2 + enter.offsetY * f.h - (f.h * enter.scale) / 2,
-      w: f.w * enter.scale,
-      h: f.h * enter.scale,
+      x: f.x + f.w / 2 + (enter.offsetX + motion.x) * f.w - (f.w * scale) / 2,
+      y: f.y + f.h / 2 + (enter.offsetY + motion.y) * f.h - (f.h * scale) / 2,
+      w: f.w * scale,
+      h: f.h * scale,
     };
 
     const layer: Layer = {

@@ -1,5 +1,5 @@
 import { CANVAS_SIZE, cellAspect, coverCropLoss, layoutFrames } from "../layout";
-import { CURRENT_FORMAT_VERSION, type Asset, type AssetSource, type AspectRatio, type Bgm, type Direction, type Enter, type Item, type Manifest, type Page, type TransitionIn } from "../manifest";
+import { CURRENT_FORMAT_VERSION, type Asset, type AssetSource, type AspectRatio, type Bgm, type Direction, type Enter, type Fit, type Item, type Manifest, type Motion, type Page, type TransitionIn } from "../manifest";
 import { createRng, type Rng } from "./rng";
 import { findTemplate, type Template } from "./templates";
 
@@ -23,6 +23,10 @@ export const GENERATOR_LIMITS = {
   bgmFadeOutSeconds: 2,
   /** T-20 裁切损失超过此比例时改用完整显示 */
   cropLossThreshold: 0.4,
+  /** 0.4.0 Ken Burns：cover 照片的最大放大倍数；contain 照片的最小缩小倍数；平移时每个方向的偏移（格子宽高的比例） */
+  kenBurnsMaxScale: 1.08,
+  kenBurnsContainMinScale: 0.94,
+  kenBurnsPanOffset: 0.035,
 } as const;
 
 export interface MediaInput {
@@ -188,6 +192,38 @@ function matchToCells(photos: readonly MediaInput[], aspectRatio: AspectRatio): 
 const DIRECTIONS: readonly Direction[] = ["left", "right", "up", "down"];
 const round3 = (n: number): number => Math.round(n * 1000) / 1000;
 
+/** 动效使用独立的随机数流：加不加动效都不改变版式、转场和入场的选择结果 */
+const MOTION_SEED_SALT = 0x4b1d;
+
+/**
+ * 单张照片页的 Ken Burns（docs/dev-0.4.0.md 4.2）。cover：推近、拉远、或保持放大并沿四个方向之一平移，
+ * 偏移不超过 (scale-1)/2，所以素材始终盖满格子；contain：只在 0.94 到 1.00 之间缩放，不超出格子。
+ */
+function pickMotion(rng: Rng, fit: Fit): Motion {
+  const { kenBurnsMaxScale: max, kenBurnsContainMinScale: min, kenBurnsPanOffset: d } = GENERATOR_LIMITS;
+  const still = { x: 0, y: 0 };
+  if (fit === "contain") {
+    const zoomIn = rng.next() < 0.5;
+    const [from, to] = zoomIn ? [min, 1] : [1, min];
+    return { from: { scale: from, ...still }, to: { scale: to, ...still } };
+  }
+  const kind = rng.pick(["in", "out", "left", "right", "up", "down"] as const);
+  switch (kind) {
+    case "in":
+      return { from: { scale: 1, ...still }, to: { scale: max, ...still } };
+    case "out":
+      return { from: { scale: max, ...still }, to: { scale: 1, ...still } };
+    case "left":
+      return { from: { scale: max, x: d, y: 0 }, to: { scale: max, x: -d, y: 0 } };
+    case "right":
+      return { from: { scale: max, x: -d, y: 0 }, to: { scale: max, x: d, y: 0 } };
+    case "up":
+      return { from: { scale: max, x: 0, y: d }, to: { scale: max, x: 0, y: -d } };
+    case "down":
+      return { from: { scale: max, x: 0, y: -d }, to: { scale: max, x: 0, y: d } };
+  }
+}
+
 interface PageDraft {
   items: { media: MediaInput; frame: Item["frame"]; clipStart?: number }[];
   multi: boolean;
@@ -228,6 +264,7 @@ function validateInput(options: GenerateOptions): Template {
 export function generateManifest(options: GenerateOptions): Manifest {
   const template = validateInput(options);
   const rng = createRng(options.seed);
+  const motionRng = createRng((options.seed ^ MOTION_SEED_SALT) >>> 0);
   const { aspectRatio } = options;
 
   const ordered = options.keepOrder ? [...options.media] : sortMedia(options.media);
@@ -285,6 +322,7 @@ export function generateManifest(options: GenerateOptions): Manifest {
         fit: cropLoss > GENERATOR_LIMITS.cropLossThreshold ? "contain" : "cover",
       };
       if (it.clipStart !== undefined) item.clipStart = it.clipStart;
+      if (!draft.multi && !draft.isVideo) item.motion = pickMotion(motionRng, item.fit!);
       if (draft.multi) {
         // PRD 8.3：入场延迟从页开始计时，与转场并行；多图页内各图依次错开
         item.enter = pickEnter(template, rng, round3(itemIndex * GENERATOR_LIMITS.enterStaggerSeconds));
