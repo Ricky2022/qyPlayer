@@ -72,6 +72,7 @@ export interface ByteSource {
 
 ## 6. 手机上的播放行为
 
+- **WebView 版本**：手机壳里用的是系统自带的 WebView，出厂版本可能很老（Android 10 只有 74，国内很多机器又不会随 Play 商店更新）。Vite 默认按 Chrome 107+ 输出，老旧 WebView 会解析失败、页面一片空白。`vite.config.ts` 的 `build.target` 定为 `chrome80 / edge80 / firefox78 / safari14`；`index.html` 里放一个“正在载入”的占位，`src/startupGuard.ts` 把启动阶段的错误直接画在页面上（手机上没有控制台，拍照即可定位）。
 - **返回键**：`@tauri-apps/api/app` 的 `onBackButtonPress` 在已安装的 2.12.5 里有，注册处理者后壳不再自己后退或退出，所以这一版直接用它（比 `popstate` 更可控）：播放界面登记一级返回，先退出全屏，再退出播放界面；都在首页时退出应用。只在 Android 壳里启用，网页版和 Windows 版不变。
 - **屏幕常亮**：播放时申请网页的 Wake Lock，暂停和结束时释放，切到后台由浏览器自动释放、回到前台再申请一次。接口不存在或被拒绝时什么也不做。真机上如果没用，退路是在 `MainActivity.kt` 里给窗口设常亮标志。
 - **文件选择器**：`App.tsx` 的 `accept=".qyp,application/zip"` 在 Android 上会让 `.qyp` 显示成不可选（系统不认识这个后缀），Android 壳里去掉这个限制，选错文件由现有的校验提示兜住。

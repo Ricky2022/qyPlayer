@@ -45,6 +45,9 @@ export default defineConfig(({ mode }) => {
     server: { fs: { allow: [resolve(root, "../..")] } },
     build: {
       outDir: target === "site" ? "dist" : `dist-${target}`,
+      // 手机壳里用的是系统自带的 WebView，版本可能比 Chrome 桌面版老很多（Android 10 出厂只有 74），
+      // Vite 默认按 Chrome 107+ 输出，老旧 WebView 会直接解析失败、页面一片空白。这里降保守一些。
+      target: ["chrome80", "edge80", "firefox78", "safari14"],
       rollupOptions: { input },
     },
   };
