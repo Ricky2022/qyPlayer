@@ -94,7 +94,7 @@ qyPlayer is an open-source, cross-platform, fully local application of the same 
 | Filters and color grading | Phase 2 |
 | Beat sync (transitions aligned to the beat) | Phase 2 |
 | MP4 export | Phase 3 |
-| Per-page editing (layout, transition and duration of each page) | Phase 4 |
+| Per-page editing: captions for each page, muting a video, the transition into the first page, enter animations (duration, transition, layout, framing and clip of a single page are in 0.4.1, see F-ADJ-06) | Phase 4 |
 | Advanced transitions and effects (3D, particles, masks) | Phase 4 |
 | On-device intelligence (face or subject detection, de-duplication, selection) | Phase 4 |
 | Mixing background music with original video sound | Not scheduled |
@@ -189,7 +189,7 @@ Let P be the sum of the base durations of photo pages, V the sum of the duration
 | F-ADJ-03 | P0 | Change the template. |
 | F-ADJ-04 | P0 | Change the music, or switch to no background music. |
 | F-ADJ-05 | P0 | Change the aspect ratio. |
-| F-ADJ-06 | P0 | After any adjustment is confirmed, the whole film is regenerated and the preview opens. The first release does not offer editing of the layout, transition or duration of a single page. |
+| F-ADJ-06 | P0 | After any whole-film adjustment is confirmed, the whole film is regenerated and the preview opens. Since 0.4.1 a single page can be edited: reorder or delete pages; change the duration, transition, collage layout and how each photo is shown; move photos between neighbouring pages, split or merge pages; frame a photo and pick its camera motion; set the start and length of a video clip. A whole-film adjustment that would rearrange the film after single-page edits asks for confirmation first. |
 
 ### 6.5 Player
 
@@ -632,6 +632,8 @@ The gap between cells is tentatively 1% of the short edge of the canvas (T-15).
 
 Video pages only use the single-item layout.
 
+Since 0.4.1 the creator can switch a page of 2, 3 or 4 photos to an alternative layout: for 2, side by side or stacked; for 3, the big photo on the left, right, top or bottom; for 4, a grid, the big photo on the left or on top. The table above is the default for each count (in 9:16 two photos are stacked and the big photo of three is on top). The big cell is always the first photo of the page.
+
 ### 8.3 Entrance animations
 
 | Type | Effect | Default duration |
@@ -884,7 +886,7 @@ The core layer depends on neither the interface framework nor a specific platfor
 | F-ADJ-03 | After changing the template and regenerating, `generator.templateId` is the new template and the set of material is unchanged. |
 | F-ADJ-04 | After changing the music, `bgm.assetId` refers to the new audio. After switching to no background music, the manifest has no `bgm` and the original video sound is audible in playback. |
 | F-ADJ-05 | After changing the aspect ratio and regenerating, the ratio and size in `canvas` change accordingly, and every `frame` is still within 0 to 1. |
-| F-ADJ-06 | The adjustment page has no entry point for editing the layout, transition or duration of a single page. Every confirmed adjustment leads to the preview of the new film. |
+| F-ADJ-06 | With a page selected, the "This page" panel edits its duration, transition, layout, framing or video clip, and the preview stays on that page; after reordering, deleting, merging or splitting, `pages` in the manifest matches the page strip; changing the template, rearranging, changing the length or sorting the media by hand after single-page edits asks first; the single-page edits are still there after saving and reopening. |
 | F-PLY-01 | Pressing play starts picture and sound. Pressing pause stops both together. Playing again resumes from the paused position. |
 | F-PLY-02 | Dragging the progress bar to 25%, 50% and 75% of the film shows the picture the manifest describes for that time, and sound continues from the matching position. |
 | F-PLY-03 | In full screen the film fills the screen and keeps its aspect ratio. Leaving full screen restores the previous layout. |

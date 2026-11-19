@@ -19,12 +19,12 @@
 
 播放器（青云播放器 / qyPlayer）和制作器（青云制作器 / qyMaker）是两个独立的程序，都只在本机运行。需要 Windows 10 / 11（64 位）。
 
-当前版本：[v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0)。上一个正式版是 [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1)；v0.3.0 只是预览版，没有发布正式 Release，它的内容都包含在 0.4.0 里。
+当前版本：[v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1)。上一个版本是 [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0)，更早的正式版是 [v0.2.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.2.1)；v0.3.0 只是预览版，没有发布正式 Release，它的内容都包含在 0.4.0 里。
 
 | 程序 | 安装包 | 免安装版 |
 | --- | --- | --- |
-| 播放器 | [qyPlayer-0.4.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyPlayer-0.4.0-Setup-x64.exe) | [qyPlayer-0.4.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyPlayer-0.4.0-x64-portable.zip) |
-| 制作器 | [qyMaker-0.4.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyMaker-0.4.0-Setup-x64.exe) | [qyMaker-0.4.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.0/qyMaker-0.4.0-x64-portable.zip) |
+| 播放器 | [qyPlayer-0.4.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyPlayer-0.4.1-Setup-x64.exe) | [qyPlayer-0.4.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyPlayer-0.4.1-x64-portable.zip) |
+| 制作器 | [qyMaker-0.4.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyMaker-0.4.1-Setup-x64.exe) | [qyMaker-0.4.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.4.1/qyMaker-0.4.1-x64-portable.zip) |
 
 所有版本见 [Releases](https://github.com/Ricky2022/qyPlayer/releases)。
 
@@ -40,6 +40,21 @@
 
 处于**阶段 0（技术预研）**：做了 Web 版和一个 Windows 桌面壳，用来验证技术路线。macOS、手机端、AI 编排都还没有开始（MP4 导出已包含在 0.3.0 起的版本里）。
 
+### 0.4.1
+
+0.4.1 给制作器加上**单页编辑**：整部影片生成后，可以只改其中某一页，不必重来。详细设计见 [`docs/dev-0.4.1.md`](./docs/dev-0.4.1.md)。
+
+0.4.1 新增：
+
+- 页面条：预览下方一排页面缩略图，点一下选中并跳到那一页；拖动调换页的顺序；选中后 Alt+←/→ 移动，Delete 删除。手机上点“编辑本页”进入设置页的“本页”标签。
+- “本页”面板：单页的时长（照片页）、进入这一页的转场、拼图的版式（并排、上下、四种大图位置、网格等）、每张照片的显示方式（自动、铺满、完整显示）和页内顺序。
+- 调整页的组成：把照片移到上一页或下一页、从拼图里拆出一页、与下一页合并、删除一页（同时去掉其中的素材）。
+- 取景：拖动照片调整位置、放大到 3 倍；单张照片页还可以选镜头动画（推近、拉远、四个方向或不动）。
+- 视频页：设置片段的起点和长度，保存时视频只保留这一段。
+- 与整片设置的关系：做过单页修改后，再换风格、重新编排、改影片时长或手动排序素材，会先提示将放弃手动调整；改标题、比例、滤镜、音乐不受影响。可以撤销，也可以在“编辑”菜单里恢复自动编排。手动调整随 `.qyp` 保存，重新打开继续编辑。
+- 播放器：底部缩略图条改为可选，默认不显示，点控制条右侧的按钮打开，选择会记住。
+- 包格式仍是 0.3。手动调整的记录放在 `generator.plan`（私有，播放器忽略），0.4.0 的播放器可以照常打开 0.4.1 做的包。
+
 ### 0.4.0
 
 0.4.0 参照苹果“照片”里的回忆影片优化画面观感和播放体验，同时完成了 0.3.0 预览版遗留的安全收尾和文档，详细方案见 [`docs/dev-0.4.0.md`](./docs/dev-0.4.0.md)。
@@ -51,7 +66,7 @@
 - 滤镜：原片、黑白、暖色、冷色、怀旧五款，整片统一。
 - 片头标题：开头淡入淡出的标题和可选的副标题，制作时画成透明图片放进包里，在哪台设备上看都一样；可以关闭。
 - 影片时长：长、中、短三档，中、短会先去掉拍摄时间挨得最近的素材（没有拍摄时间的均匀抽取）；没选用的素材不进包，素材面板里变灰。
-- 播放器：上一页、下一页按钮（PageUp、PageDown）；底部缩略图条默认不显示，点控制条右侧的按钮打开，点一下缩略图跳到那一页，选择会记住。
+- 播放器：上一页、下一页按钮（PageUp、PageDown），底部缩略图条，点一下跳到那一页。
 - 包格式 0.3：只增加可选字段，0.1、0.2、0.3 的包都能打开；0.3.0 预览版打不开 0.3 格式的包，需要升级。
 - 安全与构建：桌面程序启用内容安全策略（CSP）；桌面制作器保存文件时先写临时文件再改名，失败不会留下半成品；Rust 依赖版本由 `Cargo.lock` 固定，CI 用 `--locked` 构建；“关于”页和 `NOTICE` 补上 libheif（LGPL-3.0）、mediabunny（MPL-2.0）等第三方许可说明。
 
