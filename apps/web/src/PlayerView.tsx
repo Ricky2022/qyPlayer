@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createUseStyles } from "react-jss";
 import { useI18n, type MessageKey } from "./i18n";
 import type { PlaybackController, PlayerWarning, PlayState } from "./player/PlaybackController";
+import { PageStrip } from "./PageStrip";
 import { MAX_LISTED_PAGES } from "./player/preflight";
 import { Slider } from "./ui/Slider";
 import { theme } from "./ui/theme";
@@ -13,6 +14,8 @@ import {
   PauseIcon,
   PlayIcon,
   ReplayIcon,
+  SkipNextIcon,
+  SkipPreviousIcon,
   VolumeHighIcon,
   VolumeLowIcon,
   VolumeMutedIcon,
@@ -85,10 +88,12 @@ interface PlayerViewProps {
   controller: PlaybackController;
   /** 缺省时不显示返回按钮（制作器里的内嵌预览） */
   onClose?: () => void;
+  /** 显示底部缩略图条；制作器内嵌预览不显示 */
+  filmstrip?: boolean;
 }
 
 /** 播放界面：画面铺满，控制条浮在底部、静止几秒后自动隐藏；空格、方向键、F、M 为快捷键。 */
-export function PlayerView({ controller, onClose }: PlayerViewProps) {
+export function PlayerView({ controller, onClose, filmstrip = false }: PlayerViewProps) {
   const classes = useStyles();
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -160,8 +165,9 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      // 焦点在按钮上时，空格保留给按钮自己的默认行为
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
+      // 焦点在按钮上时，空格保留给按钮自己的默认行为；翻页键不会被按钮用到，点过缩略图后仍然可用
+      const isPageKey = event.key === "PageUp" || event.key === "PageDown";
+      if (event.target instanceof HTMLInputElement || (event.target instanceof HTMLButtonElement && !isPageKey)) return;
       switch (event.key) {
         case " ":
         case "k":
@@ -172,6 +178,12 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
           break;
         case "ArrowRight":
           controller.seek(controller.currentTime + SEEK_STEP_SECONDS);
+          break;
+        case "PageUp":
+          controller.previousPage();
+          break;
+        case "PageDown":
+          controller.nextPage();
           break;
         case "f":
           toggleFullscreen();
@@ -196,6 +208,7 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
   const PlayStateIcon = playing ? PauseIcon : playState === "ended" ? ReplayIcon : PlayIcon;
   const VolumeIcon = muted || volume === 0 ? VolumeMutedIcon : volume < 0.5 ? VolumeLowIcon : VolumeHighIcon;
   const duration = controller.duration;
+  const pageIndex = controller.pageIndexAt(time);
 
   return (
     <div ref={rootRef} className={`${classes.root} ${!visible ? classes.idle : ""}`} onPointerMove={poke} onPointerDown={poke}>
@@ -227,6 +240,7 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
         onPointerEnter={() => hold(true)}
         onPointerLeave={() => hold(false)}
       >
+        {filmstrip && controller.pageCount > 1 && <PageStrip controller={controller} current={pageIndex} />}
         <Slider
           label={t("playerSeek")}
           value={duration > 0 ? time / duration : 0}
@@ -235,8 +249,14 @@ export function PlayerView({ controller, onClose }: PlayerViewProps) {
           onChange={(fraction) => controller.seek(fraction * duration)}
         />
         <div className={classes.row}>
+          <button className={classes.iconButton} aria-label={t("playerPrevPage")} title={t("playerPrevPage")} onClick={() => controller.previousPage()}>
+            <SkipPreviousIcon />
+          </button>
           <button className={classes.iconButton} aria-label={playLabel} title={playLabel} onClick={() => controller.toggle()}>
             <PlayStateIcon />
+          </button>
+          <button className={classes.iconButton} aria-label={t("playerNextPage")} title={t("playerNextPage")} onClick={() => controller.nextPage()}>
+            <SkipNextIcon />
           </button>
           <div className={classes.volume}>
             <button className={classes.iconButton} aria-label={muted ? t("playerUnmute") : t("playerMute")} title={muted ? t("playerUnmute") : t("playerMute")} onClick={toggleMute}>

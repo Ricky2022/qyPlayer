@@ -2,6 +2,8 @@ import { bgmGainAt, bgmPositionAt, stateAt, videoAudioGain, type Asset, type Fra
 import type { OpenedPackage } from "@qyplayer/qyp";
 import { renderFrame, type DrawableAsset, type PlaceholderAsset } from "@qyplayer/renderer";
 import { browserPreflightEnv, pagesUsing, playbackMimeType, preflightAssets, type PreflightEnv } from "./preflight";
+import { nextPageTime, pageIndexAt, pageSeekTime, previousPageTime } from "./pages";
+import { PageThumbnails, renderPageThumbnail } from "./thumbnails";
 import { Clock, distance } from "./timing";
 
 export type PlayState = "paused" | "playing" | "ended";
@@ -76,6 +78,7 @@ export class PlaybackController {
   private audioUrl: string | null = null;
   private readonly audioIsMaster: boolean;
 
+  private thumbnails: PageThumbnails<HTMLCanvasElement> | null = null;
   private events: PlayerEvents | null = null;
   private playState: PlayState = "paused";
   private volumeValue = 1;
@@ -158,6 +161,13 @@ export class PlaybackController {
   get title(): string {
     return this.manifest.title;
   }
+  get pageCount(): number {
+    return this.manifest.pages.length;
+  }
+  /** 影片时间 t（缺省为当前时间）所在页的下标 */
+  pageIndexAt(t: number = this.currentTime): number {
+    return pageIndexAt(this.manifest, t);
+  }
   get currentTime(): number {
     return this.clock.time(performance.now());
   }
@@ -221,6 +231,30 @@ export class PlaybackController {
     this.draw(t);
   }
 
+  /** 跳到第 index 页：定位到该页转场结束、画面完整出现的时刻 */
+  seekToPage(index: number): void {
+    this.seek(pageSeekTime(this.manifest, index));
+  }
+
+  /** 本页刚开始时回到上一页，否则回到本页开头 */
+  previousPage(): void {
+    this.seek(previousPageTime(this.manifest, this.currentTime));
+  }
+
+  /** 跳到下一页；已经是最后一页时什么也不做 */
+  nextPage(): void {
+    const target = nextPageTime(this.manifest, this.currentTime);
+    if (target !== undefined) this.seek(target);
+  }
+
+  /** 第 index 页的缩略图（画布）。第一次请求时才开始，所有页一次画一个，结果缓存 */
+  pageThumbnail(index: number): Promise<HTMLCanvasElement> {
+    this.thumbnails ??= new PageThumbnails((page) =>
+      renderPageThumbnail({ manifest: this.manifest, readBlob: (path) => this.pkg.readBlob(path), unsupported: this.unsupported }, page),
+    );
+    return this.thumbnails.get(index);
+  }
+
   setVolume(volume: number): void {
     this.volumeValue = Math.min(1, Math.max(0, volume));
     this.applyVolume();
@@ -234,6 +268,7 @@ export class PlaybackController {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.thumbnails?.dispose();
     cancelAnimationFrame(this.rafId);
     document.removeEventListener("visibilitychange", this.onVisibility);
     for (const id of [...this.videos.keys()]) this.unloadVideo(id);

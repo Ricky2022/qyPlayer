@@ -61,6 +61,18 @@ export const ExitFullscreenIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const SkipPreviousIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+  </Svg>
+);
+
+export const SkipNextIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m6 18 8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+  </Svg>
+);
+
 export const BackIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z" />

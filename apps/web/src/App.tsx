@@ -143,7 +143,7 @@ export function App({ initialSource }: AppProps) {
     if (file) void open(file);
   };
 
-  if (controller) return <PlayerView controller={controller} onClose={close} />;
+  if (controller) return <PlayerView controller={controller} onClose={close} filmstrip />;
 
   const message = sampleError ?? (error ? describeError(error, t) : null);
   return (
