@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
+import { listen } from "@tauri-apps/api/event";
 import { openPackage } from "@qyplayer/qyp";
 import type { ByteSource } from "@qyplayer/qyp";
 import { AboutDialog } from "./AboutDialog";
-import { isDesktop, readInitialFile } from "./desktop";
+import { RECEIVED_FILE_EVENT, isDesktop, readInitialFile, shellFile } from "./desktop";
 import { useI18n, type MessageKey } from "./i18n";
 import { describeError } from "./messages";
 import { PlaybackController } from "./player/PlaybackController";
@@ -107,14 +108,38 @@ export function App({ initialSource }: AppProps) {
   }, [initialSource, open]);
 
   // 桌面和手机壳：系统把 .qyp 交给播放器启动时，直接打开那个文件（按偏移读，不整个读进内存）
+  const openedShellFile = useRef<string | null>(null);
+  const openShellFile = useCallback(
+    (name: string, size: number) => {
+      // 启动参数和“收到文件”的事件可能指向同一个文件，只打开一次
+      const key = `${name}\u0000${size}`;
+      if (openedShellFile.current === key) return;
+      openedShellFile.current = key;
+      void open(shellFile(name, size).source);
+    },
+    [open],
+  );
+
   useEffect(() => {
     void readInitialFile().then(
-      (file) => (file ? open(file.source) : undefined),
+      (file) => {
+        if (file) openShellFile(file.name, file.source.size);
+      },
       (e: unknown) => setError(e),
     );
-  }, [open]);
+  }, [openShellFile]);
 
-  const openSample = async (file: string): Promise<void> => {
+  // 手机壳：应用已经打开时，别的应用又发来一个 .qyp（见 desktop.ts 的 RECEIVED_FILE_EVENT）
+  useEffect(() => {
+    if (!isDesktop()) return;
+    let stop: (() => void) | undefined;
+    void listen<[string, number]>(RECEIVED_FILE_EVENT, (event) => openShellFile(event.payload[0], event.payload[1]))
+      .then((fn) => {
+        stop = fn;
+      })
+      .catch(() => undefined);
+    return () => stop?.();
+  }, [openShellFile]);  const openSample = async (file: string): Promise<void> => {
     setBusy(true);
     setError(null);
     setSampleError(null);

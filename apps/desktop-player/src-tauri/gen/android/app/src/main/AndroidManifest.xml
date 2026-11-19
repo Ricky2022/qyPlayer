@@ -22,6 +22,18 @@
                 <!-- AndroidTV support -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+
+            <!-- 用其他应用打开 .qyp。注册得宽一些：未知二进制、ZIP、.qyp 自己的类型都接，
+                 系统不认识的 .qyp 也能出现在“打开方式”里；不是 .qyp 的文件由播放器校验后给出提示。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/x-qyp" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/zip" />
+            </intent-filter>
         </activity>
 
         <provider

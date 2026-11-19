@@ -12,6 +12,22 @@ export interface ShellFile {
   readonly source: ByteSource;
 }
 
+/** 手机壳（Android）收到别的应用发来的新文件时发这个事件，载荷是 (文件名, 字节数) */
+export const RECEIVED_FILE_EVENT = "qyp-file-received";
+
+/** 用文件名和大小构造壳文件的来源：启动参数和“收到文件”的事件共用同一条读取路径 */
+export function shellFile(name: string, size: number): ShellFile {
+  return {
+    name,
+    source: {
+      size,
+      async read(offset: number, length: number): Promise<Uint8Array> {
+        return new Uint8Array(await invoke<ArrayBuffer>("read_range", { offset, length }));
+      },
+    },
+  };
+}
+
 /** 桌面程序：同步原生窗口的标题（网页里用 document.title，不需要它） */
 export async function setWindowTitle(title: string): Promise<void> {
   if (isDesktop()) await invoke("set_title", { title });
@@ -32,16 +48,7 @@ export async function readInitialFile(): Promise<ShellFile | null> {
   // 命令返回 (文件名, 字节数)；网页只拿得到这两样，读内容要按范围要
   const info = await invoke<[string, number] | null>("initial_file");
   if (!info) return null;
-  const [name, size] = info;
-  return {
-    name,
-    source: {
-      size,
-      async read(offset: number, length: number): Promise<Uint8Array> {
-        return new Uint8Array(await invoke<ArrayBuffer>("read_range", { offset, length }));
-      },
-    },
-  };
+  return shellFile(info[0], info[1]);
 }
 
 function downloadInBrowser(blob: Blob, fileName: string): void {
