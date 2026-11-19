@@ -2,7 +2,7 @@
 
 import { GENERATOR_LIMITS } from "@qyplayer/core";
 
-export type MenuCommand = "new" | "open" | "save" | "exportMp4" | "undo" | "redo" | "addMedia" | "sortByTime" | "about";
+export type MenuCommand = "new" | "open" | "save" | "exportMp4" | "undo" | "redo" | "addMedia" | "sortByTime" | "resetPages" | "about";
 
 export type CommandStatus = "enabled" | "disabled" | "hidden";
 
@@ -14,6 +14,8 @@ export interface MenuContext {
   canRedo: boolean;
   /** 当前环境能导出 MP4（电脑浏览器或桌面制作器，且支持所需接口） */
   canExport: boolean;
+  /** 影片处于手动编排（做过单页修改） */
+  manualPages: boolean;
 }
 
 const flag = (on: boolean): CommandStatus => (on ? "enabled" : "disabled");
@@ -29,6 +31,7 @@ export function menuStatus(ctx: MenuContext): Record<MenuCommand, CommandStatus>
     redo: flag(ctx.canRedo && !ctx.busy),
     addMedia: flag(ctx.mediaCount < GENERATOR_LIMITS.maxMedia && !ctx.busy),
     sortByTime: flag(ctx.mediaCount >= 2),
+    resetPages: flag(ctx.manualPages && !ctx.busy),
     about: "enabled",
   };
 }

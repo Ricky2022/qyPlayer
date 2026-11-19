@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
 import { GENERATOR_LIMITS, TEMPLATES, defaultAspectRatio } from "@qyplayer/core";
 import { PACKAGE_LIMITS, openPackage, writePackage } from "@qyplayer/qyp";
@@ -19,11 +19,14 @@ import { ConfirmDialog, MessageDialog, ProgressDialog } from "./Dialogs";
 import { MOBILE_MAX_BYTES, exceedsMobileLimit, mobileSizeLevel } from "./environment";
 import { classifyDrop } from "./editor/drop";
 import { editorMediaFromImport } from "./editor/fromImport";
+import type { PlaybackController } from "../player/PlaybackController";
 import { DESKTOP_MEDIA_QUERY } from "./editor/layout";
 import { menuStatus } from "./editor/menu";
 import { needsMusicRightsConfirm, resolveMusic } from "./editor/music";
 import { buildOptionsOf, createPreviewPackage } from "./editor/preview";
 import { RestoreError, restorePackage } from "./editor/restore";
+import { applyPageAction, type PageAction } from "./editor/pageActions";
+import { autoPages, type PageContext } from "./editor/pages";
 import { commandForShortcut, shortcutLabel } from "./editor/shortcuts";
 import {
   addMedia,
@@ -38,6 +41,7 @@ import {
   redo,
   removeMedia,
   resetEditor,
+  resetPages,
   setAspect,
   selectedMedia,
   setLength,
@@ -60,8 +64,11 @@ import { LONG_EXPORT_SECONDS } from "./export/spec";
 import { formatDuration, safeFileName, sortByCapturedAt } from "./files";
 import { ImportError, importMedia, importMusic } from "./importers";
 import { MenuBar, type BarCommand, type MenuGroup } from "./MenuBar";
+import { PagePanel } from "./PagePanel";
 import { EmptyState, PreviewPane } from "./PreviewPane";
+import { RightPanel, type PanelMode } from "./RightPanel";
 import { SettingsPanel } from "./SettingsPanel";
+import { StoryStrip, type StripPage } from "./StoryStrip";
 import { TranscodeCache } from "./transcode/cache";
 import { isAbortError, transcodeForSave, type TranscodeProgress } from "./transcode/run";
 import { browserWorkers } from "./transcode/workers";
@@ -115,6 +122,12 @@ interface Confirmation {
   onConfirm(): void;
 }
 
+/** 预览跳到某页：第一页从头是黑的（淡入），改为停在它基本出现的时刻 */
+function seekToPage(controller: PlaybackController, index: number): void {
+  if (index === 0) controller.seek(Math.min(1.2, controller.duration / 2));
+  else controller.seekToPage(index);
+}
+
 const randomSeed = (): number => Math.floor(Math.random() * 2 ** 31);
 const createInitialEditor = (): EditorState => createEditor(randomSeed(), TEMPLATES[0]!.id);
 
@@ -148,6 +161,10 @@ export function CreatorApp() {
   const [customMusic, setCustomMusic] = useState<MusicEntry | null>(null);
   const [layoutMayDiffer, setLayoutMayDiffer] = useState(false);
   const [tab, setTab] = useState<Tab>("media");
+  const [selectedPage, setSelectedPage] = useState<number | null>(null);
+  const [panelMode, setPanelMode] = useState<PanelMode>("film");
+  const selectedPageRef = useRef(selectedPage);
+  selectedPageRef.current = selectedPage;
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
@@ -181,11 +198,32 @@ export function CreatorApp() {
   const apply = (change: (state: EditorState) => EditorState): void => setEditor(change);
   const announce = (message: string): void => setAnnouncement(message);
 
+  /**
+   * 会重新编排整部影片的操作（换模板、换一版、改时长档、排序、素材列表拖动）：
+   * 做过单页修改时先确认，因为这些修改会被清除（可以撤销）。
+   */
+  const applyFilm = (change: (state: EditorState) => EditorState): void => {
+    const current = editorRef.current;
+    const next = change(current);
+    if (next === current) return;
+    if (currentDoc(current).pages !== null && currentDoc(next).pages === null) {
+      setConfirmation({ message: t("pagesResetMessage"), confirmLabel: t("pagesResetContinue"), onConfirm: () => apply(change) });
+    } else {
+      apply(change);
+    }
+  };
+
   // 标题改了（包括撤销重做）直接更新预览里的标题，不重新生成
   const { applyTitle, result } = preview;
   useEffect(() => {
     if (applyTitle(doc.title, doc.subtitle)) bumpTitle((n) => n + 1);
   }, [applyTitle, doc.title, doc.subtitle, result]);
+
+  // 预览重新生成后停留在选中的页（docs/dev-0.4.1.md 7）
+  useEffect(() => {
+    const page = selectedPageRef.current;
+    if (result && page !== null) seekToPage(result.controller, Math.min(page, result.controller.pageCount - 1));
+  }, [result]);
 
   useEffect(() => {
     if (result) announce(t("previewAnnounce", { pages: result.manifest.pages.length, duration: formatDuration(result.manifest.duration) }));
@@ -210,6 +248,7 @@ export function CreatorApp() {
     canUndo: canUndo(editor),
     canRedo: canRedo(editor),
     canExport: !transcodeSetting.mobile && transcodeSetting.capabilities.videoEncode && transcodeSetting.capabilities.audioEncode,
+    manualPages: doc.pages !== null,
   });
 
   const guardDirty = (action: () => void): void => {
@@ -276,6 +315,8 @@ export function CreatorApp() {
       setLayoutMayDiffer(restored.layoutMayDiffer);
       setFailures([]);
       setNotice(null);
+      setSelectedPage(null);
+      setPanelMode("film");
       setTab("preview");
       announce(t("statusOpened", { count: restored.content.media.length }));
     } catch (error) {
@@ -417,6 +458,8 @@ export function CreatorApp() {
     setLayoutMayDiffer(false);
     setFailures([]);
     setNotice(null);
+    setSelectedPage(null);
+    setPanelMode("film");
     setTab("media");
     announce(t("statusNew"));
   };
@@ -463,7 +506,17 @@ export function CreatorApp() {
         mediaInput.current?.click();
         break;
       case "sortByTime":
-        apply(sortMediaByCapturedAt);
+        applyFilm(sortMediaByCapturedAt);
+        break;
+      case "resetPages":
+        setConfirmation({
+          message: t("pagesResetCommandMessage"),
+          confirmLabel: t("pagesResetCommandContinue"),
+          onConfirm: () => {
+            apply(resetPages);
+            announce(t("statusPagesReset"));
+          },
+        });
         break;
       case "about":
         setAboutOpen(true);
@@ -521,7 +574,7 @@ export function CreatorApp() {
   });
   const groups: MenuGroup[] = [
     { id: "file", label: t("menuFile"), entries: [menuLabel("cmdNew", "new"), menuLabel("cmdOpen", "open"), menuLabel("cmdSave", "save"), menuLabel("cmdExportMp4", "exportMp4")] },
-    { id: "edit", label: t("menuEdit"), entries: [menuLabel("cmdUndo", "undo"), menuLabel("cmdRedo", "redo"), menuLabel("cmdAddMedia", "addMedia"), menuLabel("cmdSortByTime", "sortByTime")] },
+    { id: "edit", label: t("menuEdit"), entries: [menuLabel("cmdUndo", "undo"), menuLabel("cmdRedo", "redo"), menuLabel("cmdAddMedia", "addMedia"), menuLabel("cmdSortByTime", "sortByTime"), menuLabel("cmdResetPages", "resetPages")] },
     {
       id: "help",
       label: t("menuHelp"),
@@ -539,6 +592,38 @@ export function CreatorApp() {
   const hasVideoSound = chosen.some((m) => m.type === "video" && m.hasAudio);
   const originalTotal = doc.media.reduce((sum, m) => sum + (m.originalBytes ?? m.blob.size), 0);
 
+  // 单页编辑：当前的页编排（手动编排，或自动编排的结果）、选中的页、页面条和“本页”面板
+  const { pages: manualPages, media: allMedia, length: lengthChoice, aspect: aspectChoice, templateId, seed, transition } = doc;
+  const pagePlan = useMemo(() => {
+    if (manualPages) return manualPages;
+    const media = selectedMedia({ media: allMedia, length: lengthChoice });
+    if (media.length === 0) return [];
+    try {
+      return autoPages({ media, aspect: aspectChoice, templateId, seed, transition });
+    } catch {
+      return [];
+    }
+  }, [manualPages, allMedia, lengthChoice, aspectChoice, templateId, seed, transition]);
+  const selected = selectedPage === null || pagePlan.length === 0 ? null : Math.min(selectedPage, pagePlan.length - 1);
+  const mediaByKey = new Map(doc.media.map((m) => [m.key, m]));
+  const pageContext: PageContext = { isVideo: (key) => mediaByKey.get(key)?.type === "video" };
+
+  const selectPage = (index: number): void => {
+    setSelectedPage(index);
+    setPanelMode("page");
+    if (result) seekToPage(result.controller, index);
+    announce(t("statusPageSelected", { page: index + 1 }));
+  };
+  const onPageAction = (action: PageAction): void => {
+    const { state: next, select } = applyPageAction(editorRef.current, action);
+    if (next === editorRef.current) return;
+    editorRef.current = next;
+    setEditor(next);
+    if (select !== undefined) setSelectedPage(select);
+    if (action.kind === "movePage") announce(t("statusPageMoved", { page: action.to + 1 }));
+    else if (action.kind === "removePage") announce(t("statusPageRemoved"));
+  };
+
   const assets = (
     <AssetPanel
       media={doc.media}
@@ -551,7 +636,7 @@ export function CreatorApp() {
       mobile={!desktopLayout}
       sizeWarning={transcodeSetting.mobile && mobileSizeLevel(originalTotal) === "warn"}
       onAdd={() => run("addMedia")}
-      onMove={(from, to) => apply((state) => moveMedia(state, from, to))}
+      onMove={(from, to) => applyFilm((state) => moveMedia(state, from, to))}
       onRemove={(key) => apply((state) => removeMedia(state, key))}
       onClearFailures={() => setFailures([])}
     />
@@ -559,6 +644,29 @@ export function CreatorApp() {
   const emptyState = (messageOnly: boolean) => (
     <EmptyState messageOnly={messageOnly} disabled={busy} onAdd={() => run("addMedia")} onOpen={() => run("open")} />
   );
+  const assetTypes = new Map(result?.manifest.assets.map((a) => [a.id, a.type]));
+  const stripPages: StripPage[] = (result?.manifest.pages ?? []).map((page) => ({
+    duration: page.duration,
+    kind: page.items.length > 1 ? "collage" : assetTypes.get(page.items[0]!.assetId) === "video" ? "video" : "photo",
+  }));
+  const strip =
+    result && stripPages.length > 0 ? (
+      <StoryStrip
+        controller={result.controller}
+        pages={stripPages}
+        selected={selected}
+        draggable={desktopLayout}
+        onSelect={selectPage}
+        onMove={(from, to) => onPageAction({ kind: "movePage", from, to })}
+        onRemove={(index) => onPageAction({ kind: "removePage", index })}
+        {...(!desktopLayout && {
+          onEditPage: () => {
+            setPanelMode("page");
+            setTab("settings");
+          },
+        })}
+      />
+    ) : null;
   const previewPane = empty ? (
     emptyState(!desktopLayout)
   ) : (
@@ -569,6 +677,7 @@ export function CreatorApp() {
       updating={preview.updating}
       error={preview.error ? describeBuildError(preview.error, t) : null}
       layoutMayDiffer={layoutMayDiffer}
+      strip={strip}
     />
   );
   const settings = (
@@ -585,15 +694,34 @@ export function CreatorApp() {
       onSubtitle={(subtitle) => apply((state) => setSubtitle(state, subtitle, Date.now()))}
       onShowTitle={(show) => apply((state) => setShowTitle(state, show))}
       onAspect={(aspect) => apply((state) => setAspect(state, aspect))}
-      onTemplate={(templateId) => apply((state) => setTemplate(state, templateId))}
+      onTemplate={(templateId) => applyFilm((state) => setTemplate(state, templateId))}
       onTransition={(transition) => apply((state) => setTransition(state, transition))}
       onLook={(look) => apply((state) => setLook(state, look))}
-      onLength={(length) => apply((state) => setLength(state, length))}
+      onLength={(length) => applyFilm((state) => setLength(state, length))}
       onMusic={(music) => apply((state) => setMusic(state, music))}
       onPickMusic={() => musicInput.current?.click()}
-      onReroll={() => apply((state) => setSeed(state, randomSeed()))}
+      onReroll={() => {
+        const seed = randomSeed();
+        applyFilm((state) => setSeed(state, seed));
+      }}
     />
   );
+
+  const pagePanel = (
+    <PagePanel
+      index={selected}
+      pages={pagePlan}
+      actualDuration={(selected !== null && result?.manifest.pages[selected]?.duration) || 4}
+      aspect={aspectChoice === "auto" ? resolvedAspect : aspectChoice}
+      mediaOf={(key) => {
+        const m = mediaByKey.get(key);
+        return m && { name: m.fileName, url: urlFor(m), video: m.type === "video" };
+      }}
+      ctx={pageContext}
+      onAction={onPageAction}
+    />
+  );
+  const rightPanel = <RightPanel mode={panelMode} onMode={setPanelMode} disabled={empty} film={settings} page={pagePanel} />;
 
   return (
     <div
@@ -655,7 +783,7 @@ export function CreatorApp() {
             {previewPane}
           </section>
           <section className={`${classes.cell} ${classes.cellRight}`} aria-label={t("tabSettings")}>
-            {settings}
+            {rightPanel}
           </section>
         </main>
       ) : (
@@ -663,7 +791,7 @@ export function CreatorApp() {
           <main className={classes.mobileMain}>
             {tab === "media" && (empty ? <div style={{ height: "100%" }}>{emptyState(false)}</div> : assets)}
             {tab === "preview" && previewPane}
-            {tab === "settings" && (empty ? emptyState(true) : settings)}
+            {tab === "settings" && (empty ? emptyState(true) : rightPanel)}
           </main>
           <nav className={classes.tabs} role="tablist" aria-label={t("tabsLabel")}>
             {(Object.keys(TAB_LABELS) as Tab[]).map((key) => (
