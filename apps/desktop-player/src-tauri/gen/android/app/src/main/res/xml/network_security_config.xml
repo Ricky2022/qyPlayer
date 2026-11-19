@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  正式包默认禁止明文流量，但 Tauri 的手机壳在本机内部用 http://ipc.localhost 传消息，
+  一并禁掉会让 command 全部失败（打开文件、事件监听都收不到）。
+  这里只对本机的几个 Tauri 域名放行明文，其余仍然禁止。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">tauri.localhost</domain>
+        <domain includeSubdomains="true">ipc.localhost</domain>
+    </domain-config>
+</network-security-config>
