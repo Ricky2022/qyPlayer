@@ -1,8 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { ByteSource } from "@qyplayer/qyp";
 
 /** 是否运行在 Tauri 桌面程序里（网页版为 false） */
 export function isDesktop(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+/** 壳交给播放器的那个文件：只有文件名、大小和按偏移读取，网页拿不到它的路径 */
+export interface ShellFile {
+  readonly name: string;
+  readonly source: ByteSource;
 }
 
 /** 桌面程序：同步原生窗口的标题（网页里用 document.title，不需要它） */
@@ -16,13 +23,25 @@ export async function openExternal(url: string): Promise<void> {
   else window.open(url, "_blank", "noopener,noreferrer");
 }
 
-/** 桌面播放器：取出用户双击打开的 .qyp 文件（命令行参数）。没有则返回 null */
-export async function readInitialFile(): Promise<File | null> {
+/**
+ * 桌面和手机壳：取出系统交给播放器的那个 .qyp（桌面是双击文件，手机是别的应用发来的）。
+ * 没有则返回 null。内容按偏移读取，整个包不进内存（PRD N-PERF-04）。
+ */
+export async function readInitialFile(): Promise<ShellFile | null> {
   if (!isDesktop()) return null;
-  const path = await invoke<string | null>("initial_file");
-  if (!path) return null;
-  const bytes = await invoke<ArrayBuffer>("read_file", { path });
-  return new File([bytes], path.split(/[\\/]/).pop() ?? "film.qyp");
+  // 命令返回 (文件名, 字节数)；网页只拿得到这两样，读内容要按范围要
+  const info = await invoke<[string, number] | null>("initial_file");
+  if (!info) return null;
+  const [name, size] = info;
+  return {
+    name,
+    source: {
+      size,
+      async read(offset: number, length: number): Promise<Uint8Array> {
+        return new Uint8Array(await invoke<ArrayBuffer>("read_range", { offset, length }));
+      },
+    },
+  };
 }
 
 function downloadInBrowser(blob: Blob, fileName: string): void {

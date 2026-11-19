@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { createUseStyles } from "react-jss";
 import { openPackage } from "@qyplayer/qyp";
+import type { ByteSource } from "@qyplayer/qyp";
 import { AboutDialog } from "./AboutDialog";
 import { isDesktop, readInitialFile } from "./desktop";
 import { useI18n, type MessageKey } from "./i18n";
@@ -81,7 +82,7 @@ export function App({ initialSource }: AppProps) {
   const [aboutOpen, setAboutOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const open = useCallback(async (source: Blob) => {
+  const open = useCallback(async (source: Blob | ByteSource) => {
     setBusy(true);
     setError(null);
     setSampleError(null);
@@ -105,10 +106,10 @@ export function App({ initialSource }: AppProps) {
     if (initialSource) void initialSource().then(open, (e: unknown) => setError(e));
   }, [initialSource, open]);
 
-  // 桌面程序：双击 .qyp 启动时，直接打开命令行里带的文件
+  // 桌面和手机壳：系统把 .qyp 交给播放器启动时，直接打开那个文件（按偏移读，不整个读进内存）
   useEffect(() => {
     void readInitialFile().then(
-      (file) => (file ? open(file) : undefined),
+      (file) => (file ? open(file.source) : undefined),
       (e: unknown) => setError(e),
     );
   }, [open]);
