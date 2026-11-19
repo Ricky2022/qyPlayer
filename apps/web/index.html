@@ -29,6 +29,8 @@
   </head>
   <body>
     <div id="root"><div id="qy-boot">正在载入青云播放器…</div></div>
+    <!-- 主脚本之前先跑守卫：主脚本没加载或解析失败时，它会把原因显示在屏幕上 -->
+    <script src="./boot-guard.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

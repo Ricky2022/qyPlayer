@@ -1,6 +1,3 @@
-// 启动守卫必须第一个 import：它的模块体在其它模块之前执行，先把错误监听装好
-import "./startupGuard";
-
 import { createRoot } from "react-dom/client";
 import { installBackButton } from "./android";
 import { App } from "./App";
@@ -16,6 +13,7 @@ createRoot(document.getElementById("root")!).render(
   </I18nProvider>,
 );
 
+// 页面里的 boot-guard.js 在 4 秒后检查这个标记：没有它就把“没有启动”画在屏幕上
 window.__qyMounted = true;
 
 // Android：返回键由界面自己处理（全屏 → 播放中 → 首页，首页再按退出应用）。
