@@ -19,12 +19,12 @@ The interface is available in Chinese and English. It follows the system languag
 
 The player (qyPlayer, 青云播放器) and the creator (qyMaker, 青云制作器) are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
 
-Current version: [v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0). The previous version is [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1), and the official version before that is [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0); v0.3.0 was only a preview with no official Release, and everything in it is included in 0.4.0.
+Current version: [v0.5.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.1). The previous version is [v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0), and the official version before that is [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1); v0.3.0 was only a preview with no official Release, and everything in it is included in 0.4.0.
 
 | Program | Installer | Portable |
 | --- | --- | --- |
-| Player | [qyPlayer-0.5.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-Setup-x64.exe) | [qyPlayer-0.5.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-x64-portable.zip) |
-| Creator | [qyMaker-0.5.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyMaker-0.5.0-Setup-x64.exe) | [qyMaker-0.5.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyMaker-0.5.0-x64-portable.zip) |
+| Player | [qyPlayer-0.5.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-Setup-x64.exe) | [qyPlayer-0.5.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-x64-portable.zip) |
+| Creator | [qyMaker-0.5.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyMaker-0.5.1-Setup-x64.exe) | [qyMaker-0.5.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyMaker-0.5.1-x64-portable.zip) |
 
 All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/releases) page.
 
@@ -42,7 +42,7 @@ Since 0.5.0 there is an Android player. Install the APK directly; it is not dist
 
 | Program | File |
 | --- | --- |
-| Player | [qyPlayer-0.5.0-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-android-arm64.apk) |
+| Player | [qyPlayer-0.5.1-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-android-arm64.apk) |
 
 - The first install has to allow "install unknown apps": open the downloaded APK in your file manager and allow that source in the system settings when prompted.
 - In a file manager, WeChat or another app, choose "Open with" and pick qyPlayer to play a `.qyp`; opening another file while the app is running switches to the new film.
@@ -55,6 +55,14 @@ Since 0.5.0 there is an Android player. Install the APK directly; it is not dist
 ## Status
 
 The web version, the Windows desktop apps (player and creator) and the Android player all work. macOS, an Android creator, Linux and AI-assisted editing have not been started (MP4 export is included since 0.3.0).
+
+### 0.5.1
+
+0.5.1 improves how a film looks on a phone and fixes the black playback screen on Android.
+
+- Black screen fix: phones use the system WebView, which can be old (Chrome 83 ships on some Android 11 devices). The player used newer CSS (`inset` shorthand, `aspect-ratio`, flex `gap`) that the old WebView does not support, so the playback area collapsed to 0×0 and the screen stayed black. It now uses compatible CSS and sizes the canvas in script from the available space.
+- A landscape film in portrait no longer sits in a sea of black: the current frame is blurred and dimmed to fill the background, and the film itself is shown as a rounded card with a soft shadow, close to the Apple Memories player.
+- Fullscreen, rotation, keeping the screen on while playing and the step-by-step back button are unchanged.
 
 ### 0.5.0
 

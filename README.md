@@ -19,12 +19,12 @@
 
 播放器（青云播放器 / qyPlayer）和制作器（青云制作器 / qyMaker）是两个独立的程序，都只在本机运行。需要 Windows 10 / 11（64 位）。
 
-当前版本：[v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0)。上一个版本是 [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1)，更早的正式版是 [v0.4.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.0)；v0.3.0 只是预览版，没有发布正式 Release，它的内容都包含在 0.4.0 里。
+当前版本：[v0.5.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.1)。上一个版本是 [v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0)，更早的正式版是 [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1)；v0.3.0 只是预览版，没有发布正式 Release，它的内容都包含在 0.4.0 里。
 
 | 程序 | 安装包 | 免安装版 |
 | --- | --- | --- |
-| 播放器 | [qyPlayer-0.5.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-Setup-x64.exe) | [qyPlayer-0.5.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-x64-portable.zip) |
-| 制作器 | [qyMaker-0.5.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyMaker-0.5.0-Setup-x64.exe) | [qyMaker-0.5.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyMaker-0.5.0-x64-portable.zip) |
+| 播放器 | [qyPlayer-0.5.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-Setup-x64.exe) | [qyPlayer-0.5.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-x64-portable.zip) |
+| 制作器 | [qyMaker-0.5.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyMaker-0.5.1-Setup-x64.exe) | [qyMaker-0.5.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyMaker-0.5.1-x64-portable.zip) |
 
 所有版本见 [Releases](https://github.com/Ricky2022/qyPlayer/releases)。
 
@@ -42,7 +42,7 @@
 
 | 程序 | 文件 |
 | --- | --- |
-| 播放器 | [qyPlayer-0.5.0-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.0/qyPlayer-0.5.0-android-arm64.apk) |
+| 播放器 | [qyPlayer-0.5.1-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-android-arm64.apk) |
 
 - 第一次安装要允许“安装未知来源应用”：在文件管理器里点开下载的 APK，按提示在系统设置里为这个来源打开权限。
 - 在文件管理器、微信等应用里选“用其他应用打开”，选“青云播放器”就能播放 `.qyp`；应用已经在运行时再打开一个文件，会换成新的一部。
@@ -55,6 +55,14 @@
 ## 当前状态
 
 Web 版、Windows 桌面版（播放器和制作器）和 Android 播放器都已可用；macOS、Android 制作器、Linux 和 AI 编排还没有开始（MP4 导出已包含在 0.3.0 起的版本里）。
+
+### 0.5.1
+
+0.5.1 改手机上的播放观感，并修掉手机端播放界面黑屏的问题。
+
+- 黑屏修复：手机用的是系统自带 WebView，版本可能很旧（实测 Android 11 自带 Chrome 83）。播放界面原来用了 `inset` 简写、`aspect-ratio`、flex `gap` 这些新 CSS，旧 WebView 不支持，导致播放区域尺寸算成 0×0、整屏全黑；现在改成兼容写法，画布尺寸由脚本按可用空间计算。
+- 竖屏看横屏影片不再四周死黑：把当前画面模糊、压暗后铺满背景，影片本身做成带圆角和投影的卡片，观感接近 Apple 影集的播放界面。
+- 全屏、旋转、播放时常亮、返回键逐级返回的行为不变。
 
 ### 0.5.0
 

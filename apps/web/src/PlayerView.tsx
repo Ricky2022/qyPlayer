@@ -40,8 +40,14 @@ const useStyles = createUseStyles({
   // 所以四个边写全，画布尺寸由组件自己算（见下面的 fit）。
   root: { position: "fixed", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", background: "#000", color: theme.text, fontFamily: theme.font, userSelect: "none" },
   idle: { cursor: "none" },
-  stage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, display: "flex", alignItems: "center", justifyContent: "center" },
-  canvas: { display: "block", maxWidth: "100%", maxHeight: "100%", cursor: "inherit" },
+  stage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  // 环境背景：当前画面缩小后铺满、模糊压暗。竖屏看横屏影片时四周是柔和的画面延伸，不是死黑
+  backdrop: {
+    position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%", objectFit: "cover",
+    filter: "blur(28px) brightness(0.45) saturate(1.2)", transform: "scale(1.2)", opacity: 0.9, pointerEvents: "none",
+  },
+  // 影片本身做成悬浮卡片：轻微圆角 + 投影，和 Apple 影集里的观感接近
+  canvas: { position: "relative", zIndex: 1, display: "block", maxWidth: "100%", maxHeight: "100%", cursor: "inherit", borderRadius: 8, boxShadow: "0 18px 60px rgba(0, 0, 0, 0.55)" },
   overlay: { position: "absolute", left: 0, right: 0, transition: "opacity 0.25s", pointerEvents: "none", "& > *": { pointerEvents: "auto" } },
   hidden: { opacity: 0, "& > *": { pointerEvents: "none" } },
   top: {
@@ -105,6 +111,7 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLCanvasElement>(null);
   const [time, setTime] = useState(0);
   const [playState, setPlayState] = useState<PlayState>(controller.state);
   const [volume, setVolume] = useState(controller.volume);
@@ -177,6 +184,30 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
 
   // Android：播放时屏幕常亮（暂停、结束、切到后台时释放）
   useScreenWakeLock(playState === "playing");
+
+  // 环境背景：把当前画面缩到一张很小的画布上（CSS 再模糊放大），竖屏看横屏影片时四周是柔和的画面延伸。
+  // 每秒最多更新十几次，模糊之后看不出跳帧，代价可以忽略。
+  useEffect(() => {
+    const backdrop = backdropRef.current;
+    if (!backdrop) return;
+    const ctx = backdrop.getContext("2d");
+    if (!ctx) return;
+    const source = controller.canvas;
+    const WIDTH = 160;
+    const HEIGHT = 90;
+    backdrop.width = WIDTH;
+    backdrop.height = HEIGHT;
+    let frame = 0;
+    let last = 0;
+    const tick = (now: number): void => {
+      frame = window.requestAnimationFrame(tick);
+      if (now - last < 80) return;
+      last = now;
+      if (source.width > 0 && source.height > 0) ctx.drawImage(source, 0, 0, WIDTH, HEIGHT);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [controller]);
 
   // Android：返回键先退出全屏，再退出播放界面；回到首页再按就退出应用（见 android.ts）
   useEffect(
@@ -262,7 +293,10 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
 
   return (
     <div ref={rootRef} className={`${classes.root} ${!visible ? classes.idle : ""}`} onPointerMove={poke} onPointerDown={poke}>
-      <div ref={stageRef} className={classes.stage} onDoubleClick={toggleFullscreen} />
+      <div ref={stageRef} className={classes.stage} onDoubleClick={toggleFullscreen}>
+        {/* 环境背景：由下面那个循环把当前画面缩小画进来 */}
+        <canvas ref={backdropRef} className={classes.backdrop} aria-hidden="true" />
+      </div>
 
       <div className={`${classes.overlay} ${classes.top} ${visible ? "" : classes.hidden}`}>
         {onClose && (
