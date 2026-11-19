@@ -1,6 +1,6 @@
 // 制作器的编辑状态：素材列表、设置、撤销重做和“有未保存更改”的判断。
 // 全部是纯函数：每个操作接收旧状态、返回新状态；没有变化时返回同一个对象（不产生历史）。规则见 docs/dev-0.3.0.md 3A.11。
-import { GENERATOR_LIMITS, type AspectRatio } from "@qyplayer/core";
+import { GENERATOR_LIMITS, type AspectRatio, type TransitionChoice } from "@qyplayer/core";
 import type { MediaEntry, MusicEntry } from "../buildPackage";
 import { moveItem, sortByCapturedAt } from "../files";
 
@@ -21,6 +21,9 @@ export type EditorMediaInput = Omit<EditorMedia, "key">;
 
 export type AspectChoice = "auto" | AspectRatio;
 
+/** 转场设置：auto 表示跟随模板 */
+export type TransitionSetting = "auto" | TransitionChoice;
+
 export type MusicChoice =
   | { kind: "none" }
   | { kind: "builtin"; trackId: string }
@@ -32,6 +35,7 @@ export interface EditorDoc {
   title: string;
   aspect: AspectChoice;
   templateId: string;
+  transition: TransitionSetting;
   music: MusicChoice;
   seed: number;
 }
@@ -62,7 +66,7 @@ export interface EditorState {
 }
 
 function initialDoc(seed: number, templateId: string): EditorDoc {
-  return { media: [], title: "", aspect: "auto", templateId, music: { kind: "none" }, seed };
+  return { media: [], title: "", aspect: "auto", templateId, transition: "auto", music: { kind: "none" }, seed };
 }
 
 /** 创建空的编辑状态；种子由调用方随机给出，保持函数纯净 */
@@ -152,6 +156,11 @@ export function setAspect(state: EditorState, aspect: AspectChoice): EditorState
 export function setTemplate(state: EditorState, templateId: string): EditorState {
   const doc = state.present.doc;
   return doc.templateId === templateId ? state : commit(state, { ...doc, templateId });
+}
+
+export function setTransition(state: EditorState, transition: TransitionSetting): EditorState {
+  const doc = state.present.doc;
+  return doc.transition === transition ? state : commit(state, { ...doc, transition });
 }
 
 function sameMusic(a: MusicChoice, b: MusicChoice): boolean {

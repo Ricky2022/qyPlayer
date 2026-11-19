@@ -18,6 +18,7 @@ import {
   setMusic,
   setSeed,
   setTemplate,
+  setTransition,
   setTitle,
   sortMediaByCapturedAt,
   undo,
@@ -94,19 +95,21 @@ describe("编辑状态：素材列表", () => {
 });
 
 describe("编辑状态：设置", () => {
-  it("改比例、模板、配乐、种子各算一步；改成相同的值不算", () => {
+  it("改比例、模板、转场、配乐、种子各算一步；改成相同的值不算", () => {
     let state = withPhotos("a");
     const base = state;
     state = setAspect(state, "9:16");
     state = setTemplate(state, "lively");
     state = setMusic(state, { kind: "builtin", trackId: "goldberg-var1" });
     state = setSeed(state, 99);
-    expect(currentDoc(state)).toMatchObject({ aspect: "9:16", templateId: "lively", music: { kind: "builtin", trackId: "goldberg-var1" }, seed: 99 });
+    state = setTransition(state, "rotate");
+    expect(currentDoc(state)).toMatchObject({ aspect: "9:16", templateId: "lively", transition: "rotate", music: { kind: "builtin", trackId: "goldberg-var1" }, seed: 99 });
+    expect(setTransition(state, "rotate")).toBe(state);
     expect(setAspect(state, "9:16")).toBe(state);
     expect(setTemplate(state, "lively")).toBe(state);
     expect(setMusic(state, { kind: "builtin", trackId: "goldberg-var1" })).toBe(state);
     expect(setSeed(state, 99)).toBe(state);
-    for (let i = 0; i < 4; i++) state = undo(state);
+    for (let i = 0; i < 5; i++) state = undo(state);
     expect(state.present.id).toBe(base.present.id);
   });
 
@@ -197,7 +200,7 @@ describe("编辑状态：撤销和重做", () => {
   });
 
   it("转码开关不在历史里（状态里没有它）", () => {
-    expect(Object.keys(currentDoc(fresh())).sort()).toEqual(["aspect", "media", "music", "seed", "templateId", "title"]);
+    expect(Object.keys(currentDoc(fresh())).sort()).toEqual(["aspect", "media", "music", "seed", "templateId", "title", "transition"]);
   });
 });
 
@@ -251,6 +254,7 @@ describe("编辑状态：新建和打开", () => {
       title: "T",
       aspect: "9:16",
       templateId: "classic",
+      transition: "auto",
       music: { kind: "none" },
       seed: 5,
     });

@@ -80,32 +80,44 @@ export function renderFrame(
     const asset = resolve(layer.assetId, layer);
     if (!asset) continue;
 
-    const clip = layer.clip;
-    const rect = layer.rect;
-    const target = { x: rect.x * width, y: rect.y * height, w: rect.w * width, h: rect.h * height };
-    if (layer.role === "backdrop") {
-      // 无法播放的素材不画背景：占位画面本身就是灰底
-      if (!isPlaceholder(asset)) drawBackdrop(ctx, asset, layer, width, height, options.createCanvas);
-      continue;
-    }
-    if (isPlaceholder(asset)) {
-      drawPlaceholder(ctx, target, clip, width, height, Math.min(1, layer.opacity), options.placeholderText);
-      continue;
-    }
-    const { source, dest } = computeFit(layer.fit, asset.width, asset.height, target);
-    if (dest.w <= 0 || dest.h <= 0) continue;
-
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(clip.x * width, clip.y * height, clip.w * width, clip.h * height);
-    ctx.clip();
-    ctx.globalAlpha = Math.min(1, layer.opacity);
-    ctx.drawImage(asset.source, source.x, source.y, source.w, source.h, dest.x, dest.y, dest.w, dest.h);
+    if (layer.rotation) {
+      // 绕画布中心旋转：之后的裁切和绘制都在旋转后的坐标系里进行
+      ctx.translate(width / 2, height / 2);
+      ctx.rotate(layer.rotation);
+      ctx.translate(-width / 2, -height / 2);
+    }
+    drawLayer(ctx, layer, asset, width, height, options);
     ctx.restore();
   }
 
   ctx.restore();
   return state;
+}
+
+function drawLayer(ctx: Ctx, layer: Layer, asset: DrawableAsset | PlaceholderAsset, width: number, height: number, options: RenderOptions): void {
+  const clip = layer.clip;
+  const rect = layer.rect;
+  const target = { x: rect.x * width, y: rect.y * height, w: rect.w * width, h: rect.h * height };
+  if (layer.role === "backdrop") {
+    // 无法播放的素材不画背景：占位画面本身就是灰底
+    if (!isPlaceholder(asset)) drawBackdrop(ctx, asset, layer, width, height, options.createCanvas);
+    return;
+  }
+  if (isPlaceholder(asset)) {
+    drawPlaceholder(ctx, target, clip, width, height, Math.min(1, layer.opacity), options.placeholderText);
+    return;
+  }
+  const { source, dest } = computeFit(layer.fit, asset.width, asset.height, target);
+  if (dest.w <= 0 || dest.h <= 0) return;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(clip.x * width, clip.y * height, clip.w * width, clip.h * height);
+  ctx.clip();
+  ctx.globalAlpha = Math.min(1, layer.opacity);
+  ctx.drawImage(asset.source, source.x, source.y, source.w, source.h, dest.x, dest.y, dest.w, dest.h);
+  ctx.restore();
 }
 
 /** 模糊背景层：素材放大铺满、重度模糊，再盖一层半透明黑 */

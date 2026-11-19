@@ -22,7 +22,7 @@ import { editorMediaFromImport } from "./editor/fromImport";
 import { DESKTOP_MEDIA_QUERY } from "./editor/layout";
 import { menuStatus } from "./editor/menu";
 import { needsMusicRightsConfirm, resolveMusic } from "./editor/music";
-import { createPreviewPackage } from "./editor/preview";
+import { buildOptionsOf, createPreviewPackage } from "./editor/preview";
 import { RestoreError, restorePackage } from "./editor/restore";
 import { commandForShortcut, shortcutLabel } from "./editor/shortcuts";
 import {
@@ -43,6 +43,7 @@ import {
   setSeed,
   setTemplate,
   setTitle,
+  setTransition,
   sortMediaByCapturedAt,
   undo,
   type EditorMediaInput,
@@ -291,12 +292,8 @@ export function CreatorApp() {
     try {
       const music = await resolveMusic(current.music);
       const planned = planPackage({
-        media: current.media,
+        ...buildOptionsOf(current),
         ...(music && { music }),
-        ...(current.aspect !== "auto" && { aspectRatio: current.aspect }),
-        templateId: current.templateId,
-        seed: current.seed,
-        title: current.title,
         defaultTitleWord: t("defaultTitleWord"),
       });
       let { manifest, files } = planned;
@@ -576,6 +573,7 @@ export function CreatorApp() {
       onTitle={(title) => apply((state) => setTitle(state, title, Date.now()))}
       onAspect={(aspect) => apply((state) => setAspect(state, aspect))}
       onTemplate={(templateId) => apply((state) => setTemplate(state, templateId))}
+      onTransition={(transition) => apply((state) => setTransition(state, transition))}
       onMusic={(music) => apply((state) => setMusic(state, music))}
       onPickMusic={() => musicInput.current?.click()}
       onReroll={() => apply((state) => setSeed(state, randomSeed()))}

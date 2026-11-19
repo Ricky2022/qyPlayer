@@ -43,6 +43,8 @@ function fakeContext(width: number, height: number) {
     rect: log("rect"),
     clip: log("clip"),
     drawImage: log("drawImage"),
+    translate: log("translate"),
+    rotate: log("rotate"),
     fillRect: (...args: unknown[]) => calls.push(`fillRect:${fillStyle}(${args.join(",")})`),
     fillText: (...args: unknown[]) => calls.push(`fillText:${fillStyle}(${args.join(",")})`),
     measureText: (text: string) => ({ width: text.length * 10 }),
@@ -179,5 +181,37 @@ describe("renderFrame 模糊背景", () => {
     renderFrame(ctx, blurManifest, 2, () => ({ placeholder: true }), { createCanvas: create });
     expect(created).toHaveLength(0);
     expect(calls.some((c) => c.startsWith("drawImage"))).toBe(false);
+  });
+});
+
+describe("renderFrame 旋转", () => {
+  const rotated = {
+    ...manifest,
+    pages: [
+      {
+        id: "p1",
+        start: 0,
+        duration: 4,
+        transitionIn: { type: "rotate", duration: 1 },
+        items: [{ assetId: "a1", frame: { x: 0, y: 0, w: 1, h: 1 }, fit: "cover" }],
+      },
+    ],
+  } as unknown as Manifest;
+
+  it("在裁切和绘制之前绕画布中心旋转，画完恢复", () => {
+    const { ctx, calls } = fakeContext(1000, 500);
+    renderFrame(ctx, rotated, 0.25, () => ({ source: {} as CanvasImageSource, width: 100, height: 50 }));
+    const rotateAt = calls.findIndex((c) => c.startsWith("rotate("));
+    expect(rotateAt).toBeGreaterThan(-1);
+    expect(calls[rotateAt - 1]).toBe("translate(500,250)");
+    expect(calls[rotateAt + 1]).toBe("translate(-500,-250)");
+    expect(calls.findIndex((c) => c.startsWith("clip"))).toBeGreaterThan(rotateAt);
+    expect(calls.findIndex((c) => c.startsWith("drawImage"))).toBeGreaterThan(rotateAt);
+  });
+
+  it("没有旋转的图层不调用 rotate", () => {
+    const { ctx, calls } = fakeContext(1000, 500);
+    renderFrame(ctx, rotated, 2, () => ({ source: {} as CanvasImageSource, width: 100, height: 50 }));
+    expect(calls.some((c) => c.startsWith("rotate("))).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { defaultAspectRatio, generateManifest, type AspectRatio, type AssetSource, type Manifest, type MediaInput } from "@qyplayer/core";
+import { defaultAspectRatio, generateManifest, type AspectRatio, type AssetSource, type Manifest, type MediaInput, type TransitionChoice } from "@qyplayer/core";
 import { writePackage } from "@qyplayer/qyp";
 import { extensionForMimeType } from "./mediaType";
 
@@ -46,6 +46,8 @@ export interface BuildOptions {
   /** 缺省时按素材方向自动选择 */
   aspectRatio?: AspectRatio;
   templateId: string;
+  /** 缺省表示转场跟随模板 */
+  transition?: TransitionChoice;
   seed: number;
   /** 缺省或空白时用生成器的默认标题 */
   title?: string;
@@ -118,6 +120,7 @@ export function planPackage(options: BuildOptions): { manifest: Manifest; files:
     templateId: options.templateId,
     seed: options.seed,
     keepOrder: true,
+    ...(options.transition && { transition: options.transition }),
     ...(title && { title }),
     ...(options.defaultTitleWord && { defaultTitleWord: options.defaultTitleWord }),
     ...(music && { music }),

@@ -15,6 +15,8 @@ export interface Layer {
   /** 内容矩形：格子经入场动画和整页变换后的位置与大小。素材按 fit 填入此矩形 */
   rect: Rect;
   opacity: number;
+  /** 绕画布中心的旋转角（弧度，顺时针为正）；缺省为 0。裁切区域和内容矩形一起转 */
+  rotation?: number;
   /** 仅视频：应显示的素材时间点（秒） */
   videoTime?: number;
 }
@@ -35,12 +37,16 @@ export function easeInOut(p: number): number {
 
 const ZOOM_FROM = 0.9; // 新页 / 入场 scale 的起始比例
 const ZOOM_OUT_TO = 1.1; // zoom 转场中上一页放大到的比例
+const ROTATE_DEGREES = 6; // rotate 转场的旋转角度
+const ROTATE_SCALE = 1.15; // rotate 转场中新页起始、上一页结束时的放大比例（减少转动时露出的角）
 
 interface PageTransform {
   scale: number;
   offsetX: number;
   offsetY: number;
   opacity: number;
+  /** 弧度，缺省为 0 */
+  rotation?: number;
 }
 
 const IDENTITY: PageTransform = { scale: 1, offsetX: 0, offsetY: 0, opacity: 1 };
@@ -85,6 +91,14 @@ function transitionTransforms(
         incoming: { scale: ZOOM_FROM + (1 - ZOOM_FROM) * p, offsetX: 0, offsetY: 0, opacity: p },
         outgoing: { scale: 1 + (ZOOM_OUT_TO - 1) * p, offsetX: 0, offsetY: 0, opacity: 1 - p },
       };
+    case "rotate": {
+      // 新页从小角度转正、从放大状态收回并淡入；上一页转出、放大并淡出
+      const angle = (ROTATE_DEGREES * Math.PI) / 180;
+      return {
+        incoming: { scale: ROTATE_SCALE + (1 - ROTATE_SCALE) * p, offsetX: 0, offsetY: 0, opacity: p, rotation: angle * (1 - p) },
+        outgoing: { scale: 1 + (ROTATE_SCALE - 1) * p, offsetX: 0, offsetY: 0, opacity: 1 - p, rotation: -angle * p },
+      };
+    }
     case "fade":
     default:
       return {
@@ -181,6 +195,7 @@ function pageLayers(
       rect: transformRect(content, pageTransform),
       opacity: pageTransform.opacity * enter.opacity,
     };
+    if (pageTransform.rotation) layer.rotation = pageTransform.rotation;
     if (asset.type === "video") {
       // 素材不够长时停在最后一帧
       const wanted = (item.clipStart ?? 0) + Math.max(0, pageTime);
@@ -202,6 +217,7 @@ function pageLayers(
       rect: transformRect(FULL_CANVAS, pageTransform),
       opacity: pageTransform.opacity,
     };
+    if (pageTransform.rotation) backdrop.rotation = pageTransform.rotation;
     if (first.videoTime !== undefined) backdrop.videoTime = first.videoTime;
     layers.unshift(backdrop);
   }

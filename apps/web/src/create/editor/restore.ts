@@ -1,5 +1,5 @@
 // 打开已有 .qyp 时，把包还原成可编辑的内容（规则见 docs/dev-0.3.0.md 3A.5）。
-import { TEMPLATES, type Asset, type Manifest } from "@qyplayer/core";
+import { TEMPLATES, TRANSITION_CHOICES, type Asset, type Manifest } from "@qyplayer/core";
 import { mimeForPath, type OpenedPackage } from "@qyplayer/qyp";
 import type { MusicEntry } from "../buildPackage";
 import { BUILTIN_TRACKS, type BuiltinTrack } from "../builtinMusicInfo";
@@ -114,6 +114,7 @@ export async function restorePackage(opened: OpenedPackage, options: RestoreOpti
       title: manifest.title,
       aspect: manifest.canvas.aspectRatio,
       templateId,
+      transition: TRANSITION_CHOICES.find((choice) => choice === generator?.transition) ?? "auto",
       seed,
       music: await restoreMusic(opened, options.builtinTracks ?? BUILTIN_TRACKS),
     },

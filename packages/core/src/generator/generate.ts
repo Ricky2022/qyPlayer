@@ -71,6 +71,8 @@ export interface GenerateOptions {
   /** 为 true 时保持 media 的传入顺序，不按拍摄时间排序（用户手动调整过顺序） */
   keepOrder?: boolean;
   title?: string;
+  /** 指定后全片（除首页）都用这一种转场；缺省跟随模板。会写进 generator.transition 以便重新打开时还原 */
+  transition?: TransitionChoice;
   /** 没给标题时，默认标题里“日期 + 词”的那个词，让界面按语言传入；缺省为“回忆” */
   defaultTitleWord?: string;
   /** 缺省时随机生成 */
@@ -80,7 +82,11 @@ export interface GenerateOptions {
   generator?: { name: string; version: string };
 }
 
-export type GenerateErrorCode = "no-media" | "too-many-media" | "unknown-template" | "invalid-media" | "duplicate-media-id";
+export type GenerateErrorCode = "no-media" | "too-many-media" | "unknown-template" | "unknown-transition" | "invalid-media" | "duplicate-media-id";
+
+/** 用户可以指定的转场（缺省跟随模板）。首页固定淡入 */
+export const TRANSITION_CHOICES = ["fade", "slide", "zoom", "rotate"] as const;
+export type TransitionChoice = (typeof TRANSITION_CHOICES)[number];
 
 export class GenerateError extends Error {
   constructor(
@@ -239,6 +245,9 @@ function validateInput(options: GenerateOptions): Template {
   }
   const template = findTemplate(options.templateId);
   if (!template) throw new GenerateError("unknown-template", `unknown template "${options.templateId}"`);
+  if (options.transition !== undefined && !TRANSITION_CHOICES.includes(options.transition)) {
+    throw new GenerateError("unknown-transition", `unknown transition "${String(options.transition)}"`);
+  }
   const ids = new Set<string>();
   for (const m of options.media) {
     if (ids.has(m.id)) throw new GenerateError("duplicate-media-id", `duplicate media id ${m.id}`);
@@ -311,7 +320,7 @@ export function generateManifest(options: GenerateOptions): Manifest {
   drafts.forEach((draft, index) => {
     const duration = durationsMs[index]! / 1000;
     const trSeconds = round3(Math.min(GENERATOR_LIMITS.transitionSeconds, duration / 2));
-    const transition = index === 0 ? ({ type: "fade", duration: trSeconds } as TransitionIn) : pickTransition(template, rng, previousTransition, trSeconds);
+    const transition = index === 0 ? ({ type: "fade", duration: trSeconds } as TransitionIn) : pickTransition(template, rng, previousTransition, trSeconds, options.transition);
     previousTransition = transition;
 
     const items: Item[] = draft.items.map((it, itemIndex) => {
@@ -390,6 +399,7 @@ export function generateManifest(options: GenerateOptions): Manifest {
       version: options.generator?.version ?? "0.0.0",
       templateId: template.id,
       seed: options.seed,
+      ...(options.transition !== undefined && { transition: options.transition }),
     },
     canvas: { aspectRatio, ...CANVAS_SIZE[aspectRatio], background: "#000000", backdrop: "blur" },
     duration: totalMs / 1000,
@@ -405,13 +415,17 @@ function randomId(): string {
 }
 
 /** 选转场：尽量不与上一页重复（同类型，或同为滑动且方向相同）。 */
-function pickTransition(template: Template, rng: Rng, previous: TransitionIn | undefined, duration: number): TransitionIn {
-  const differing = template.transitions.filter((t) => t.type === "slide" || t.type !== previous?.type);
-  const pool = differing.length > 0 ? differing : template.transitions;
-  const type = rng.weighted(pool.map((t) => ({ value: t.type, weight: t.weight })));
+function pickTransition(template: Template, rng: Rng, previous: TransitionIn | undefined, duration: number, forced?: TransitionChoice): TransitionIn {
+  const type: string = forced ?? pickTransitionType(template, rng, previous);
   if (type !== "slide") return { type, duration };
   const directions = previous?.type === "slide" ? DIRECTIONS.filter((d) => d !== previous.direction) : DIRECTIONS;
   return { type, direction: rng.pick(directions), duration };
+}
+
+function pickTransitionType(template: Template, rng: Rng, previous: TransitionIn | undefined): string {
+  const differing = template.transitions.filter((t) => t.type === "slide" || t.type !== previous?.type);
+  const pool = differing.length > 0 ? differing : template.transitions;
+  return rng.weighted(pool.map((t) => ({ value: t.type, weight: t.weight })));
 }
 
 function pickEnter(template: Template, rng: Rng, delay: number): Enter {

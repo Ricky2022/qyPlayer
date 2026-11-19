@@ -622,3 +622,36 @@ describe("Ken Burns（格式 0.3 的 motion）", () => {
     );
   });
 });
+
+describe("指定转场（generator.transition）", () => {
+  const forced = (transition: "fade" | "slide" | "zoom" | "rotate", seed = 3): Manifest => gen({ media: landscapePhotos(24), seed, transition, templateId: "lively" });
+
+  it.each(["fade", "slide", "zoom", "rotate"] as const)("%s：首页淡入，其余页全是这一种，并记录在 generator.transition", (type) => {
+    const m = forced(type);
+    expect(m.pages[0]!.transitionIn!.type).toBe("fade");
+    for (const page of m.pages.slice(1)) expect(page.transitionIn!.type).toBe(type);
+    expect(m.generator!.transition).toBe(type);
+    expectValid(m);
+  });
+
+  it("滑动时方向仍随机，且相邻两页不同方向", () => {
+    const pages = forced("slide").pages.slice(1);
+    expect(new Set(pages.map((p) => p.transitionIn!.direction)).size).toBeGreaterThan(1);
+    pages.slice(1).forEach((p, i) => expect(p.transitionIn!.direction).not.toBe(pages[i]!.transitionIn!.direction));
+  });
+
+  it("没有指定时跟随模板，不写 generator.transition", () => {
+    const m = gen({ media: landscapePhotos(24), templateId: "clean" });
+    expect(m.generator!.transition).toBeUndefined();
+    expect(new Set(m.pages.map((p) => p.transitionIn!.type)).has("rotate")).toBe(false);
+  });
+
+  it("不认识的转场报 unknown-transition", () => {
+    expect(() => gen({ media: landscapePhotos(2), transition: "cube" as never })).toThrowError(expect.objectContaining({ code: "unknown-transition" }));
+  });
+
+  it("指定转场不改变版式和动效的选择", () => {
+    const strip = (m: Manifest) => m.pages.map((p) => p.items.map((i) => [i.assetId, i.frame, i.fit, i.motion]));
+    expect(strip(forced("rotate"))).toEqual(strip(gen({ media: landscapePhotos(24), seed: 3, templateId: "lively" })));
+  });
+});

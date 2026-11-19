@@ -246,6 +246,36 @@ describe("stateAt: transition types", () => {
     expect(prev.rect.y).toBeCloseTo(outgoing[1], 6);
   });
 
+  it("rotate：新页从放大和小角度开始、转正并淡入；上一页转出、放大并淡出", () => {
+    const m = variant((x) => {
+      x.pages[2].transitionIn = { type: "rotate", duration: 0.6 };
+    });
+    const angle = (6 * Math.PI) / 180;
+    const start = stateAt(m, 11.2);
+    const startNext = start.layers[start.layers.length - 1]!;
+    expect(startNext.opacity).toBeCloseTo(0, 6);
+    expect(startNext.rotation).toBeCloseTo(angle, 10);
+    expect(startNext.rect.w).toBeCloseTo(1.15, 6);
+
+    const mid = stateAt(m, 11.5); // 缓动值 0.5
+    const prev = mid.layers[0]!;
+    const next = mid.layers[mid.layers.length - 1]!;
+    expect(next.rotation).toBeCloseTo(angle * 0.5, 10);
+    expect(next.opacity).toBeCloseTo(0.5, 6);
+    expect(next.rect.w).toBeCloseTo(1.075, 6);
+    expect(prev.rotation).toBeCloseTo(-angle * 0.5, 10);
+    expect(prev.opacity).toBeCloseTo(0.5, 6);
+    expect(prev.rect.w).toBeCloseTo(0.4972 * 1.075, 6); // 上一页的格子宽 0.4972
+
+    const done = stateAt(m, 11.8).layers; // 转场结束后只有新页，没有旋转
+    expect(done).toHaveLength(1);
+    expect(done[0]!.rotation).toBeUndefined();
+  });
+
+  it("没有旋转的图层不带 rotation 字段", () => {
+    expect(stateAt(base, 3).layers[0]!.rotation).toBeUndefined();
+  });
+
   it("a transition equal to the page duration still completes at the page end", () => {
     const m = variant((x) => (x.pages[0].transitionIn.duration = 4.8));
     expect(stateAt(m, 4.7).layers[0]?.opacity).toBeGreaterThan(0.99);
