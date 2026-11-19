@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import java.io.File
 
 /**
@@ -21,12 +23,26 @@ class MainActivity : TauriActivity() {
     // 先让壳把 WebView 和 Rust 端启动起来；后面的文件处理即使出错也不影响启动
     super.onCreate(savedInstanceState)
     Log.i(TAG, "壳已启动")
+    applySystemBarInsets()
     try {
       // 启动时先清掉上次留下的缓存文件，再处理系统这次交来的文件
       clearReceived()
       receive(intent)
     } catch (e: Exception) {
       Log.w(TAG, "处理系统交来的文件失败", e)
+    }
+  }
+
+  /**
+   * 边到边显示时，把状态栏、导航栏、刘海的高度让成内边距，网页里的控件就不会被系统栏压住。
+   * 全屏时系统栏隐藏，这些值会变成 0，画面自然铺满。
+   */
+  private fun applySystemBarInsets() {
+    val content = findViewById<android.view.View>(android.R.id.content) ?: return
+    ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
+      val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+      view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+      WindowInsetsCompat.CONSUMED
     }
   }
 

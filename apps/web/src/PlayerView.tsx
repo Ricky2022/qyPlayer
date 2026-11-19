@@ -36,10 +36,11 @@ const WARNING_MESSAGES: Record<PlayerWarning["code"], MessageKey> = {
 };
 
 const useStyles = createUseStyles({
-  root: { position: "relative", height: "100%", overflow: "hidden", background: "#000", color: theme.text, fontFamily: theme.font, userSelect: "none" },
+  // 固定成整个视口：不依赖祖先元素的 height:100% 逐级生效，手机上也不会只剩一条窄带
+  root: { position: "fixed", inset: 0, overflow: "hidden", background: "#000", color: theme.text, fontFamily: theme.font, userSelect: "none" },
   idle: { cursor: "none" },
   stage: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" },
-  canvas: { maxWidth: "100%", maxHeight: "100%", display: "block", cursor: "inherit" },
+  canvas: { maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", display: "block", cursor: "inherit" },
   overlay: { position: "absolute", left: 0, right: 0, transition: "opacity 0.25s", pointerEvents: "none", "& > *": { pointerEvents: "auto" } },
   hidden: { opacity: 0, "& > *": { pointerEvents: "none" } },
   top: {
