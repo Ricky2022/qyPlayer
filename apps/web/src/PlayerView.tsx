@@ -3,6 +3,7 @@ import { createUseStyles } from "react-jss";
 import { useI18n, type MessageKey } from "./i18n";
 import type { PlaybackController, PlayerWarning, PlayState } from "./player/PlaybackController";
 import { PageStrip } from "./PageStrip";
+import { loadFilmstripSetting, saveFilmstripSetting } from "./player/filmstripSetting";
 import { MAX_LISTED_PAGES } from "./player/preflight";
 import { Slider } from "./ui/Slider";
 import { theme } from "./ui/theme";
@@ -10,6 +11,7 @@ import { useAutoHide } from "./ui/useAutoHide";
 import {
   BackIcon,
   ExitFullscreenIcon,
+  FilmstripIcon,
   FullscreenIcon,
   PauseIcon,
   PlayIcon,
@@ -88,7 +90,7 @@ interface PlayerViewProps {
   controller: PlaybackController;
   /** 缺省时不显示返回按钮（制作器里的内嵌预览） */
   onClose?: () => void;
-  /** 显示底部缩略图条；制作器内嵌预览不显示 */
+  /** 提供底部缩略图条（默认不显示，播放界面上有开关）；制作器内嵌预览不提供 */
   filmstrip?: boolean;
 }
 
@@ -104,6 +106,7 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
   const [muted, setMuted] = useState(controller.muted);
   const [warnings, setWarnings] = useState<PlayerWarning[]>([...controller.warnings]);
   const [fullscreen, setFullscreen] = useState(false);
+  const [stripOn, setStripOn] = useState(loadFilmstripSetting);
   const { visible, poke, hold } = useAutoHide(playState === "playing");
 
   useEffect(() => {
@@ -149,6 +152,11 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
   const toggleFullscreen = (): void => {
     if (document.fullscreenElement) void document.exitFullscreen();
     else void rootRef.current?.requestFullscreen();
+  };
+
+  const toggleStrip = (): void => {
+    saveFilmstripSetting(!stripOn);
+    setStripOn(!stripOn);
   };
 
   const toggleMute = (): void => {
@@ -209,6 +217,8 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
   const VolumeIcon = muted || volume === 0 ? VolumeMutedIcon : volume < 0.5 ? VolumeLowIcon : VolumeHighIcon;
   const duration = controller.duration;
   const pageIndex = controller.pageIndexAt(time);
+  const canStrip = filmstrip && controller.pageCount > 1;
+  const stripLabel = stripOn ? t("playerHidePages") : t("playerShowPages");
 
   return (
     <div ref={rootRef} className={`${classes.root} ${!visible ? classes.idle : ""}`} onPointerMove={poke} onPointerDown={poke}>
@@ -240,7 +250,7 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
         onPointerEnter={() => hold(true)}
         onPointerLeave={() => hold(false)}
       >
-        {filmstrip && controller.pageCount > 1 && <PageStrip controller={controller} current={pageIndex} />}
+        {canStrip && stripOn && <PageStrip controller={controller} current={pageIndex} />}
         <Slider
           label={t("playerSeek")}
           value={duration > 0 ? time / duration : 0}
@@ -274,6 +284,11 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
             {formatTime(time)} / {formatTime(duration)}
           </span>
           <div className={classes.spacer} />
+          {canStrip && (
+            <button className={classes.iconButton} aria-label={stripLabel} aria-pressed={stripOn} title={stripLabel} onClick={toggleStrip}>
+              <FilmstripIcon />
+            </button>
+          )}
           <button
             className={classes.iconButton}
             aria-label={fullscreen ? t("playerExitFullscreen") : t("playerFullscreen")}

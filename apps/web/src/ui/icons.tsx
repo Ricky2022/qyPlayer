@@ -73,6 +73,12 @@ export const SkipNextIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const FilmstripIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 19h10V4H7v15zm-5-2h4V6H2v11zM18 6v11h4V6h-4z" />
+  </Svg>
+);
+
 export const BackIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z" />

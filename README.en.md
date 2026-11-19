@@ -51,7 +51,7 @@ New in 0.4.0:
 - Filters: original, black and white, warm, cool and vintage, applied to the whole film.
 - Opening title: a title with an optional subtitle that fades in and out at the start. It is drawn as a transparent picture and stored in the package, so it looks the same on every device; it can be turned off.
 - Length: long, medium and short. Medium and short drop the media taken closest together first (media without a capture time are spread evenly). Media that are not used stay out of the package and are greyed out in the media panel.
-- Player: previous and next page buttons (PageUp, PageDown), and a thumbnail strip at the bottom; click one to jump to that page.
+- Player: previous and next page buttons (PageUp, PageDown); a thumbnail strip at the bottom that is off by default, turned on with the button at the right of the control bar; click a thumbnail to jump to that page. The choice is remembered.
 - Package format 0.3: only optional fields were added; packages of 0.1, 0.2 and 0.3 all open. The 0.3.0 preview cannot open 0.3 packages, so upgrade.
 - Security and build: the desktop apps now run with a Content Security Policy (CSP); the desktop creator writes a temporary file and renames it on save, so a failure never leaves half a file; Rust dependencies are pinned by `Cargo.lock` and CI builds with `--locked`; the About page and `NOTICE` now carry the licenses of libheif (LGPL-3.0), mediabunny (MPL-2.0) and other third-party parts.
 
