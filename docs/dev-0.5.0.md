@@ -136,7 +136,8 @@ Windows 回归（A6 结束时）：装 CI 出的安装包，双击 `.qyp` 能打
 | `tauri-plugin-fs` 能从 Rust 一侧读 `content://` | 没有用：`content://` 由 Kotlin 的 `contentResolver` 读，Rust 只读缓存里的普通文件 |
 | Android WebView 支持 Wake Lock 与网页全屏接口 | 全屏不支持时改为在壳里控制系统栏；Wake Lock 不支持时在 `MainActivity.kt` 里设窗口常亮标志 |
 | 微信等应用用 VIEW intent 交来文件 | 如果实测用的是分享（`ACTION_SEND` + `EXTRA_STREAM`），在清单里再加 SEND 的 intent-filter，并在 `MainActivity` 里读 `EXTRA_STREAM` |
-| 正式包开箱就能跑 | **截至提交时有真机装好一启动就退出的问题，原因待定**：对比过正式包与调试包的 dex、以及 `libqyplayer_lib.so` 里的 JNI 引用，Tauri 的类名（`TauriActivity`、`Rust`、`WryActivity`、`app.tauri.plugin.*`）和库名都没有被混淆或丢失，所以不是 R8 改名；`proguard-rules.pro` 里保留 Tauri 类名是预防措施。定位需要真机 `adb logcat`。`MainActivity` 里加了 `Log.i(TAG, ...)`，日志标签是 `qyPlayer` |
+| 插件间接带进来就能在手机上用 | **不成立，这是真机“一启动就退出”的原因**：`tauri-plugin-opener` 是在 Android 上要注册 Kotlin 类 `app.tauri.opener.OpenerPlugin` 的插件，而 `tauri android init/build` 只把**应用 crate 的直接依赖**里的插件 Android 代码加进 Gradle 工程。它原来只通过 `qy-desktop-common` 间接依赖，于是 APK 里没有这个类，插件初始化失败、`run()` panic，应用启动即退出。修法：在 `apps/desktop-player/src-tauri/Cargo.toml` 里直接依赖 `tauri-plugin-opener`（`Cargo.lock` 里补上这条依赖边）。以后再加带 Android 代码的插件，同样要在应用 crate 里直接依赖 |
+| R8 会破坏 Tauri 的 Android 类 | 先怀疑过，但对比新旧包的 `classes.dex` 与 `libqyplayer_lib.so` 里的 JNI 引用后排除：类名、方法名、库名都没被改。`proguard-rules.pro` 里保留 `app.tauri.**` 仍是预防措施 |
 
 ## 11. 风险
 
