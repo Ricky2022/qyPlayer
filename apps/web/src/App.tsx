@@ -140,7 +140,22 @@ export function App({ initialSource }: AppProps) {
       })
       .catch(() => undefined);
     return () => stop?.();
-  }, [openShellFile]);  const openSample = async (file: string): Promise<void> => {
+  }, [openShellFile]);
+
+  // 兜底：事件因为权限或时序没送到时，回到前台再问一次壳有没有新文件
+  useEffect(() => {
+    if (!isAndroidShell()) return;
+    const check = (): void => {
+      if (document.visibilityState !== "visible") return;
+      void readInitialFile().then((file) => {
+        if (file) openShellFile(file.name, file.source.size);
+      }, () => undefined);
+    };
+    document.addEventListener("visibilitychange", check);
+    return () => document.removeEventListener("visibilitychange", check);
+  }, [openShellFile]);
+
+  const openSample = async (file: string): Promise<void> => {
     setBusy(true);
     setError(null);
     setSampleError(null);

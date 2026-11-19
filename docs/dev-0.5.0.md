@@ -67,7 +67,8 @@ export interface ByteSource {
   - `MainActivity.kt` 在 `onCreate` 和 `onNewIntent` 里读 intent 的 `content:// 或 file://` 地址，用 `contentResolver.openInputStream` 把文件拷进缓存目录 `received/`，再把路径写进 `received/pending.txt`；`onCreate` 里先清掉上次留下的缓存。
   - 壳在 `setup` 里起一个后台线程，每 0.5 秒看一眼 `pending.txt`；读到新路径就换掉当前文件并发出事件 `qyp-file-received`（载荷是文件名和字节数）。网页收到事件后按 A3 的方式打开。
   - 冷启动的竞态：`initial_file` 命令自己也会取一次 `pending.txt`，所以网页即使比后台线程先问，也能拿到刚交来的文件；同一个路径只处理一次。
-- 网页侧用 `@tauri-apps/api/event` 的 `listen` 订阅这个事件；启动参数和事件指向同一个文件时只打开一次。
+- 网页侧用 `@tauri-apps/api/event` 的 `listen` 订阅这个事件；启动参数和事件指向同一个文件时只打开一次。事件因为权限或时序没送到时，回到前台会再问一次 `initial_file` 兜底。
+- 权限：Tauri 2 的插件命令要显式授权，`apps/desktop-player/src-tauri/capabilities/default.json` 给主窗口 `core:default`（事件监听、注册返回键监听、退出应用）。应用自己定义的命令（`initial_file`、`read_range`、`set_title`、`open_url`）不受它控制。
 
 ## 6. 手机上的播放行为
 

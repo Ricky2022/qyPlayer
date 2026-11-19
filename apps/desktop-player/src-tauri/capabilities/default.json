@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "播放器需要的核心权限：事件监听（收到文件的通知）、注册返回键监听、退出应用。应用自己定义的命令（initial_file、read_range、set_title、open_url）不受这里控制。",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
