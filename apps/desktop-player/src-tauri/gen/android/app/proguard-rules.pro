@@ -1,21 +1,8 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Tauri 的 Android 层由 Rust 通过 JNI 按“类名 + 方法名”调用，混淆或改名后名字对不上，
+# 应用会在启动时直接退出（R8 甚至会把 app.tauri.* 搬进应用的包名里）。这里全部保留原名。
+-keep class app.tauri.** { *; }
+-keep class io.github.ricky2022.qyplayer.** { *; }
+-keepclassmembers class * { native <methods>; }
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
-
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# 生成出来的 JNI 桥接代码和注解也要保留（Tauri 用注解收集插件与命令）
+-keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod

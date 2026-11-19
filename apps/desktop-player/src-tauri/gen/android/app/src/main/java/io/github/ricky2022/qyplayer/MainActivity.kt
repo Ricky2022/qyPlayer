@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.util.Log
 import androidx.activity.enableEdgeToEdge
 import java.io.File
 
@@ -15,18 +16,29 @@ import java.io.File
  */
 class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
+    Log.i(TAG, "onCreate")
     enableEdgeToEdge()
-    // 启动时先清掉上次留下的缓存文件，再处理系统这次交来的文件
-    clearReceived()
-    receive(intent)
+    // 先让壳把 WebView 和 Rust 端启动起来；后面的文件处理即使出错也不影响启动
     super.onCreate(savedInstanceState)
+    Log.i(TAG, "壳已启动")
+    try {
+      // 启动时先清掉上次留下的缓存文件，再处理系统这次交来的文件
+      clearReceived()
+      receive(intent)
+    } catch (e: Exception) {
+      Log.w(TAG, "处理系统交来的文件失败", e)
+    }
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
     // 应用已经打开时再点一个文件：同一个界面接住，换掉正在播放的影片
-    receive(intent)
+    try {
+      receive(intent)
+    } catch (e: Exception) {
+      Log.w(TAG, "处理系统交来的文件失败", e)
+    }
   }
 
   /** 缓存里放系统交来的文件；Rust 端盯着收到的 pending.txt */
@@ -49,8 +61,10 @@ class MainActivity : TauriActivity() {
         target.outputStream().use { output -> input.copyTo(output) }
       } ?: return
       File(dir, "pending.txt").writeText(target.absolutePath)
+      Log.i(TAG, "已收到文件：${target.name}（${target.length()} 字节）")
     } catch (e: Exception) {
       // 读不出来就当作没收到：界面留在首页，或继续播放原来那部影片
+      Log.w(TAG, "读取交来的文件失败", e)
     }
   }
 
@@ -69,5 +83,9 @@ class MainActivity : TauriActivity() {
     val base = (name ?: "").substringAfterLast('/').substringAfterLast('\\')
     val cleaned = base.replace(Regex("[^\\p{L}\\p{N}._-]"), "_")
     return if (cleaned.isEmpty() || cleaned == "." || cleaned == "..") "received.qyp" else cleaned.take(120)
+  }
+
+  private companion object {
+    const val TAG = "qyPlayer"
   }
 }
