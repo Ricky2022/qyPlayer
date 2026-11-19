@@ -22,9 +22,20 @@ pub mod commands {
     use super::is_allowed;
 
     /// 随界面语言更新窗口标题。
+    ///
+    /// 改标题是桌面专用的接口（Android 的 Activity 没有可改的标题栏），手机端直接成功返回，
+    /// 免得这层壳编译到手机目标时报找不到方法。
     #[tauri::command]
     pub fn set_title(window: tauri::WebviewWindow, title: String) -> Result<(), String> {
-        window.set_title(&title).map_err(|e| e.to_string())
+        #[cfg(not(target_os = "android"))]
+        {
+            window.set_title(&title).map_err(|e| e.to_string())
+        }
+        #[cfg(target_os = "android")]
+        {
+            let _ = (window, title);
+            Ok(())
+        }
     }
 
     /// 用系统默认浏览器打开链接。
