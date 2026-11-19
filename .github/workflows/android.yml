@@ -124,10 +124,11 @@ jobs:
         if: steps.init.outputs.generated == 'false'
         working-directory: apps/desktop-player
         run: |
-          if [ "${{ inputs.mode }}" = "debug" ]; then
-            pnpm exec tauri android build --apk --target aarch64 --debug --ci
-          else
+          # 推送触发的构建没有 mode，出调试包（可以接 chrome://inspect）；正式包只在 release.yml 调用时出
+          if [ "${{ inputs.mode }}" = "release" ]; then
             pnpm exec tauri android build --apk --target aarch64 --ci
+          else
+            pnpm exec tauri android build --apk --target aarch64 --debug --ci
           fi
 
       - name: Collect the APK
@@ -140,10 +141,10 @@ jobs:
             echo "没有找到构建出来的 APK" >&2
             exit 1
           fi
-          if [ "${{ inputs.mode }}" = "debug" ]; then
-            name="qyPlayer-${APP_VERSION}-android-arm64-debug.apk"
-          else
+          if [ "${{ inputs.mode }}" = "release" ]; then
             name="qyPlayer-${APP_VERSION}-android-arm64.apk"
+          else
+            name="qyPlayer-${APP_VERSION}-android-arm64-debug.apk"
           fi
           cp "$apk" "dist-android/$name"
           echo "apk=$name" >> "$GITHUB_OUTPUT"

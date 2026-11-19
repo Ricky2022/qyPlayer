@@ -27,3 +27,9 @@ apps/desktop-player/src-tauri/gen/android/app/build/
 apps/desktop-player/src-tauri/gen/android/local.properties
 apps/desktop-player/src-tauri/gen/android/keystore.properties
 apps/desktop-player/src-tauri/gen/android/app/*.p12
+# 由 tauri android build 在构建时生成
+apps/desktop-player/src-tauri/gen/android/tauri.build.gradle.kts
+apps/desktop-player/src-tauri/gen/android/tauri.settings.gradle
+apps/desktop-player/src-tauri/gen/android/app/tauri.properties
+apps/desktop-player/src-tauri/gen/android/app/src/main/jniLibs/
+apps/desktop-player/src-tauri/gen/android/app/src/main/assets/
