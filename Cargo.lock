@@ -2825,6 +2825,7 @@ dependencies = [
  "qy-desktop-common",
  "tauri",
  "tauri-build",
+ "tauri-plugin-opener",
 ]
 
 [[package]]

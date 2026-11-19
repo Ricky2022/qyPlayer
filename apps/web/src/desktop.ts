@@ -35,8 +35,16 @@ export async function setWindowTitle(title: string): Promise<void> {
 
 /** 在系统浏览器里打开外部链接。桌面程序里由 Rust 端只放行本项目的网址 */
 export async function openExternal(url: string): Promise<void> {
-  if (isDesktop()) await invoke("open_url", { url });
-  else window.open(url, "_blank", "noopener,noreferrer");
+  if (!isDesktop()) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  // 手机上打不开也不该让界面报错：关于页的链接点不开就算了
+  try {
+    await invoke("open_url", { url });
+  } catch {
+    // 忽略
+  }
 }
 
 /**
