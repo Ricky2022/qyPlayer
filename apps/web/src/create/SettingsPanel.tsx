@@ -4,7 +4,7 @@ import { useI18n } from "../i18n";
 import { theme } from "../ui/theme";
 import type { MusicEntry } from "./buildPackage";
 import { BUILTIN_TRACKS } from "./builtinMusicInfo";
-import type { AspectChoice, EditorDoc, MusicChoice, TransitionSetting } from "./editor/state";
+import type { AspectChoice, EditorDoc, LookSetting, MusicChoice, TransitionSetting } from "./editor/state";
 import type { TranscodeNote } from "./environment";
 import { formatDuration } from "./files";
 import { useTrackPreview } from "./useTrackPreview";
@@ -62,13 +62,14 @@ interface SettingsPanelProps {
   onAspect(aspect: AspectChoice): void;
   onTemplate(templateId: string): void;
   onTransition(transition: TransitionSetting): void;
+  onLook(look: LookSetting): void;
   onMusic(music: MusicChoice): void;
   onPickMusic(): void;
   onReroll(): void;
 }
 
 /** 设置面板（3A.9）：标题、比例、模板、转场、配乐、换一版 */
-export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, transcode, onTranscode, onTitle, onAspect, onTemplate, onTransition, onMusic, onPickMusic, onReroll }: SettingsPanelProps) {
+export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, transcode, onTranscode, onTitle, onAspect, onTemplate, onTransition, onLook, onMusic, onPickMusic, onReroll }: SettingsPanelProps) {
   const classes = useStyles();
   const { lang, t } = useI18n();
   const ratioName = resolvedAspect === "16:9" ? t("makerLandscape") : t("makerPortrait");
@@ -83,6 +84,13 @@ export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, cu
     { value: "slide", label: t("makerTransitionSlide") },
     { value: "zoom", label: t("makerTransitionZoom") },
     { value: "rotate", label: t("makerTransitionRotate") },
+  ];
+  const looks: { value: LookSetting; label: string }[] = [
+    { value: "original", label: t("makerLookOriginal") },
+    { value: "mono", label: t("makerLookMono") },
+    { value: "warm", label: t("makerLookWarm") },
+    { value: "cool", label: t("makerLookCool") },
+    { value: "vintage", label: t("makerLookVintage") },
   ];
   const preview = useTrackPreview();
   const pickedCustom = doc.music.kind === "custom" ? doc.music.entry : customMusic;
@@ -128,6 +136,17 @@ export function SettingsPanel({ doc, resolvedAspect, disabled, hasVideoSound, cu
           {transitions.map((option) => (
             <label key={option.value} className={classes.choice}>
               <input type="radio" name="qy-transition" checked={doc.transition === option.value} disabled={disabled} onChange={() => onTransition(option.value)} /> {option.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className={classes.section}>
+        <legend className={classes.legend}>{t("makerLook")}</legend>
+        <div className={classes.choices}>
+          {looks.map((option) => (
+            <label key={option.value} className={classes.choice}>
+              <input type="radio" name="qy-look" checked={doc.look === option.value} disabled={disabled} onChange={() => onLook(option.value)} /> {option.label}
             </label>
           ))}
         </div>

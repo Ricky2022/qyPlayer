@@ -2,6 +2,7 @@ import type { FrameState, Layer, Manifest } from "@qyplayer/core";
 import { stateAt } from "@qyplayer/core";
 import { BACKDROP_DIM, blurredBackdrop, type CreateCanvas } from "./backdrop";
 import { computeFit } from "./fit";
+import { applyLook, knownLook } from "./looks";
 
 /** 渲染器能画的素材：已解码的图片、当前帧的视频、或任意 Canvas */
 export interface DrawableAsset {
@@ -90,6 +91,9 @@ export function renderFrame(
     drawLayer(ctx, layer, asset, width, height, options);
     ctx.restore();
   }
+
+  const look = knownLook(manifest.look);
+  if (look) applyLook(ctx, look, width, height);
 
   ctx.restore();
   return state;

@@ -40,6 +40,7 @@ export function buildOptionsOf(doc: EditorDoc): BuildOptions {
     seed: doc.seed,
     title: doc.title,
     ...(doc.transition !== "auto" && { transition: doc.transition }),
+    ...(doc.look !== "original" && { look: doc.look }),
   };
 }
 

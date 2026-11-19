@@ -4,7 +4,8 @@
 //   /playground.html?t=5.1&w=960          在指定时间渲染一帧大图
 //   /playground.html?m=gen&seed=3&template=lively&aspect=9:16
 //                                         用生成器按一组横竖混合的素材生成清单，每页取一帧（0.4.0 的画面效果）
-import { generateManifest, validateManifest, type Layer, type Manifest, type MediaInput } from "@qyplayer/core";
+//   /playground.html?m=looks              同一张模拟照片套上 原片 和 四款滤镜 的对比
+import { generateManifest, KNOWN_LOOKS, validateManifest, type Layer, type Manifest, type MediaInput } from "@qyplayer/core";
 import { renderFrame, type DrawableAsset } from "@qyplayer/renderer";
 import example from "../../../spec/examples/example.manifest.json";
 
@@ -85,9 +86,59 @@ function generatedManifest(): Manifest {
   });
 }
 
+/** 滤镜对比用的单张照片清单 */
+function looksManifest(): Manifest {
+  return generateManifest({
+    media: [{ id: "s01", type: "image", src: "media/s01.jpg", mimeType: "image/jpeg", source: { mimeType: "image/jpeg", transcoded: false }, fileName: "s01.jpg", width: 1600, height: 900 }],
+    aspectRatio: "16:9",
+    templateId: "classic",
+    seed: 1,
+    id: "playground-looks",
+    createdAt: "2026-11-19T00:00:00+08:00",
+  });
+}
+
+/** 模拟一张照片：天空、草地、肤色、白衣、深色门窗、灰阶条和红绿蓝黄色块，便于判断滤镜对各类颜色的作用 */
+function scene(width: number, height: number): DrawableAsset {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const g = canvas.getContext("2d")!;
+  const sky = g.createLinearGradient(0, 0, 0, height * 0.6);
+  sky.addColorStop(0, "#4a90d9");
+  sky.addColorStop(1, "#cfe6f7");
+  g.fillStyle = sky;
+  g.fillRect(0, 0, width, height);
+  g.fillStyle = "#4f8f3a";
+  g.fillRect(0, height * 0.6, width, height * 0.4);
+  g.fillStyle = "#3b6b2b";
+  g.beginPath();
+  g.ellipse(width * 0.2, height * 0.6, width * 0.3, height * 0.12, 0, Math.PI, 0);
+  g.fill();
+  g.fillStyle = "#f2f2f2";
+  g.fillRect(width * 0.42, height * 0.45, width * 0.16, height * 0.38);
+  g.fillStyle = "#e0ac8c";
+  g.beginPath();
+  g.arc(width * 0.5, height * 0.36, height * 0.09, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#1c1c22";
+  g.fillRect(width * 0.7, height * 0.1, width * 0.12, height * 0.2);
+  const swatches = ["#d93a3a", "#3aa84a", "#3a5fd9", "#e8c92f"];
+  swatches.forEach((color, i) => {
+    g.fillStyle = color;
+    g.fillRect(width * (0.05 + i * 0.07), height * 0.7, width * 0.06, height * 0.1);
+  });
+  for (let i = 0; i < 8; i++) {
+    const v = Math.round((i / 7) * 255);
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.fillRect(width * (0.7 + i * 0.03), height * 0.75, width * 0.03, height * 0.12);
+  }
+  return { source: canvas, width, height, still: true };
+}
+
 function pickManifest(): Manifest {
   const mode = params.get("m");
-  const raw = mode === "portrait" ? portraitManifest() : mode === "gen" ? generatedManifest() : (example as unknown as Manifest);
+  const raw = mode === "looks" ? looksManifest() : mode === "portrait" ? portraitManifest() : mode === "gen" ? generatedManifest() : (example as unknown as Manifest);
   const result = validateManifest(raw);
   if (!result.ok) throw new Error("playground manifest invalid: " + JSON.stringify(result.errors));
   return result.manifest!;
@@ -133,7 +184,10 @@ function placeholder(id: string, w: number, h: number, label: string): DrawableA
 const manifest = pickManifest();
 const assetById = new Map(manifest.assets.map((a) => [a.id, a]));
 
+const sceneAsset = params.get("m") === "looks" ? scene(1600, 900) : undefined;
+
 function resolve(assetId: string, layer: Layer): DrawableAsset | undefined {
+  if (sceneAsset) return sceneAsset;
   const asset = assetById.get(assetId);
   if (!asset?.width || !asset.height) return undefined;
   const label = layer.kind === "video" ? `video @ ${layer.videoTime?.toFixed(2)}s` : `${asset.width}x${asset.height}`;
@@ -154,7 +208,19 @@ function addFrame(root: HTMLElement, t: number, displayWidth: number): void {
 }
 
 const root = document.getElementById("root")!;
-if (params.has("t")) {
+if (params.get("m") === "looks") {
+  for (const look of [undefined, ...KNOWN_LOOKS]) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 260;
+    canvas.height = 146;
+    renderFrame(canvas.getContext("2d")!, { ...manifest, ...(look && { look }) }, 1.5, resolve);
+    const figure = document.createElement("figure");
+    const caption = document.createElement("figcaption");
+    caption.textContent = look ?? "original";
+    figure.append(canvas, caption);
+    root.append(figure);
+  }
+} else if (params.has("t")) {
   addFrame(root, Number(params.get("t")), Number(params.get("w") ?? 960));
 } else {
   const portrait = params.get("m") === "portrait";

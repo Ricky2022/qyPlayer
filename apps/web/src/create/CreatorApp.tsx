@@ -39,6 +39,7 @@ import {
   removeMedia,
   resetEditor,
   setAspect,
+  setLook,
   setMusic,
   setSeed,
   setTemplate,
@@ -574,6 +575,7 @@ export function CreatorApp() {
       onAspect={(aspect) => apply((state) => setAspect(state, aspect))}
       onTemplate={(templateId) => apply((state) => setTemplate(state, templateId))}
       onTransition={(transition) => apply((state) => setTransition(state, transition))}
+      onLook={(look) => apply((state) => setLook(state, look))}
       onMusic={(music) => apply((state) => setMusic(state, music))}
       onPickMusic={() => musicInput.current?.click()}
       onReroll={() => apply((state) => setSeed(state, randomSeed()))}

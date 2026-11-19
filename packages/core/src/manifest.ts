@@ -120,6 +120,7 @@ export interface TitleCard {
 }
 
 export const KNOWN_LOOKS = ["mono", "warm", "cool", "vintage"] as const;
+export type Look = (typeof KNOWN_LOOKS)[number];
 
 export interface Manifest {
   formatVersion: string;

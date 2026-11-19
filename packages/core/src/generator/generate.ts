@@ -1,5 +1,5 @@
 import { CANVAS_SIZE, cellAspect, coverCropLoss, layoutFrames } from "../layout";
-import { CURRENT_FORMAT_VERSION, type Asset, type AssetSource, type AspectRatio, type Bgm, type Direction, type Enter, type Fit, type Item, type Manifest, type Motion, type Page, type TransitionIn } from "../manifest";
+import { CURRENT_FORMAT_VERSION, KNOWN_LOOKS, type Look, type Asset, type AssetSource, type AspectRatio, type Bgm, type Direction, type Enter, type Fit, type Item, type Manifest, type Motion, type Page, type TransitionIn } from "../manifest";
 import { createRng, type Rng } from "./rng";
 import { findTemplate, type Template } from "./templates";
 
@@ -73,6 +73,8 @@ export interface GenerateOptions {
   title?: string;
   /** 指定后全片（除首页）都用这一种转场；缺省跟随模板。会写进 generator.transition 以便重新打开时还原 */
   transition?: TransitionChoice;
+  /** 整片滤镜，写进清单 look；缺省是原片 */
+  look?: Look;
   /** 没给标题时，默认标题里“日期 + 词”的那个词，让界面按语言传入；缺省为“回忆” */
   defaultTitleWord?: string;
   /** 缺省时随机生成 */
@@ -82,7 +84,7 @@ export interface GenerateOptions {
   generator?: { name: string; version: string };
 }
 
-export type GenerateErrorCode = "no-media" | "too-many-media" | "unknown-template" | "unknown-transition" | "invalid-media" | "duplicate-media-id";
+export type GenerateErrorCode = "no-media" | "too-many-media" | "unknown-template" | "unknown-transition" | "unknown-look" | "invalid-media" | "duplicate-media-id";
 
 /** 用户可以指定的转场（缺省跟随模板）。首页固定淡入 */
 export const TRANSITION_CHOICES = ["fade", "slide", "zoom", "rotate"] as const;
@@ -248,6 +250,9 @@ function validateInput(options: GenerateOptions): Template {
   if (options.transition !== undefined && !TRANSITION_CHOICES.includes(options.transition)) {
     throw new GenerateError("unknown-transition", `unknown transition "${String(options.transition)}"`);
   }
+  if (options.look !== undefined && !KNOWN_LOOKS.includes(options.look)) {
+    throw new GenerateError("unknown-look", `unknown look "${String(options.look)}"`);
+  }
   const ids = new Set<string>();
   for (const m of options.media) {
     if (ids.has(m.id)) throw new GenerateError("duplicate-media-id", `duplicate media id ${m.id}`);
@@ -406,6 +411,7 @@ export function generateManifest(options: GenerateOptions): Manifest {
     assets,
     ...(bgm && { bgm }),
     pages,
+    ...(options.look !== undefined && { look: options.look }),
   };
 }
 

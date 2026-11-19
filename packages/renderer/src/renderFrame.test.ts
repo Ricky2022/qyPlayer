@@ -1,6 +1,7 @@
 import type { Manifest } from "@qyplayer/core";
 import { describe, expect, it } from "vitest";
 import { BACKDROP_DIM, blurredBackdrop, type ScratchCanvas } from "./backdrop";
+import { LOOK_PASSES, knownLook } from "./looks";
 import { PLACEHOLDER_BACKGROUND, PLACEHOLDER_TEXT_COLOR, placeholderFontSize, renderFrame } from "./renderFrame";
 
 describe("placeholderFontSize", () => {
@@ -28,6 +29,9 @@ function fakeContext(width: number, height: number) {
   const ctx = {
     canvas: { width, height },
     globalAlpha: 1,
+    set globalCompositeOperation(value: string) {
+      calls.push(`op:${value}`);
+    },
     font: "",
     textAlign: "",
     textBaseline: "",
@@ -213,5 +217,32 @@ describe("renderFrame 旋转", () => {
     const { ctx, calls } = fakeContext(1000, 500);
     renderFrame(ctx, rotated, 2, () => ({ source: {} as CanvasImageSource, width: 100, height: 50 }));
     expect(calls.some((c) => c.startsWith("rotate("))).toBe(false);
+  });
+});
+
+describe("renderFrame 滤镜", () => {
+  const resolve = () => ({ source: {} as CanvasImageSource, width: 100, height: 50 });
+
+  it("素材画完后按顺序叠色，每一遍盖满整个画布", () => {
+    const { ctx, calls } = fakeContext(1000, 500);
+    renderFrame(ctx, { ...manifest, look: "vintage" }, 2, resolve);
+    const lastDraw = calls.map((c) => c.startsWith("drawImage")).lastIndexOf(true);
+    const ops = calls.slice(lastDraw).filter((c) => c.startsWith("op:"));
+    expect(ops).toEqual(LOOK_PASSES.vintage.map((p) => `op:${p.op}`));
+    const fills = calls.slice(lastDraw).filter((c) => c.startsWith("fillRect:"));
+    expect(fills).toEqual(LOOK_PASSES.vintage.map((p) => `fillRect:${p.color}(0,0,1000,500)`));
+  });
+
+  it("缺省、不认识的滤镜按原片，不叠色", () => {
+    for (const look of [undefined, "future-look", "toString"]) {
+      const { ctx, calls } = fakeContext(1000, 500);
+      renderFrame(ctx, { ...manifest, ...(look && { look }) }, 2, resolve);
+      expect(calls.some((c) => c.startsWith("op:"))).toBe(false);
+    }
+  });
+
+  it("knownLook 只认四种", () => {
+    expect(["mono", "warm", "cool", "vintage"].map(knownLook)).toEqual(["mono", "warm", "cool", "vintage"]);
+    expect(knownLook("original")).toBeUndefined();
   });
 });

@@ -114,6 +114,15 @@ describe("还原：设置", () => {
     expect((await restorePackage(unknown, options)).content.transition).toBe("auto");
   });
 
+  it("滤镜取自清单 look；没有或不认识时是原片", async () => {
+    expect((await restorePackage(makeMemoryPackage({ look: "vintage" }), options)).content.look).toBe("vintage");
+    expect((await restorePackage(makeMemoryPackage(), options)).content.look).toBe("original");
+    const unknown = makeMemoryPackage({}, (m) => {
+      m.look = "future-look";
+    });
+    expect((await restorePackage(unknown, options)).content.look).toBe("original");
+  });
+
   it("模板未知用默认模板，种子不是整数则用备用种子，并提示排版可能不同", async () => {
     const opened = makeMemoryPackage({}, (m) => {
       m.generator = { name: "qyPlayer web", version: "0.0.0", templateId: "nope", seed: 1.5 };
@@ -190,7 +199,7 @@ describe("还原后重新生成", () => {
 describe("预览包", () => {
   it("readBlob 直接返回编辑状态里的素材，不存在的路径报缺失", async () => {
     const input: EditorMediaInput = { ...photo("a.jpg"), final: false };
-    const state = loadEditor(createEditor(1, "clean"), { media: [input], title: "", aspect: "auto", templateId: "clean", transition: "auto", music: { kind: "none" }, seed: 1 });
+    const state = loadEditor(createEditor(1, "clean"), { media: [input], title: "", aspect: "auto", templateId: "clean", transition: "auto", look: "original", music: { kind: "none" }, seed: 1 });
     const { opened, manifest } = createPreviewPackage(currentDoc(state));
     const src = manifest.assets[0]!.src;
     expect(await (await opened.readBlob(src)).text()).toBe("a.jpg");

@@ -646,6 +646,12 @@ describe("指定转场（generator.transition）", () => {
     expect(new Set(m.pages.map((p) => p.transitionIn!.type)).has("rotate")).toBe(false);
   });
 
+  it("滤镜写进清单 look；缺省不写；不认识的报 unknown-look", () => {
+    expect(gen({ media: landscapePhotos(2), look: "warm" }).look).toBe("warm");
+    expect(gen({ media: landscapePhotos(2) })).not.toHaveProperty("look");
+    expect(() => gen({ media: landscapePhotos(2), look: "sepia" as never })).toThrowError(expect.objectContaining({ code: "unknown-look" }));
+  });
+
   it("不认识的转场报 unknown-transition", () => {
     expect(() => gen({ media: landscapePhotos(2), transition: "cube" as never })).toThrowError(expect.objectContaining({ code: "unknown-transition" }));
   });
