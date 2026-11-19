@@ -1,3 +1,4 @@
+import { framedItem } from "../framing";
 import { CANVAS_SIZE, cellAspect, coverCropLoss, layoutFrames } from "../layout";
 import { CURRENT_FORMAT_VERSION, KNOWN_LOOKS, type Look, type Asset, type AssetSource, type AspectRatio, type Bgm, type Direction, type Enter, type Fit, type Item, type Manifest, type Motion, type Page, type TitleCard, type TransitionIn } from "../manifest";
 import { createRng, type Rng } from "./rng";
@@ -418,14 +419,20 @@ export function generateManifest(options: GenerateOptions): Manifest {
         ? { type: "slide", direction: choice.direction ?? "left", duration: trSeconds }
         : { type: choice?.type ?? "fade", duration: trSeconds };
 
-    const frames = layoutFrames(draft.media.length as PageSize, aspectRatio);
+    const frames = layoutFrames(draft.media.length as PageSize, aspectRatio, draft.plan.layout);
     const items: Item[] = draft.plan.items.map((it, itemIndex) => {
       const media = draft.media[itemIndex]!;
       const frame = frames[itemIndex]!;
       const item: Item = { assetId: media.id, frame, fit: it.fit ?? autoFit(media, frame, aspectRatio) };
       if (draft.clipStart !== undefined) item.clipStart = draft.clipStart;
-      if (!draft.multi && !draft.isVideo) {
-        const motion = motionFor(it.kenBurns, item.fit!);
+      const kenBurns = draft.multi ? undefined : it.kenBurns;
+      if (it.crop && media.type === "image" && it.fit !== "contain") {
+        // 取景：按完整显示再放大平移，Ken Burns 叠加在取景之上（docs/dev-0.4.1.md 4）
+        const framed = framedItem(media, cellAspect(frame, aspectRatio), it.crop, kenBurns);
+        item.fit = framed.fit;
+        item.motion = framed.motion;
+      } else if (!draft.multi && !draft.isVideo) {
+        const motion = motionFor(kenBurns, item.fit!);
         if (motion) item.motion = motion;
       }
       if (draft.multi) {

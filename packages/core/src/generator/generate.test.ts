@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Manifest } from "../manifest";
+import { layoutFrames } from "../layout";
 import { validateManifest } from "../validate";
 import {
   GENERATOR_LIMITS,
@@ -769,5 +770,22 @@ describe("手动编排：planPages 与 options.pages（docs/dev-0.4.1.md 2）", 
     expect(run([{ items: [{ assetId: "m000" }, { assetId: "m001" }, { assetId: "m002" }, { assetId: "x" }] }])).toThrowError(code); // 未知素材
     expect(run([{ items: [{ assetId: "m000" }], duration: 0 }, { items: [{ assetId: "m001" }, { assetId: "m002" }] }, { items: [{ assetId: "v1" }] }])).toThrowError(code);
     expect(run([{ items: [{ assetId: "m000", crop: { zoom: 5, x: 0.5, y: 0.5 } }] }, { items: [{ assetId: "m001" }, { assetId: "m002" }] }, { items: [{ assetId: "v1" }] }])).toThrowError(code);
+  });
+
+  it("页的 layout 决定格子，照片的 crop 变成 contain 加 motion", () => {
+    const media = landscapePhotos(3);
+    const m = gen({
+      media,
+      pages: [
+        { layout: "big-right", items: [{ assetId: "m000" }, { assetId: "m001" }, { assetId: "m002" }] },
+      ],
+    });
+    expect(m.pages[0]!.items.map((it) => it.frame)).toEqual(layoutFrames(3, "16:9", "big-right"));
+    const single = gen({ media: landscapePhotos(1), pages: [{ items: [{ assetId: "m000", crop: { zoom: 2, x: 0, y: 0 }, kenBurns: "in" }] }] });
+    const item = single.pages[0]!.items[0]!;
+    expect(item.fit).toBe("contain");
+    expect(item.motion!.to.scale).toBeGreaterThan(item.motion!.from.scale);
+    expect(item.motion!.from.scale).toBeGreaterThanOrEqual(2);
+    expectValid(single);
   });
 });
