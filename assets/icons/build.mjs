@@ -65,26 +65,90 @@ writeFileSync(join(here, "qyplayer.svg"), appIcon(PLAYER, PLAY_GLYPH));
 writeFileSync(join(here, "qymaker.svg"), appIcon(MAKER, PENCIL_GLYPH));
 writeFileSync(join(here, "qypfile.svg"), fileIcon(PLAYER));
 
+/**
+ * Android 的自适应图标：前景层只放图形，背景透明。
+ *
+ * Android 的自适应图标把前景和背景都按 108dp 画，但只显示中央 66%（四周会被各种形状的遮罩裁掉），
+ * 所以图形要收在中央、四周留出裁切余量；直接把整张圆角图标当背景层用会被放大裁切。
+ */
+function androidForeground({ to, cloud }, glyph) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="cloud" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="${cloud}"/></linearGradient>
+  </defs>
+  <g transform="translate(512 512) scale(0.82) translate(-567 -570)">
+    <g transform="translate(470 468) scale(1.06) translate(-535 -490)" fill="url(#cloud)">${CLOUD}</g>
+    <g transform="translate(470 478) scale(0.8) translate(-400 -500)" fill="none" stroke="${to}" stroke-width="96" stroke-linecap="round" stroke-linejoin="round">${Q}</g>
+    <circle cx="768" cy="762" r="136" fill="${to}" stroke="#fff" stroke-width="22"/>
+    <g transform="translate(768 762)">${glyph}</g>
+  </g>
+</svg>
+`;
+}
+
+/** 自适应图标的背景层：和应用图标同一个渐变，写成 Android 的 drawable */
+const ANDROID_BACKGROUND = `<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+  <gradient android:type="linear" android:angle="315" android:startColor="${PLAYER.from}" android:endColor="${PLAYER.to}" />
+</shape>
+`;
+
+/** 自适应图标本身的定义：前景用 mipmap 里的图形，背景用上面的渐变 */
+const ANDROID_ADAPTIVE_ICON = `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+  <background android:drawable="@drawable/ic_launcher_background"/>
+</adaptive-icon>
+`;
+
+writeFileSync(join(here, "qyplayer.svg"), appIcon(PLAYER, PLAY_GLYPH));
+writeFileSync(join(here, "qymaker.svg"), appIcon(MAKER, PENCIL_GLYPH));
+writeFileSync(join(here, "qypfile.svg"), fileIcon(PLAYER));
+writeFileSync(join(here, "qyplayer-android-fg.svg"), androidForeground(PLAYER, PLAY_GLYPH));
+
+/** 跑一次 tauri icon，返回生成目录（调用方负责删除） */
+function renderIcons(svgName) {
+  const tmp = mkdtempSync(join(tmpdir(), "qyp-icon-"));
+  execFileSync("pnpm", ["--filter", "@qyplayer/desktop-player", "exec", "--", "tauri", "icon", join(here, svgName), "-o", tmp], { stdio: "ignore", shell: true });
+  return tmp;
+}
+
 /** 用 tauri icon 把 SVG 转成多尺寸图标，再按“生成的文件名 → 目标路径”复制需要的几个 */
 function convert(svgName, copies) {
-  const tmp = mkdtempSync(join(tmpdir(), "qyp-icon-"));
+  const tmp = renderIcons(svgName);
   try {
-    execFileSync("pnpm", ["--filter", "@qyplayer/desktop-player", "exec", "--", "tauri", "icon", join(here, svgName), "-o", tmp], { stdio: "ignore", shell: true });
     for (const [generated, target] of Object.entries(copies)) cpSync(join(tmp, generated), join(repo, target));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
 }
 
-/** Android 的启动图标：tauri icon 会生成整个 android/ 目录（各密度的 mipmap 和前景图），原样覆盖进资源目录 */
-function convertAndroid(svgName) {
-  const tmp = mkdtempSync(join(tmpdir(), "qyp-icon-"));
+/**
+ * Android 的启动图标。
+ * 1. 先用整张应用图标生成一套：各密度的旧版 ic_launcher.png 留给 API 26 以下回退。
+ * 2. 前景层换成只有图形的透明版，否则自适应图标会把整张圆角图标放大裁掉。
+ * 3. 背景层和自适应图标的定义由我们写，保证背景是应用的渐变而不是默认的白色。
+ */
+function convertAndroid() {
+  const full = renderIcons("qyplayer.svg");
   try {
-    execFileSync("pnpm", ["--filter", "@qyplayer/desktop-player", "exec", "--", "tauri", "icon", join(here, svgName), "-o", tmp], { stdio: "ignore", shell: true });
-    cpSync(join(tmp, "android"), androidRes, { recursive: true });
+    cpSync(join(full, "android"), androidRes, { recursive: true });
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    rmSync(full, { recursive: true, force: true });
   }
+
+  const foreground = renderIcons("qyplayer-android-fg.svg");
+  try {
+    for (const density of ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"]) {
+      const dir = join(foreground, "android", `mipmap-${density}`);
+      cpSync(join(dir, "ic_launcher_foreground.png"), join(androidRes, `mipmap-${density}`, "ic_launcher_foreground.png"));
+    }
+  } finally {
+    rmSync(foreground, { recursive: true, force: true });
+  }
+
+  writeFileSync(join(androidRes, "drawable", "ic_launcher_background.xml"), ANDROID_BACKGROUND);
+  writeFileSync(join(androidRes, "mipmap-anydpi-v26", "ic_launcher.xml"), ANDROID_ADAPTIVE_ICON);
 }
 
 /** gen/android 由 CI 上的 tauri android init 生成后提交进仓库；还没生成时跳过 Android 图标 */
@@ -98,7 +162,7 @@ convert("qymaker.svg", appCopies("desktop-maker"));
 convert("qypfile.svg", { "icon.ico": "apps/desktop-player/src-tauri/icons/qyp-file.ico" });
 
 if (existsSync(androidRes)) {
-  convertAndroid("qyplayer.svg");
+  convertAndroid();
 } else {
   console.log("跳过 Android 图标：apps/desktop-player/src-tauri/gen/android 还不存在（由 CI 上的 tauri android init 生成）");
 }

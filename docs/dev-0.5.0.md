@@ -136,6 +136,7 @@ Windows 回归（A6 结束时）：装 CI 出的安装包，双击 `.qyp` 能打
 | `tauri-plugin-fs` 能从 Rust 一侧读 `content://` | 没有用：`content://` 由 Kotlin 的 `contentResolver` 读，Rust 只读缓存里的普通文件 |
 | Android WebView 支持 Wake Lock 与网页全屏接口 | 全屏不支持时改为在壳里控制系统栏；Wake Lock 不支持时在 `MainActivity.kt` 里设窗口常亮标志 |
 | 微信等应用用 VIEW intent 交来文件 | 如果实测用的是分享（`ACTION_SEND` + `EXTRA_STREAM`），在清单里再加 SEND 的 intent-filter，并在 `MainActivity` 里读 `EXTRA_STREAM` |
+| 正式包开箱就能跑 | **截至提交时有真机装好一启动就退出的问题，原因待定**：对比过正式包与调试包的 dex、以及 `libqyplayer_lib.so` 里的 JNI 引用，Tauri 的类名（`TauriActivity`、`Rust`、`WryActivity`、`app.tauri.plugin.*`）和库名都没有被混淆或丢失，所以不是 R8 改名；`proguard-rules.pro` 里保留 Tauri 类名是预防措施。定位需要真机 `adb logcat`。`MainActivity` 里加了 `Log.i(TAG, ...)`，日志标签是 `qyPlayer` |
 
 ## 11. 风险
 
