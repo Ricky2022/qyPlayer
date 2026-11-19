@@ -1,0 +1,153 @@
+name: Release Android app
+
+# 构建 Android 播放器（APK），只打 arm64、Android 10 及以上。
+# - 手动触发：默认出调试包（可用桌面 Chrome 的 chrome://inspect 连上调试），也可以选正式包。
+# - 被 release.yml 调用：出正式包，文件名通过输出 apk 交回给发布任务。
+# - 第一次运行可以勾 init_only：只运行 tauri android init，把生成的工程作为附件上传，提交进仓库后再正常构建。
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "debug 出调试包，release 出正式包"
+        type: choice
+        options: ["debug", "release"]
+        default: debug
+      init_only:
+        description: "只生成 Android 工程并上传附件，不构建 APK（第一次运行时用）"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      mode:
+        description: "debug 或 release"
+        type: string
+        default: release
+    outputs:
+      apk:
+        description: "APK 的文件名"
+        value: ${{ jobs.build.outputs.apk }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      apk: ${{ steps.collect.outputs.apk }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+
+      # 运行器自带 Android SDK 和 NDK，只是没有把 NDK 的位置告诉 Tauri
+      - name: Point the build at the Android SDK and NDK
+        run: |
+          ndk=$(ls -d "$ANDROID_HOME/ndk/"* | sort -V | tail -n 1)
+          echo "NDK_HOME=$ndk" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "使用 NDK：$ndk"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Read the app version
+        run: |
+          version=$(node -p "require('./apps/desktop-player/src-tauri/tauri.conf.json').version")
+          echo "APP_VERSION=$version" >> "$GITHUB_ENV"
+
+      - run: pnpm --filter @qyplayer/web build:player
+
+      - name: Generate the Android project if it is missing
+        id: init
+        working-directory: apps/desktop-player
+        run: |
+          if [ -d src-tauri/gen/android ]; then
+            echo "generated=false" >> "$GITHUB_OUTPUT"
+          else
+            pnpm exec tauri android init --ci
+            echo "generated=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 工程由 CI 生成后作为附件下载回来、提交进仓库；之后的改动都在仓库里做
+      - uses: actions/upload-artifact@v7
+        if: steps.init.outputs.generated == 'true'
+        with:
+          name: android-project
+          path: apps/desktop-player/src-tauri/gen/android
+          retention-days: 7
+
+      - name: Stop after generating the project
+        if: inputs.init_only == true
+        run: echo "Android 工程已生成，附件名 android-project；提交进仓库后再运行一次出 APK"
+
+      - name: Write the signing key
+        if: inputs.init_only != true
+        working-directory: apps/desktop-player/src-tauri/gen/android
+        env:
+          KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEY_BASE64" ] || [ -z "$KEY_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "缺少签名密钥：ANDROID_KEY_BASE64 / ANDROID_KEY_PASSWORD / ANDROID_KEY_ALIAS" >&2
+            exit 1
+          fi
+          echo "$KEY_BASE64" | base64 -d > app/qyplayer-upload.p12
+          printf 'storeFile=qyplayer-upload.p12\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$KEY_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+
+      - name: Build the APK
+        if: inputs.init_only != true
+        working-directory: apps/desktop-player
+        run: |
+          if [ "${{ inputs.mode }}" = "debug" ]; then
+            pnpm exec tauri android build --apk --target aarch64 --debug --ci
+          else
+            pnpm exec tauri android build --apk --target aarch64 --ci
+          fi
+
+      - name: Collect the APK
+        id: collect
+        if: inputs.init_only != true
+        run: |
+          mkdir -p dist-android
+          apk=$(find apps/desktop-player/src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -printf '%T@ %p\n' | sort -n | tail -n 1 | cut -d' ' -f2-)
+          if [ -z "$apk" ]; then
+            echo "没有找到构建出来的 APK" >&2
+            exit 1
+          fi
+          if [ "${{ inputs.mode }}" = "debug" ]; then
+            name="qyPlayer-${APP_VERSION}-android-arm64-debug.apk"
+          else
+            name="qyPlayer-${APP_VERSION}-android-arm64.apk"
+          fi
+          cp "$apk" "dist-android/$name"
+          echo "apk=$name" >> "$GITHUB_OUTPUT"
+          ls -l dist-android
+          # 确认签名用的就是我们那把密钥（真机装不上时先看这里）
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          if [ -x "$apksigner" ]; then "$apksigner" verify --print-certs "dist-android/$name"; fi
+
+      - uses: actions/upload-artifact@v7
+        if: inputs.init_only != true
+        with:
+          name: android-apk
+          path: dist-android/*

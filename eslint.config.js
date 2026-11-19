@@ -16,7 +16,7 @@ export default defineConfig(
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ["scripts/**/*.ts", "*.config.{js,ts}", "apps/web/vite.config.ts", "**/*.test.ts"],
+    files: ["scripts/**/*.ts", "assets/**/*.mjs", "*.config.{js,ts}", "apps/web/vite.config.ts", "**/*.test.ts"],
     languageOptions: { globals: globals.node },
   },
 

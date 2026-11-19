@@ -5,8 +5,9 @@
 //    qymaker.svg   制作器，琥珀色，铅笔角标
 //    qypfile.svg   .qyp 文件图标：一张纸，上面是蓝色的云和 Q
 // 2. 用 `tauri icon` 把它们转成两个程序的 PNG/ICO，以及 .qyp 文件关联用的 qyp-file.ico（也要提交）。
+// 3. Android 的启动图标写进 gen/android 的资源目录（那个目录提交进仓库以后才会做这一步）。
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -68,12 +69,26 @@ writeFileSync(join(here, "qypfile.svg"), fileIcon(PLAYER));
 function convert(svgName, copies) {
   const tmp = mkdtempSync(join(tmpdir(), "qyp-icon-"));
   try {
-    execFileSync("pnpm", ["--filter", "@qyplayer/desktop-player", "exec", "tauri", "icon", join(here, svgName), "-o", tmp], { stdio: "ignore", shell: true });
+    execFileSync("pnpm", ["--filter", "@qyplayer/desktop-player", "exec", "--", "tauri", "icon", join(here, svgName), "-o", tmp], { stdio: "ignore", shell: true });
     for (const [generated, target] of Object.entries(copies)) cpSync(join(tmp, generated), join(repo, target));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+/** Android 的启动图标：tauri icon 会生成整个 android/ 目录（各密度的 mipmap 和前景图），原样覆盖进资源目录 */
+function convertAndroid(svgName) {
+  const tmp = mkdtempSync(join(tmpdir(), "qyp-icon-"));
+  try {
+    execFileSync("pnpm", ["--filter", "@qyplayer/desktop-player", "exec", "--", "tauri", "icon", join(here, svgName), "-o", tmp], { stdio: "ignore", shell: true });
+    cpSync(join(tmp, "android"), androidRes, { recursive: true });
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/** gen/android 由 CI 上的 tauri android init 生成后提交进仓库；还没生成时跳过 Android 图标 */
+const androidRes = join(repo, "apps/desktop-player/src-tauri/gen/android/app/src/main/res");
 
 const appFiles = ["32x32.png", "128x128.png", "128x128@2x.png", "icon.ico", "icon.png"];
 const appCopies = (app) => Object.fromEntries(appFiles.map((file) => [file, `apps/${app}/src-tauri/icons/${file}`]));
@@ -81,3 +96,9 @@ const appCopies = (app) => Object.fromEntries(appFiles.map((file) => [file, `app
 convert("qyplayer.svg", appCopies("desktop-player"));
 convert("qymaker.svg", appCopies("desktop-maker"));
 convert("qypfile.svg", { "icon.ico": "apps/desktop-player/src-tauri/icons/qyp-file.ico" });
+
+if (existsSync(androidRes)) {
+  convertAndroid("qyplayer.svg");
+} else {
+  console.log("跳过 Android 图标：apps/desktop-player/src-tauri/gen/android 还不存在（由 CI 上的 tauri android init 生成）");
+}
