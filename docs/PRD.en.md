@@ -694,10 +694,12 @@ The reference device models are to be decided. See [14.2](#142-open-questions).
 | Platform | Targets |
 | --- | --- |
 | Web | Current mainstream versions of Chrome, Edge, Safari and Firefox |
-| Desktop | Windows, macOS |
-| Mobile | iOS, Android |
+| Desktop | Windows 10 / 11 (64-bit); macOS to be decided |
+| Mobile | Android 10 and later (`minSdkVersion` 29), arm64 (`arm64-v8a`); iOS to be decided |
 
 The minimum supported version of each platform depends on actual support for capabilities such as WebCodecs, and is decided after measurement in Phase 0. Features should be the same on all three platforms. A feature that truly cannot be implemented on a platform (for example, a video that cannot be transcoded) must be stated clearly in the interface and must not fail silently.
+
+Since 0.5.0 the Android build is 64-bit only (`arm64-v8a`), so 32-bit devices cannot install it; this is a deliberate trade-off. Android packages are downloaded straight from GitHub Releases and are not distributed through app stores, so the first install has to allow installing apps from unknown sources.
 
 ### 10.3 Privacy
 
@@ -795,7 +797,7 @@ One React + TypeScript code base. It runs directly on the web and is wrapped in 
 | Capacitor | 8.6.2 | 2026-11-12 | MIT | A web shell aimed at mobile |
 | Electron | 45.3.4 | 2026-11-17 | MIT | Bundles Chromium; consistent behavior across desktop platforms; large installers; no mobile support |
 
-Tauri is proposed for desktop. For mobile the choice is between Tauri and Capacitor, decided in Phase 0 by a prototype that compares three capabilities: photo library access, file association and system sharing.
+Tauri is used for desktop (since 0.1.0). For mobile, Tauri was compared with Capacitor and also chosen: it shares the same Rust shell code and the same web build output as the desktop build, and file association (`VIEW` intents) plus on-demand file reading can both be implemented in the shell. 0.5.0 delivers the Android player this way (O-03).
 
 Using the system WebView means the browser engine differs by platform (Chromium-based on Windows, WebKit-based on Apple platforms), so WebCodecs and video decoding capabilities will differ. This is a key item to validate in Phase 0.
 
@@ -853,6 +855,8 @@ The core layer depends on neither the interface framework nor a specific platfor
 | --- | --- | --- |
 | Phase 0: Technical spike | Timeline renderer prototype; shell validation on three platforms; feasibility of HEIC decoding and video transcoding on each platform; draft of package format specification v0.1 | The example package plays on all three platforms; every open question in [14.2](#142-open-questions) that depends on the spike has an answer |
 | Phase 1: First release | Player on three platforms, rule-based generation, light adjustment, `.qyp` export and opening, built-in CC0 tracks, Chinese and English interface | All P0 acceptance criteria in section 13 pass |
+| Phase 1 addendum: Android player (0.5.0) | Tauri 2 Android player (Android 10 and later, arm64, APK distributed directly), opening `.qyp` files from other apps, reading package content on demand | Passes the acceptance checklist in [`dev-0.5.0.md`](./dev-0.5.0.md) on a real device |
+| Phase 1 addendum: Android maker, Linux desktop | Bring the maker to Android; support Linux on desktop | Comes after the Android player and is defined separately |
 | Phase 2: More effects | Pan and zoom on single photos, text titles, filters, beat sync | The package format is upgraded and remains compatible with older packages |
 | Phase 3: Video export | Export the film to MP4 on the device | The exported MP4 matches the picture in the player |
 | Phase 4: Editing and intelligence | Per-page editor, advanced effects, on-device selection | Defined separately |
@@ -982,11 +986,11 @@ These values are starting points given so that the document can be discussed. Th
 | --- | --- | --- |
 | O-01 | Whether the first release includes the film library (6.8). This document includes it as P1 for now. | PRD review |
 | O-02 | The meaning of "Keep originals". This document reads it as "originals are additionally stored in the package and playback versions are generated as usual". The other reading is "store originals only, without transcoding", in which case a package may not play on some devices. | PRD review |
-| O-03 | Whether the mobile shell is Tauri or Capacitor. | Phase 0 covered Web only (no Rust toolchain, no iOS build on this machine). **Undecided**; decide before Phase 1 (see the [Phase 0 report](./phase0-report.md), in Chinese) |
-| O-04 | Minimum supported version of each platform. | Not evaluated in Phase 0; needs a real device list. **Undecided** |
+| O-03 | Whether the mobile shell is Tauri or Capacitor. | **Decided**: Tauri, the same as desktop; 0.5.0 delivers the Android player (see [`dev-0.5.0.md`](./dev-0.5.0.md), in Chinese) |
+| O-04 | Minimum supported version of each platform. | **Partly decided**: Windows 10 / 11 (64-bit); Android 10 and later (`minSdkVersion` 29), arm64 only. macOS and iOS remain undecided and depend on whether those platforms are built later |
 | O-05 | Reference device models for performance acceptance. | Phase 0 measured one desktop machine only (report section 2). Mobile reference devices **undecided** |
-| O-06 | Whether desktop supports Linux. | PRD review |
-| O-07 | Distribution channels: app stores, direct installer downloads, or both. App stores involve developer account fees and review. | Before Phase 1 starts |
+| O-06 | Whether desktop supports Linux. | **Decided**: yes, but after Android; not in this release |
+| O-07 | Distribution channels: app stores, direct installer downloads, or both. App stores involve developer account fees and review. | **Decided**: direct downloads from GitHub Releases (Windows installers and the Android APK in one release); no app stores |
 | O-08 | Whether the name qyPlayer clashes with an existing project or trademark. This has not been searched. | Before the public repository is created |
 | O-09 | The license of the package format specification document (Apache-2.0 like the code, or a documentation license). | Before the public repository is created |
 | O-10 | The actual sources and list of built-in tracks. | Phase 1 |
