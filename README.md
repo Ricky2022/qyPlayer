@@ -126,7 +126,7 @@ pnpm fixtures:build    # 构建示例包，并复制到 apps/web/public/samples�
 
 线上站点的示例文件放在 GitHub Release `samples-v1` 的附件里，部署时下载到站点中。
 
-Windows 桌面版由 GitHub Actions 构建：推送 `v*` 标签（如 `v0.2.1`，要与两个 `tauri.conf.json` 里的版本号一致）会自动发布 Release；发版时要同时更新两份 README 和 `.github/release-notes.md` 里的版本号和下载链接，`pnpm test` 会检查；也可以在 Actions 页手动运行 “Release Windows apps” 只构建、不发布。本地构建需要 Rust 工具链和 MSVC 生成工具：先 `pnpm --filter @qyplayer/web build:player`，再 `pnpm --filter @qyplayer/desktop-player bundle`；制作器用 `build:maker` 和 `@qyplayer/desktop-maker`（播放器的构建不含内置配乐，制作器的含）。
+Windows 桌面版由 GitHub Actions 构建：推送 `v*` 标签（如 `v0.2.1`，要与两个 `tauri.conf.json` 里的版本号一致）会自动发布 Release；发版时要同时更新两份 README 和 `.github/release-notes.md` 里的版本号和下载链接，`pnpm test` 会检查；也可以在 Actions 页手动运行 “Release Windows apps” 只构建、不发布。本地构建需要 Rust 工具链和 MSVC 生成工具：先 `pnpm --filter @qyplayer/web build:player`，再 `pnpm --filter @qyplayer/desktop-player bundle`；制作器用 `build:maker` 和 `@qyplayer/desktop-maker`（播放器的构建不含内置配乐，制作器的含）。Rust 依赖由根目录的 `Cargo.lock` 固定，测试和构建都加了 `--locked`；改了 Rust 依赖后，手动运行一次 “Release Windows apps”，下载附件 `cargo-lock` 替换它再提交。
 
 ## 示例素材与许可
 

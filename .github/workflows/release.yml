@@ -43,7 +43,7 @@ jobs:
       - run: pnpm test
 
       - name: Test desktop shared crate
-        run: cargo test -p qy-desktop-common
+        run: cargo test --locked -p qy-desktop-common
 
       - name: Check tag matches app version
         if: github.ref_type == 'tag'
