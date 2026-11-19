@@ -36,20 +36,23 @@ const WARNING_MESSAGES: Record<PlayerWarning["code"], MessageKey> = {
 };
 
 const useStyles = createUseStyles({
-  // 固定成整个视口：不依赖祖先元素的 height:100% 逐级生效，手机上也不会只剩一条窄带
-  root: { position: "fixed", inset: 0, overflow: "hidden", background: "#000", color: theme.text, fontFamily: theme.font, userSelect: "none" },
+  // 手机 WebView 可能很老（实测这台是 Chrome 83）：不能用 inset 简写（Chrome 87+）和 CSS aspect-ratio（88+），
+  // 所以四个边写全，画布尺寸由组件自己算（见下面的 fit）。
+  root: { position: "fixed", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", background: "#000", color: theme.text, fontFamily: theme.font, userSelect: "none" },
   idle: { cursor: "none" },
-  stage: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" },
-  canvas: { maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", display: "block", cursor: "inherit" },
+  stage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, display: "flex", alignItems: "center", justifyContent: "center" },
+  canvas: { display: "block", maxWidth: "100%", maxHeight: "100%", cursor: "inherit" },
   overlay: { position: "absolute", left: 0, right: 0, transition: "opacity 0.25s", pointerEvents: "none", "& > *": { pointerEvents: "auto" } },
   hidden: { opacity: 0, "& > *": { pointerEvents: "none" } },
   top: {
-    top: 0, display: "flex", alignItems: "center", gap: 8, padding: "10px 16px 36px",
+    top: 0, display: "flex", alignItems: "center", padding: "10px 16px 36px",
+    // 老 WebView 不支持 flex 的 gap，用相邻外边距代替
+    "& > * + *": { marginLeft: 8 },
     background: "linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent)",
   },
   title: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 16, fontWeight: 600, textShadow: "0 1px 3px rgba(0, 0, 0, 0.6)" },
   bottom: { bottom: 0, padding: "40px 16px 10px", background: "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)" },
-  row: { display: "flex", alignItems: "center", gap: 4, marginTop: 2 },
+  row: { display: "flex", alignItems: "center", marginTop: 2, "& > * + *": { marginLeft: 4 } },
   spacer: { flex: 1 },
   time: { margin: "0 8px", fontSize: 13, fontVariantNumeric: "tabular-nums", color: "#d6deea", whiteSpace: "nowrap" },
   iconButton: {
@@ -116,10 +119,23 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
     if (!stage) return;
     const canvas = controller.canvas;
     canvas.className = classes.canvas;
-    canvas.style.aspectRatio = `${canvas.width} / ${canvas.height}`;
     const onClick = (): void => controller.toggle();
     canvas.addEventListener("click", onClick);
     stage.prepend(canvas);
+
+    // 画布尺寸自己算：老 WebView（这台手机是 Chrome 83）没有 CSS aspect-ratio，也没法靠 max-* 等比缩放
+    const fit = (): void => {
+      const box = stage.getBoundingClientRect();
+      if (box.width <= 0 || box.height <= 0) return;
+      const scale = Math.min(box.width / canvas.width, box.height / canvas.height);
+      canvas.style.width = `${Math.max(1, Math.floor(canvas.width * scale))}px`;
+      canvas.style.height = `${Math.max(1, Math.floor(canvas.height * scale))}px`;
+    };
+    fit();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(fit) : null;
+    observer?.observe(stage);
+    window.addEventListener("resize", fit);
+    window.addEventListener("orientationchange", fit);
 
     let lastShown = -1;
     controller.setEvents({
@@ -135,6 +151,9 @@ export function PlayerView({ controller, onClose, filmstrip = false }: PlayerVie
     });
     setTime(controller.currentTime);
     return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("orientationchange", fit);
       controller.setEvents(null);
       canvas.removeEventListener("click", onClick);
       canvas.remove();

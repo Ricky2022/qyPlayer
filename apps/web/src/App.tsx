@@ -24,9 +24,9 @@ const useStyles = createUseStyles({
     position: "relative", height: "100%", display: "flex", flexDirection: "column", boxSizing: "border-box", overflow: "auto",
     background: "radial-gradient(900px 520px at 50% 28%, rgba(56, 189, 248, 0.13), transparent 70%), " + theme.bg,
   },
-  topbar: { display: "flex", justifyContent: "flex-end", gap: 8, padding: "14px 18px" },
+  topbar: { display: "flex", justifyContent: "flex-end", padding: "14px 18px", "& > * + *": { marginLeft: 8 } },
   tool: {
-    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", border: `1px solid ${theme.border}`, borderRadius: 999,
+    display: "inline-flex", alignItems: "center", padding: "6px 12px", "& > * + *": { marginLeft: 6 }, border: `1px solid ${theme.border}`, borderRadius: 999,
     background: "transparent", color: theme.text, font: "inherit", fontSize: 14, cursor: "pointer",
     "&:hover": { background: theme.surfaceHover },
     "&:focus-visible": { outline: `2px solid ${theme.accent}` },
@@ -43,7 +43,7 @@ const useStyles = createUseStyles({
   },
   hint: { margin: "18px 0 0", color: theme.muted, fontSize: 14 },
   privacy: { margin: "4px 0 0", color: theme.muted, fontSize: 13 },
-  samples: { marginTop: 28, color: theme.muted, fontSize: 14, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 8 },
+  samples: { marginTop: 28, color: theme.muted, fontSize: 14, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", "& > * + *": { marginLeft: 8 } },
   sample: {
     padding: "5px 14px", border: `1px solid ${theme.border}`, borderRadius: 999, background: theme.surface, color: theme.text, font: "inherit", fontSize: 14, cursor: "pointer",
     "&:hover:not(:disabled)": { background: theme.surfaceHover },
@@ -54,7 +54,7 @@ const useStyles = createUseStyles({
     maxWidth: 520, marginTop: 20, padding: "10px 14px", borderRadius: 8, background: theme.dangerBg, color: theme.danger, textAlign: "left", whiteSpace: "pre-line", fontSize: 14,
   },
   dropOverlay: {
-    position: "absolute", inset: 12, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "center", border: `2px dashed ${theme.accent}`, borderRadius: 18,
+    position: "absolute", top: 12, right: 12, bottom: 12, left: 12, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "center", border: `2px dashed ${theme.accent}`, borderRadius: 18,
     background: "rgba(7, 11, 18, 0.82)", color: theme.accent, fontSize: 22, fontWeight: 600, pointerEvents: "none",
   },
 });
