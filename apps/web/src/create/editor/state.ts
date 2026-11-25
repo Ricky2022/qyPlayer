@@ -2,6 +2,7 @@
 // 全部是纯函数：每个操作接收旧状态、返回新状态；没有变化时返回同一个对象（不产生历史）。规则见 docs/dev-0.3.0.md 3A.11。
 import { GENERATOR_LIMITS, selectByLength, type AspectRatio, type LengthChoice, type Look, type TransitionChoice } from "@qyplayer/core";
 import type { MediaEntry, MusicEntry } from "../buildPackage";
+import { DEFAULT_BUILTIN_TRACK_ID } from "../builtinMusicInfo";
 import { moveItem, sortByCapturedAt } from "../files";
 import { applyTransitionToAll, autoPages, followPageOrder, reconcilePages, type EditorPage, type PageContext, type PlanningInput } from "./pages";
 
@@ -83,7 +84,20 @@ export interface EditorState {
 }
 
 function initialDoc(seed: number, templateId: string): EditorDoc {
-  return { media: [], title: "", subtitle: "", showTitle: true, aspect: "auto", templateId, transition: "auto", look: "original", length: "long", music: { kind: "none" }, seed, pages: null };
+  return {
+    media: [],
+    title: "",
+    subtitle: "",
+    showTitle: true,
+    aspect: "auto",
+    templateId,
+    transition: "auto",
+    look: "original",
+    length: "long",
+    music: { kind: "builtin", trackId: DEFAULT_BUILTIN_TRACK_ID },
+    seed,
+    pages: null,
+  };
 }
 
 /** 创建空的编辑状态；种子由调用方随机给出，保持函数纯净 */

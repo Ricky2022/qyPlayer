@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_BUILTIN_TRACK_ID } from "../builtinMusicInfo";
 import {
   MAX_HISTORY,
   addMedia,
@@ -105,11 +106,11 @@ describe("编辑状态：设置", () => {
     const base = state;
     state = setAspect(state, "9:16");
     state = setTemplate(state, "lively");
-    state = setMusic(state, { kind: "builtin", trackId: "goldberg-var1" });
+    state = setMusic(state, { kind: "builtin", trackId: "goldberg-aria" });
     state = setSeed(state, 99);
     state = setTransition(state, "rotate");
     state = setLook(state, "warm");
-    expect(currentDoc(state)).toMatchObject({ aspect: "9:16", templateId: "lively", transition: "rotate", look: "warm", music: { kind: "builtin", trackId: "goldberg-var1" }, seed: 99 });
+    expect(currentDoc(state)).toMatchObject({ aspect: "9:16", templateId: "lively", transition: "rotate", look: "warm", music: { kind: "builtin", trackId: "goldberg-aria" }, seed: 99 });
     expect(setTransition(state, "rotate")).toBe(state);
     expect(setLook(state, "warm")).toBe(state);
     state = setShowTitle(state, false);
@@ -120,7 +121,7 @@ describe("编辑状态：设置", () => {
     expect(setLength(state, "short")).toBe(state);
     expect(setAspect(state, "9:16")).toBe(state);
     expect(setTemplate(state, "lively")).toBe(state);
-    expect(setMusic(state, { kind: "builtin", trackId: "goldberg-var1" })).toBe(state);
+    expect(setMusic(state, { kind: "builtin", trackId: "goldberg-aria" })).toBe(state);
     expect(setSeed(state, 99)).toBe(state);
     for (let i = 0; i < 8; i++) state = undo(state);
     expect(state.present.id).toBe(base.present.id);
@@ -243,6 +244,10 @@ describe("编辑状态：撤销和重做", () => {
     expect(referencedBlobs(state).has(blob)).toBe(true);
     for (let i = 1; i <= MAX_HISTORY; i++) state = setSeed(state, 2000 + i);
     expect(referencedBlobs(state).has(blob)).toBe(false);
+  });
+
+  it("新建时默认选中第一首内置配乐，预览和保存都会播放它", () => {
+    expect(currentDoc(fresh()).music).toEqual({ kind: "builtin", trackId: DEFAULT_BUILTIN_TRACK_ID });
   });
 
   it("转码开关不在历史里（状态里没有它）", () => {

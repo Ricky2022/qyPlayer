@@ -71,6 +71,9 @@ export const BUILTIN_TRACKS: readonly BuiltinTrack[] = [
   },
 ];
 
+/** 新建影片时默认选中的内置曲目：列表里的第一首。预览和保存都会把它写进包并播放。 */
+export const DEFAULT_BUILTIN_TRACK_ID = BUILTIN_TRACKS[0]!.id;
+
 export function findBuiltinTrack(id: string): BuiltinTrack | undefined {
   return BUILTIN_TRACKS.find((track) => track.id === id);
 }
