@@ -63,6 +63,8 @@ The web version, the Windows desktop apps (player and creator) and the Android p
 - Black screen fix: phones use the system WebView, which can be old (Chrome 83 ships on some Android 11 devices). The player used newer CSS (`inset` shorthand, `aspect-ratio`, flex `gap`) that the old WebView does not support, so the playback area collapsed to 0×0 and the screen stayed black. It now uses compatible CSS and sizes the canvas in script from the available space.
 - A landscape film in portrait no longer sits in a sea of black: the current frame is blurred and dimmed to fill the background, and the film itself is shown as a rounded card with a soft shadow, close to the Apple Memories player.
 - Fullscreen, rotation, keeping the screen on while playing and the step-by-step back button are unchanged.
+- Playback no longer draws the opening title (the name in the lower left of the first page). The creator preview and an exported MP4 still include it when "Show title" is on.
+- Video sound on Android: a clip often starts long after play is pressed, and the system used to allow sound only in that same tap, so the picture moved and the sound did not. Playback can now start later, and the video element stays in the page so its audio is heard.
 
 ### 0.5.0
 

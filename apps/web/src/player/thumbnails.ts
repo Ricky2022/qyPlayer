@@ -54,13 +54,18 @@ export function thumbnailSize(canvas: { width: number; height: number }): { widt
   return { width: Math.max(1, Math.round(canvas.width * scale)), height: Math.max(1, Math.round(canvas.height * scale)) };
 }
 
+/** 去掉片头标题层。没有标题层时原样返回，避免无谓复制。 */
+export function omitTitleLayers<T extends { role?: string }>(layers: T[]): T[] {
+  return layers.some((layer) => layer.role === "title") ? layers.filter((layer) => layer.role !== "title") : layers;
+}
+
 /** 用与播放相同的渲染函数，把第 index 页画成一张小画布。不含片头标题，素材不可用的格子留空 */
 export async function renderPageThumbnail(source: ThumbnailSource, index: number): Promise<HTMLCanvasElement> {
   const { manifest } = source;
   const page = manifest.pages[index];
   if (!page) throw new Error(`no page ${index}`);
   const state = stateAt(manifest, page.start + page.duration * THUMBNAIL_AT);
-  const layers = state.layers.filter((layer) => layer.role !== "title");
+  const layers = omitTitleLayers(state.layers);
 
   const drawables = new Map<string, DrawableAsset | PlaceholderAsset>();
   const cleanups: (() => void)[] = [];

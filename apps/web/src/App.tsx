@@ -89,7 +89,7 @@ export function App({ initialSource }: AppProps) {
     setError(null);
     setSampleError(null);
     try {
-      const next = await PlaybackController.create(await openPackage(source), { onChecking: () => setChecking(true) });
+      const next = await PlaybackController.create(await openPackage(source), { onChecking: () => setChecking(true), showTitleCard: false });
       // 开发时在控制台和自动化测试里检查内部状态用
       if (import.meta.env.DEV) (window as unknown as { __qy?: PlaybackController }).__qy = next;
       setController((previous) => {

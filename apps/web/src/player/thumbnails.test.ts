@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PageThumbnails, THUMBNAIL_LONG_SIDE, thumbnailSize } from "./thumbnails";
+import { PageThumbnails, THUMBNAIL_LONG_SIDE, omitTitleLayers, thumbnailSize } from "./thumbnails";
 
 /** 可以手动完成的任务，用来观察排队 */
 function deferred<T>() {
@@ -63,6 +63,16 @@ describe("PageThumbnails", () => {
     thumbs.dispose();
     await expect(thumbs.get(0)).rejects.toThrow();
     expect(calls).toBe(0);
+  });
+});
+
+describe("omitTitleLayers", () => {
+  it("去掉片头标题层，没有标题层时不复制数组", () => {
+    const photo = { role: undefined, id: "m1" };
+    const title = { role: "title" as const, id: "t1" };
+    const onlyPhoto = [photo];
+    expect(omitTitleLayers(onlyPhoto)).toBe(onlyPhoto);
+    expect(omitTitleLayers([photo, title])).toEqual([photo]);
   });
 });
 

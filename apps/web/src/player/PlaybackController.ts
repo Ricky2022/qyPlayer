@@ -3,7 +3,7 @@ import type { OpenedPackage } from "@qyplayer/qyp";
 import { renderFrame, type DrawableAsset, type PlaceholderAsset } from "@qyplayer/renderer";
 import { browserPreflightEnv, pagesUsing, playbackMimeType, preflightAssets, type PreflightEnv } from "./preflight";
 import { nextPageTime, pageIndexAt, pageSeekTime, previousPageTime } from "./pages";
-import { PageThumbnails, renderPageThumbnail } from "./thumbnails";
+import { PageThumbnails, omitTitleLayers, renderPageThumbnail } from "./thumbnails";
 import { Clock, distance } from "./timing";
 
 export type PlayState = "paused" | "playing" | "ended";
@@ -23,6 +23,10 @@ export interface CreateOptions {
   onChecking?: () => void;
   /** 测试用：替换浏览器能力查询 */
   preflightEnv?: PreflightEnv;
+  /**
+   * 是否叠片头标题。播放器不画（片名在第一页左下角）；制作器预览缺省仍画，跟“显示标题”开关一致。
+   */
+  showTitleCard?: boolean;
 }
 
 export interface PlayerEvents {
@@ -83,6 +87,10 @@ export class PlaybackController {
   private playState: PlayState = "paused";
   private volumeValue = 1;
   private mutedValue = false;
+  /** 播放器不叠片头标题；制作器预览仍叠 */
+  private readonly showTitleCard: boolean;
+  /** 视频原声的 play() 被策略拦住时只提示一次，避免每帧都弹 */
+  private videoPlayBlocked = false;
   private rafId = 0;
   private lastSweepPage = -1;
   private disposed = false;
@@ -94,15 +102,17 @@ export class PlaybackController {
   private constructor(
     private readonly pkg: OpenedPackage,
     unsupported: ReadonlySet<string>,
+    options: CreateOptions,
   ) {
     this.manifest = pkg.manifest;
     this.unsupported = unsupported;
+    this.showTitleCard = options.showTitleCard !== false;
     this.clock = new Clock(this.manifest.duration);
     for (const asset of this.manifest.assets) this.assets.set(asset.id, asset);
     this.pageAssets = this.manifest.pages.map((p) => [...new Set(p.items.map((i) => i.assetId))]);
     // 片头标题图片不属于任何一页：在它显示期间碰到的页里，都要保留这张图
     const card = this.manifest.titleCard;
-    if (card) {
+    if (card && this.showTitleCard) {
       this.manifest.pages.forEach((page, index) => {
         if (page.start < card.start + card.duration && page.start + page.duration > card.start) this.pageAssets[index]!.push(card.assetId);
       });
@@ -122,6 +132,7 @@ export class PlaybackController {
       this.audio.preload = "auto";
       this.audio.loop = bgm.loop === true;
       this.audio.addEventListener("error", () => this.warn({ code: "bgm-decode" }));
+      attachForPlayback(this.audio);
     }
     document.addEventListener("visibilitychange", this.onVisibility);
 
@@ -140,7 +151,7 @@ export class PlaybackController {
       void pkg.close();
       throw error;
     }
-    const controller = new PlaybackController(pkg, unsupported);
+    const controller = new PlaybackController(pkg, unsupported, options);
     await controller.prepare();
     return controller;
   }
@@ -202,6 +213,8 @@ export class PlaybackController {
     if (this.playState === "ended") this.clock.seek(0, now);
     this.clock.play(now);
     this.setState("playing");
+    // 在点击处理函数里直接开播。只等下一帧再 play() 时，安卓 WebView 已经不认这次点击，声音会被拒绝。
+    this.draw(this.clock.time(now));
     this.rafId = requestAnimationFrame(this.tick);
   }
 
@@ -280,6 +293,7 @@ export class PlaybackController {
       this.audio.load();
     }
     if (this.audioUrl) URL.revokeObjectURL(this.audioUrl);
+    this.audio?.remove();
     void this.pkg.close();
     this.events = null;
   }
@@ -394,6 +408,8 @@ export class PlaybackController {
     const element = document.createElement("video");
     element.playsInline = true;
     element.preload = "auto";
+    // 不挂进文档时，安卓 WebView 能把帧画到画布上，但不出声
+    attachForPlayback(element);
     element.src = url;
     element.addEventListener("error", () => {
       this.unloadVideo(asset.id);
@@ -411,6 +427,7 @@ export class PlaybackController {
     if (!slot) return;
     this.videos.delete(id);
     slot.element.pause();
+    slot.element.remove();
     slot.element.removeAttribute("src");
     slot.element.load();
     URL.revokeObjectURL(slot.url);
@@ -466,6 +483,7 @@ export class PlaybackController {
 
   private draw(t: number): void {
     const state = stateAt(this.manifest, t);
+    if (!this.showTitleCard) state.layers = omitTitleLayers(state.layers);
     this.sweep(state.pageIndex);
     renderFrame(this.ctx, this.manifest, state, this.resolve, { placeholderText: this.placeholderText });
     this.syncMedia(state, t);
@@ -526,17 +544,45 @@ export class PlaybackController {
       }
       // 转场中上一页的视频停在末帧；暂停时一律停在目标帧
       const shouldRun = playing && layer.pageId === currentPageId;
-      // 没有背景音乐时，视频原声每页首尾各淡 0.1 秒，避免相邻视频页切换时爆音（A-05）
-      if (shouldRun && currentPage && this.manifest.bgm === undefined) {
-        element.volume = this.volumeValue * videoAudioGain(t - currentPage.start, currentPage.duration);
-      }
       const tolerance = shouldRun ? VIDEO_DRIFT_PLAYING : VIDEO_DRIFT_PAUSED;
       if (Math.abs(element.currentTime - layer.videoTime) > tolerance) element.currentTime = layer.videoTime;
       if (shouldRun) {
-        if (element.paused) void element.play().catch(() => undefined);
+        // 没有背景音乐时，视频原声每页首尾各淡 0.1 秒，避免相邻视频页切换时爆音（A-05）。
+        // 音量先写成 0 再 play() 时，部分安卓 WebView 会把音轨丢掉，之后再调高也没有声音。
+        if (currentPage && this.manifest.bgm === undefined) {
+          const gain = videoAudioGain(t - currentPage.start, currentPage.duration);
+          element.volume = this.volumeValue * (element.paused ? Math.max(gain, 0.05) : gain);
+        }
+        if (element.paused) {
+          void element.play().catch((error: unknown) => {
+            if (this.videoPlayBlocked || !(error instanceof DOMException) || error.name !== "NotAllowedError") return;
+            this.videoPlayBlocked = true;
+            this.warn({ code: "autoplay-blocked" });
+          });
+        }
       } else if (!element.paused) {
         element.pause();
       }
     }
   }
+}
+
+/**
+ * 把媒体元素挂进文档。安卓 WebView 对不在页面上的 video 只给画面、不给声音。
+ * 不用 display:none：那样声音会一起停掉。1 像素、几乎透明，画面上看不见。
+ */
+function attachForPlayback(element: HTMLMediaElement): void {
+  const body = document.body;
+  if (!body || element.isConnected) return;
+  element.setAttribute("playsinline", "true");
+  element.setAttribute("webkit-playsinline", "true");
+  const style = element.style;
+  style.position = "fixed";
+  style.width = "1px";
+  style.height = "1px";
+  style.left = "0";
+  style.top = "0";
+  style.opacity = "0.02";
+  style.pointerEvents = "none";
+  body.appendChild(element);
 }

@@ -6,7 +6,9 @@
 
 - 黑屏修复：手机用的是系统自带 WebView，版本可能很旧（实测 Android 11 自带 Chrome 83）。播放界面原来用了 `inset` 简写、`aspect-ratio`、flex `gap` 等新 CSS，旧 WebView 不支持，播放区域被算成 0×0；现在改成兼容写法，画布尺寸由脚本按可用空间计算。
 - 竖屏看横屏影片不再四周死黑：把当前画面模糊、压暗后铺满背景，影片本身做成带圆角和投影的卡片，观感接近 Apple 影集的播放界面。
-- 已知问题：部分机型的帧率可能达不到 30 帧；只提供 arm64 包，32 位设备装不上；手机版只有播放器，制作影片请用 Windows 版或网页版。
+- 播放时不再叠片头标题（第一页左下角的片名）。制作时勾选「显示标题」的话，预览和导出的 MP4 仍会带上。
+- 安卓上的视频原声：视频常常在按下播放很久以后才出现，系统原来只允许在那一次点击里出声，所以画面在走、没有声音。现在可以稍后出声。
+- 已知问题：部分机型的帧率可能达不到 30 帧；只提供 arm64 包，32 位设备装不上；手机版只有播放器，制作影片请用 Windows 版或网页版。没有背景音乐时，照片页本来就没有声音，只有带音轨的视频页才出声。
 
 ### English
 
@@ -14,7 +16,9 @@
 
 - Black screen fix: phones use the system WebView, which can be old (Chrome 83 ships on some Android 11 devices). The player used newer CSS (`inset` shorthand, `aspect-ratio`, flex `gap`) that the old WebView does not support, so the playback area collapsed to 0×0. It now uses compatible CSS and sizes the canvas in script.
 - A landscape film in portrait no longer sits in a sea of black: the current frame is blurred and dimmed to fill the background, and the film itself is a rounded card with a soft shadow, close to the Apple Memories player.
-- Known issues: some phones may not reach 30 fps; only an arm64 build is provided, so 32-bit devices cannot install it; the mobile build is player-only, so use the Windows or web version to create films.
+- Playback no longer draws the opening title in the lower left of the first page. The creator preview and an exported MP4 still include it when "Show title" is on.
+- Video sound on Android: a clip often starts long after play is pressed, and the system used to allow sound only during that tap, so the picture moved without audio. Sound can now start later.
+- Known issues: some phones may not reach 30 fps; only an arm64 build is provided, so 32-bit devices cannot install it; the mobile build is player-only, so use the Windows or web version to create films. With no background music, photo pages are silent; only a video page with an audio track makes sound.
 
 ## 下载 / Downloads
 
