@@ -4,39 +4,46 @@
  * 不依赖任何浏览器接口，便于单元测试。
  */
 export class Clock {
-  private base = 0;
-  private startedAt: number | null = null;
+    private base = 0;
+    private startedAt: number | null = null;
 
-  constructor(private readonly duration: number) {}
+    constructor(private readonly duration: number) {}
 
-  get playing(): boolean {
-    return this.startedAt !== null;
-  }
+    get playing(): boolean {
+        return this.startedAt !== null;
+    }
 
-  /** 影片时间（秒），不超过总时长 */
-  time(now: number): number {
-    if (this.startedAt === null) return this.base;
-    return Math.min(this.duration, this.base + (now - this.startedAt) / 1000);
-  }
+    /** 影片时间（秒），不超过总时长 */
+    time(now: number): number {
+        if (this.startedAt === null) {
+            return this.base;
+        }
+        return Math.min(this.duration, this.base + ((now - this.startedAt) / 1000));
+    }
 
-  play(now: number): void {
-    if (this.startedAt === null) this.startedAt = now;
-  }
+    play(now: number): void {
+        if (this.startedAt === null) {
+            this.startedAt = now;
+        }
+    }
 
-  pause(now: number): void {
-    this.base = this.time(now);
-    this.startedAt = null;
-  }
+    pause(now: number): void {
+        this.base = this.time(now);
+        this.startedAt = null;
+    }
 
-  /** 跳到指定时间；正在播放则继续播放。同时用于音频校准 */
-  seek(t: number, now: number): void {
-    this.base = Math.min(this.duration, Math.max(0, t));
-    if (this.startedAt !== null) this.startedAt = now;
-  }
+    /** 跳到指定时间；正在播放则继续播放。同时用于音频校准 */
+    seek(t: number, now: number): void {
+        this.base = Math.min(this.duration, Math.max(0, t));
+        if (this.startedAt !== null) {
+            this.startedAt = now;
+        }
+    }
 }
 
 /** 两个位置的距离。period 给出时按循环处理：循环音频刚好绕回开头时不应被误判为严重漂移。 */
-export function distance(a: number, b: number, period?: number): number {
-  const d = Math.abs(a - b);
-  return period && period > 0 ? Math.min(d, period - d) : d;
-}
+export const distance = function distance(a: number, b: number, period?: number): number {
+    const d = Math.abs(a - b);
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    return period && period > 0 ? Math.min(d, period - d) : d;
+};

@@ -2,30 +2,31 @@
 export const FILMSTRIP_STORAGE_KEY = "qy.filmstrip";
 
 export interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
+    getItem: (key: string) => string | null;
+    setItem: (key: string, value: string) => void;
 }
 
-function safeLocalStorage(): StorageLike | undefined {
-  try {
-    return typeof localStorage === "undefined" ? undefined : localStorage;
-  } catch {
-    return undefined;
-  }
-}
+const safeLocalStorage = function safeLocalStorage(): StorageLike | undefined {
+    try {
+        return typeof localStorage === "undefined" ? undefined : localStorage;
+    } catch {
+        return undefined;
+    }
+};
 
-export function loadFilmstripSetting(storage: StorageLike | undefined = safeLocalStorage()): boolean {
-  try {
-    return storage?.getItem(FILMSTRIP_STORAGE_KEY) === "on";
-  } catch {
-    return false;
-  }
-}
+export const loadFilmstripSetting = function loadFilmstripSetting(storage: StorageLike | undefined = safeLocalStorage()): boolean {
+    try {
+        return storage?.getItem(FILMSTRIP_STORAGE_KEY) === "on";
+    } catch {
+        return false;
+    }
+};
 
-export function saveFilmstripSetting(on: boolean, storage: StorageLike | undefined = safeLocalStorage()): void {
-  try {
-    storage?.setItem(FILMSTRIP_STORAGE_KEY, on ? "on" : "off");
-  } catch {
+// eslint-disable-next-line @stylistic/max-len
+export const saveFilmstripSetting = function saveFilmstripSetting(on: boolean, storage: StorageLike | undefined = safeLocalStorage()): void {
+    try {
+        storage?.setItem(FILMSTRIP_STORAGE_KEY, on ? "on" : "off");
+    } catch {
     // 隐私模式等拿不到存储时，这次选择只在当前页面有效
-  }
-}
+    }
+};
