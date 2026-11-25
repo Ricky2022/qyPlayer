@@ -1,6 +1,21 @@
 import {describe, expect, it} from "vitest";
 import example from "../../../spec/examples/example.manifest.json";
-import {VIDEO_AUDIO_FADE_SECONDS, bgmGainAt, bgmPositionAt, easeInOut, stateAt, videoAudioGain, type Manifest} from "./index";
+import {
+    BGM_DUCK_FADE_SECONDS,
+    VIDEO_AUDIO_FADE_SECONDS,
+    bgmDuckAt,
+    bgmDuckKnots,
+    bgmFadeGainAt,
+    bgmGainAt,
+    bgmPositionAt,
+    easeInOut,
+    isSoundPage,
+    stateAt,
+    videoAudioGain,
+    videoSoundGain,
+    videoVolumeOf,
+    type Manifest,
+} from "./index";
 
 const generated = example as unknown as Manifest;
 
@@ -485,5 +500,118 @@ describe("videoAudioGain (A-05)", () => {
         expect(videoAudioGain(0, duration)).toBe(0);
         expect(videoAudioGain(duration - 0.001, duration)).toBeLessThan(0.02);
         expect(videoAudioGain(0.001, duration)).toBeLessThan(0.02);
+    });
+});
+
+/** 照片、有声视频、照片三段，配乐压到 duck。docs/dev-0.6.0.md 1.2 的例子 */
+const mixingFilm = function mixingFilm(change?: (m: Manifest) => void): Manifest {
+    const page = (id: string, start: number, duration: number, assetId: string): Manifest["pages"][number] => ({id, start, duration, items: [{assetId, frame: {x: 0, y: 0, w: 1, h: 1}}]});
+    const manifest: Manifest = {
+        formatVersion: "0.4",
+        id: "mix",
+        title: "mix",
+        createdAt: "2026-11-25T00:00:00Z",
+        canvas: {aspectRatio: "16:9", width: 1920, height: 1080, background: "#000000"},
+        duration: 14,
+        assets: [
+            {id: "p1", type: "image", src: "media/p1.jpg", width: 100, height: 100},
+            {id: "v1", type: "video", src: "media/v1.mp4", width: 100, height: 100, duration: 6, hasAudio: true},
+            {id: "p2", type: "image", src: "media/p2.jpg", width: 100, height: 100},
+            {id: "a1", type: "audio", src: "audio/bgm.m4a", duration: 60},
+        ],
+        bgm: {assetId: "a1", volume: 1, fadeIn: 0, fadeOut: 0, duck: 0.3},
+        videoVolume: 1,
+        pages: [page("a", 0, 4, "p1"), page("b", 4, 6, "v1"), page("c", 10, 4, "p2")],
+    };
+    change?.(manifest);
+    return manifest;
+};
+
+describe("mixing (format 0.4)", () => {
+    it("videoVolume 缺省：有配乐为 0，没有配乐为 1", () => {
+        expect(videoVolumeOf(base)).toBe(0);
+        expect(videoVolumeOf(variant((m) => delete m.bgm))).toBe(1);
+        expect(videoVolumeOf(mixingFilm((m) => {
+            m.videoVolume = 0.5;
+        }))).toBe(0.5);
+    });
+
+    it("没有 duck 的旧清单，配乐增益与只算淡入淡出相同", () => {
+        for (let t = 0; t <= base.duration; t += 0.25) {
+            expect(bgmDuckAt(base, t)).toBe(1);
+            expect(bgmGainAt(base, t)).toBeCloseTo(bgmFadeGainAt(base, t), 9);
+        }
+    });
+
+    it("有声视频页开始前 0.5 秒压低，页内保持，结束后 0.5 秒恢复（A-09）", () => {
+        const m = mixingFilm();
+        expect(bgmDuckAt(m, 3.5)).toBeCloseTo(1, 9);
+        expect(bgmDuckAt(m, 3.75)).toBeCloseTo(0.65, 9);
+        expect(bgmDuckAt(m, 4)).toBeCloseTo(0.3, 9);
+        expect(bgmDuckAt(m, 7)).toBeCloseTo(0.3, 9);
+        expect(bgmDuckAt(m, 10)).toBeCloseTo(0.3, 9);
+        expect(bgmDuckAt(m, 10.5)).toBeCloseTo(1, 9);
+        expect(bgmGainAt(m, 7)).toBeCloseTo(0.3, 9);
+    });
+
+    it("相邻两个有声视频页之间不回升；第一页就是视频时从 0 秒起就是 duck", () => {
+        const joined = mixingFilm((m) => {
+            m.pages = [
+                {id: "a", start: 0, duration: 4, items: [{assetId: "v1", frame: {x: 0, y: 0, w: 1, h: 1}}]},
+                {id: "b", start: 4, duration: 4, items: [{assetId: "v1", frame: {x: 0, y: 0, w: 1, h: 1}}]},
+                {id: "c", start: 8, duration: 6, items: [{assetId: "p1", frame: {x: 0, y: 0, w: 1, h: 1}}]},
+            ];
+        });
+        expect(bgmDuckAt(joined, 0)).toBeCloseTo(0.3, 9);
+        expect(bgmDuckAt(joined, 4)).toBeCloseTo(0.3, 9);
+        expect(bgmDuckAt(joined, 8)).toBeCloseTo(0.3, 9);
+        expect(bgmDuckAt(joined, 8 + BGM_DUCK_FADE_SECONDS)).toBeCloseTo(1, 9);
+    });
+
+    it("静音的视频、没有音轨的视频、原声音量为 0 都不算有声视频页", () => {
+        const m = mixingFilm();
+        expect(isSoundPage(m, m.pages[1]!)).toBe(true);
+        expect(isSoundPage(m, m.pages[0]!)).toBe(false);
+        const muted = mixingFilm((film) => {
+            film.pages[1]!.items[0]!.muted = true;
+        });
+        expect(isSoundPage(muted, muted.pages[1]!)).toBe(false);
+        expect(bgmDuckAt(muted, 7)).toBe(1);
+        const silent = mixingFilm((film) => {
+            film.assets[1]!.hasAudio = false;
+        });
+        expect(isSoundPage(silent, silent.pages[1]!)).toBe(false);
+        const quiet = mixingFilm((film) => {
+            film.videoVolume = 0;
+        });
+        expect(isSoundPage(quiet, quiet.pages[1]!)).toBe(false);
+    });
+
+    it("视频原声：整片音量乘每页首尾淡入淡出；静音为 0；旧包有配乐时为 0", () => {
+        const m = mixingFilm();
+        const page = m.pages[1]!;
+        const item = page.items[0]!;
+        expect(videoSoundGain(m, page, item, 0)).toBe(0);
+        expect(videoSoundGain(m, page, item, page.duration / 2)).toBeCloseTo(1, 9);
+        expect(videoSoundGain(m, page, {...item, muted: true}, page.duration / 2)).toBe(0);
+        expect(videoSoundGain(base, base.pages[2]!, base.pages[2]!.items[0]!, 4)).toBe(0);
+        const noMusic = variant((film) => delete film.bgm);
+        const bare = noMusic.pages[2]!;
+        expect(videoSoundGain(noMusic, bare, bare.items[0]!, bare.duration / 2)).toBeCloseTo(1, 9);
+    });
+
+    it("压低曲线的折点覆盖渐变的两端和中点", () => {
+        const knots = bgmDuckKnots(mixingFilm());
+        expect(knots).toEqual([3.5, 4, 10, 10.5]);
+        const close = mixingFilm((m) => {
+            m.duration = 12;
+            m.pages = [
+                {id: "a", start: 0, duration: 4, items: [{assetId: "v1", frame: {x: 0, y: 0, w: 1, h: 1}}]},
+                {id: "b", start: 4.4, duration: 4, items: [{assetId: "v1", frame: {x: 0, y: 0, w: 1, h: 1}}]},
+                {id: "c", start: 8.4, duration: 3.6, items: [{assetId: "p1", frame: {x: 0, y: 0, w: 1, h: 1}}]},
+            ];
+        });
+        expect(bgmDuckKnots(close)).toContain(4.2);
+        expect(bgmDuckAt(close, 4.2)).toBeCloseTo(0.58, 9);
     });
 });

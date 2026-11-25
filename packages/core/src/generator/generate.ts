@@ -74,6 +74,10 @@ export interface MusicInput {
     duration: number;
     title?: string;
     license?: string;
+    /** 配乐音量（0 到 1），写进 bgm.volume；缺省 1 */
+    volume?: number;
+    /** 有声视频页上配乐的增益系数（0 到 1），写进 bgm.duck；缺省 1，不压低 */
+    duck?: number;
 }
 
 export interface GenerateOptions {
@@ -83,6 +87,8 @@ export interface GenerateOptions {
     /** 随机种子：相同输入和种子必定生成相同的清单（除 id 与 createdAt） */
     seed: number;
     music?: MusicInput;
+    /** 整片的视频原声音量（0 到 1），写进清单 videoVolume；缺省时有配乐为 0，没有配乐为 1 */
+    videoVolume?: number;
     /** 为 true 时保持 media 的传入顺序，不按拍摄时间排序（用户手动调整过顺序） */
     keepOrder?: boolean;
     title?: string;
@@ -108,7 +114,7 @@ export interface GenerateOptions {
     pages?: readonly PagePlan[];
 }
 
-export type GenerateErrorCode = "no-media" | "too-many-media" | "unknown-template" | "unknown-transition" | "unknown-look" | "invalid-media" | "duplicate-media-id" | "invalid-plan";
+export type GenerateErrorCode = "no-media" | "too-many-media" | "unknown-template" | "unknown-transition" | "unknown-look" | "invalid-media" | "duplicate-media-id" | "invalid-plan" | "invalid-volume";
 
 /** 用户可以指定的转场（缺省跟随模板）。首页固定淡入 */
 export const TRANSITION_CHOICES = ["fade", "slide", "zoom", "rotate"] as const;
@@ -352,6 +358,16 @@ const validateInput = function validateInput(options: GenerateOptions): Template
     if (options.music && !(options.music.duration > 0)) {
         throw new GenerateError("invalid-media", "music duration must be positive");
     }
+    const volumes = [
+        ["videoVolume", options.videoVolume],
+        ["music volume", options.music?.volume],
+        ["music duck", options.music?.duck],
+    ] as const;
+    for (const [name, value] of volumes) {
+        if (value !== undefined && !(value >= 0 && value <= 1)) {
+            throw new GenerateError("invalid-volume", `${name} must be between 0 and 1`);
+        }
+    }
     return template;
 };
 
@@ -512,6 +528,9 @@ export const generateManifest = function generateManifest(options: GenerateOptio
             if (draft.clipStart !== undefined) {
                 item.clipStart = draft.clipStart;
             }
+            if (it.muted === true) {
+                item.muted = true;
+            }
             const kenBurns = draft.multi ? undefined : it.kenBurns;
             if (it.crop && media.type === "image" && it.fit !== "contain") {
                 // 取景：按完整显示再放大平移，Ken Burns 叠加在取景之上（docs/dev-0.4.1.md 4）
@@ -575,11 +594,13 @@ export const generateManifest = function generateManifest(options: GenerateOptio
         const filmSeconds = totalMs / 1000;
         bgm = {
             assetId: music.id,
-            volume: 1,
+            volume: music.volume ?? 1,
             // 影片比音乐长（音乐偏短）时循环；影片比音乐短时在影片结束处淡出（PRD A-04）
             loop: filmSeconds > music.duration + 1e-6,
             fadeIn: round3(Math.min(GENERATOR_LIMITS.bgmFadeInSeconds, filmSeconds / 2)),
             fadeOut: round3(Math.min(GENERATOR_LIMITS.bgmFadeOutSeconds, filmSeconds / 2)),
+            // 总是写出来：重新打开时据此区分“关掉了压低”和“旧包没有这个字段”
+            duck: music.duck ?? 1,
         };
     }
 
@@ -615,5 +636,6 @@ export const generateManifest = function generateManifest(options: GenerateOptio
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         ...options.subtitle && {subtitle: options.subtitle},
         ...options.titleCard && {titleCard: titleCardTiming(options.titleCard.id, durationsMs[0]! / 1000, totalMs / 1000)},
+        videoVolume: options.videoVolume ?? (bgm ? 0 : 1),
     };
 };

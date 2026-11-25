@@ -1,8 +1,9 @@
 import type {Manifest} from "@qyplayer/core";
-import {videoAudioGain} from "@qyplayer/core";
+import {bgmDuckAt, bgmFadeGainAt, videoAudioGain} from "@qyplayer/core";
 import {describe, expect, it} from "vitest";
 import example from "../../../../../spec/examples/example.manifest.json";
-import {EXPORT_FPS, bgmGainCurve, exportSize, frameCount, pageGainCurve, remainingSeconds, videoTimestamps} from "./spec";
+import example04 from "../../../../../spec/examples/example-0.4.manifest.json";
+import {EXPORT_FPS, bgmDuckCurve, bgmGainCurve, exportSize, frameCount, pageGainCurve, remainingSeconds, videoTimestamps} from "./spec";
 
 const manifest = example as unknown as Manifest;
 
@@ -91,6 +92,21 @@ describe("gain curves", () => {
         const curve = pageGainCurve(3, 0, 3);
         expect(curve.map((p) => p.time)).toEqual([0, 0.1, 2.9, 3]);
         expect(curve.map((p) => p.gain)).toEqual([0, 1, 1, 0]);
+    });
+
+    it("the ducking curve follows bgmDuckAt, and the fade curve does not include it", () => {
+        const mixed = example04 as unknown as Manifest;
+        const fade = bgmGainCurve(mixed, 0, mixed.duration);
+        const duck = bgmDuckCurve(mixed, 0, mixed.duration);
+        for (const point of fade) {
+            expect(point.gain).toBeCloseTo(bgmFadeGainAt(mixed, point.time), 9);
+        }
+        for (const point of duck) {
+            expect(point.gain).toBeCloseTo(bgmDuckAt(mixed, point.time), 9);
+        }
+        // 有声视频页是 11.2 到 19.2 秒，压低从 10.7 秒开始、到 19.7 秒结束
+        expect(duck.map((p) => p.time)).toEqual([0, 10.7, 11.2, 19.2, 19.7, mixed.duration]);
+        expect(duck.find((p) => p.time === 11.2)?.gain).toBeCloseTo(0.3, 9);
     });
 
     it("overlapping fades are sampled so the curve follows the real gain", () => {

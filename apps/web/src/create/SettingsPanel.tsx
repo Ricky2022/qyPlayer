@@ -63,6 +63,9 @@ const useStyles = createUseStyles({
     cardText: {display: "flex", flexDirection: "column", gap: 2, minWidth: 0},
     cardName: {fontSize: 14, fontWeight: 600},
     hint: {fontSize: 12, color: theme.muted},
+    sliderRow: {display: "flex", alignItems: "center", gap: 8, minHeight: 28, fontSize: 14},
+    slider: {flex: 1, minWidth: 0, accentColor: theme.accent},
+    percent: {flex: "none", minWidth: 40, textAlign: "right", fontVariantNumeric: "tabular-nums"},
     button: {
         minHeight: 36,
         padding: "6px 14px",
@@ -103,13 +106,16 @@ interface SettingsPanelProps {
     onLook: (look: LookSetting) => void;
     onLength: (length: LengthChoice) => void;
     onMusic: (music: MusicChoice) => void;
+    onMusicVolume: (volume: number, at: number) => void;
+    onVideoVolume: (volume: number, at: number) => void;
+    onDuckMusic: (duck: boolean) => void;
     onPickMusic: () => void;
     onReroll: () => void;
 }
 
 /** 设置面板（3A.9）：标题、比例、模板、转场、配乐、换一版 */
 // eslint-disable-next-line @stylistic/max-len
-export const SettingsPanel = function SettingsPanel({doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, transcode, onTranscode, onTitle, onSubtitle, onShowTitle, onAspect, onTemplate, onTransition, onLook, onLength, onMusic, onPickMusic, onReroll}: SettingsPanelProps) {
+export const SettingsPanel = function SettingsPanel({doc, resolvedAspect, disabled, hasVideoSound, customMusic, placeholderTitle, transcode, onTranscode, onTitle, onSubtitle, onShowTitle, onAspect, onTemplate, onTransition, onLook, onLength, onMusic, onMusicVolume, onVideoVolume, onDuckMusic, onPickMusic, onReroll}: SettingsPanelProps) {
     const classes = useStyles();
     const {lang, t} = useI18n();
     const ratioName = resolvedAspect === "16:9" ? t("makerLandscape") : t("makerPortrait");
@@ -299,7 +305,47 @@ export const SettingsPanel = function SettingsPanel({doc, resolvedAspect, disabl
                             {t("makerPickMusic")}
                         </button>
                     </div>
-                    {doc.music.kind !== "none" && hasVideoSound && <div className={classes.hint}>{t("makerMuteNote")}</div>}
+                    {doc.music.kind !== "none" && (
+                        <label className={classes.sliderRow} htmlFor="qy-music-volume">
+                            {t("makerMusicVolume")}
+                            <input
+                                id="qy-music-volume"
+                                className={classes.slider}
+                                type="range"
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                value={doc.musicVolume}
+                                disabled={disabled}
+                                onChange={(event) => onMusicVolume(Number(event.target.value), Date.now())}
+                            />
+                            <span className={classes.percent}>{`${Math.round(doc.musicVolume * 100)}%`}</span>
+                        </label>
+                    )}
+                    {hasVideoSound && (
+                        <label className={classes.sliderRow} htmlFor="qy-video-volume">
+                            {t("makerVideoVolume")}
+                            <input
+                                id="qy-video-volume"
+                                className={classes.slider}
+                                type="range"
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                value={doc.videoVolume}
+                                disabled={disabled}
+                                onChange={(event) => onVideoVolume(Number(event.target.value), Date.now())}
+                            />
+                            <span className={classes.percent}>{`${Math.round(doc.videoVolume * 100)}%`}</span>
+                        </label>
+                    )}
+                    {doc.music.kind !== "none" && hasVideoSound && (
+                        <label className={classes.choice}>
+                            <input type="checkbox" checked={doc.duckMusic} disabled={disabled || doc.videoVolume === 0} onChange={(event) => onDuckMusic(event.target.checked)} />
+                            {" "}
+                            {t("makerDuck")}
+                        </label>
+                    )}
                 </div>
             </fieldset>
 

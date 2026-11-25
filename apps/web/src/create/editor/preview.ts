@@ -3,7 +3,7 @@ import type {Manifest} from "@qyplayer/core";
 import {QypError, type OpenedPackage} from "@qyplayer/qyp";
 import {planPackageWithTitle, type BlobFile, type BuildOptions, type MusicEntry, type RenderTitleImage} from "../buildPackage";
 import {pagesToPlan} from "./pages";
-import {selectedMedia, type EditorDoc} from "./state";
+import {DUCKED_MUSIC_GAIN, selectedMedia, type EditorDoc} from "./state";
 
 export interface PreviewOptions {
     /** 已读出的配乐文件；内置曲目由调用方先加载好再传入 */
@@ -58,6 +58,9 @@ export const buildOptionsOf = function buildOptionsOf(doc: EditorDoc): BuildOpti
         subtitle: doc.subtitle,
         ...doc.transition !== "auto" && {transition: doc.transition},
         ...doc.look !== "original" && {look: doc.look},
+        videoVolume: doc.videoVolume,
+        musicVolume: doc.musicVolume,
+        duck: doc.duckMusic ? DUCKED_MUSIC_GAIN : 1,
     };
 };
 

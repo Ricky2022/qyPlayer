@@ -84,6 +84,12 @@ export type PageAction =
         start: number;
         length: number;
         at: number;
+    }
+  /** 这个视频页不出声。false 时删掉标记，与没设过一样 */
+    | {
+        kind: "mute";
+        index: number;
+        muted: boolean;
     };
 
 export interface ActionResult {
@@ -169,6 +175,8 @@ export const applyPageAction = function applyPageAction(state: EditorState, acti
                     {key: `clip:${action.index}`, at: action.at},
                 ),
             };
+        case "mute":
+            return {state: editPages(state, (pages) => updateItem(pages, action.index, 0, {muted: action.muted ? true : undefined}))};
         case "merge": {
             const next = editPages(state, (pages, ctx) => mergeWithNext(pages, ctx, action.index));
             return next === state ? {state} : {state: next, select: action.index};

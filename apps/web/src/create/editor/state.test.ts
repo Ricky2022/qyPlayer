@@ -2,6 +2,7 @@ import {describe, expect, it} from "vitest";
 import {DEFAULT_BUILTIN_TRACK_ID} from "../builtinMusicInfo";
 import {
     MAX_HISTORY,
+    TWEAK_MERGE_MS,
     addMedia,
     canRedo,
     canUndo,
@@ -16,7 +17,9 @@ import {
     removeMedia,
     resetEditor,
     setAspect,
+    setDuckMusic,
     setMusic,
+    setMusicVolume,
     setSeed,
     selectedMedia,
     setLength,
@@ -26,6 +29,7 @@ import {
     setTemplate,
     setTransition,
     setTitle,
+    setVideoVolume,
     sortMediaByCapturedAt,
     undo,
     type EditorMediaInput,
@@ -128,6 +132,26 @@ describe("编辑状态：设置", () => {
             state = undo(state);
         }
         expect(state.present.id).toBe(base.present.id);
+    });
+
+    it("新建时原声开着、配乐音量 100%、自动压低配乐", () => {
+        expect(currentDoc(fresh())).toMatchObject({musicVolume: 1, videoVolume: 1, duckMusic: true});
+    });
+
+    it("拖动同一个音量滑块，1 秒内合并成一步；换一个滑块或间隔更久则另起一步", () => {
+        const start = setMusicVolume(fresh(), 0.8, 0);
+        const merged = setMusicVolume(start, 0.6, TWEAK_MERGE_MS);
+        expect(merged.present.id).toBe(start.present.id);
+        expect(currentDoc(merged).musicVolume).toBe(0.6);
+        expect(canUndo(undo(merged))).toBe(false);
+        const other = setVideoVolume(merged, 0.4, TWEAK_MERGE_MS);
+        expect(other.present.id).not.toBe(merged.present.id);
+        const late = setMusicVolume(merged, 0.2, TWEAK_MERGE_MS + TWEAK_MERGE_MS + 1);
+        expect(late.present.id).not.toBe(merged.present.id);
+        expect(setMusicVolume(late, 0.2, 9_000)).toBe(late);
+        const ducked = setDuckMusic(late, false);
+        expect(ducked.present.doc.duckMusic).toBe(false);
+        expect(setDuckMusic(ducked, false)).toBe(ducked);
     });
 
     it("导入的配乐按文件对象比较", () => {
@@ -258,7 +282,23 @@ describe("编辑状态：撤销和重做", () => {
     });
 
     it("转码开关不在历史里（状态里没有它）", () => {
-        expect(Object.keys(currentDoc(fresh())).sort()).toEqual(["aspect", "length", "look", "media", "music", "pages", "seed", "showTitle", "subtitle", "templateId", "title", "transition"]);
+        expect(Object.keys(currentDoc(fresh())).sort()).toEqual([
+            "aspect",
+            "duckMusic",
+            "length",
+            "look",
+            "media",
+            "music",
+            "musicVolume",
+            "pages",
+            "seed",
+            "showTitle",
+            "subtitle",
+            "templateId",
+            "title",
+            "transition",
+            "videoVolume",
+        ]);
     });
 });
 
@@ -322,6 +362,9 @@ describe("编辑状态：新建和打开", () => {
             transition: "auto",
             look: "original",
             music: {kind: "none"},
+            musicVolume: 1,
+            videoVolume: 0.4,
+            duckMusic: false,
             seed: 5,
             pages: null,
         });

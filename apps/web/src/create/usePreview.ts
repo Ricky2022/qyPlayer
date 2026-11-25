@@ -3,7 +3,7 @@ import type {Manifest} from "@qyplayer/core";
 import {PlaybackController} from "../player/PlaybackController";
 import {resolveMusic} from "./editor/music";
 import {createPreviewPackage, type MemoryPackage} from "./editor/preview";
-import type {EditorDoc} from "./editor/state";
+import {DUCKED_MUSIC_GAIN, type EditorDoc} from "./editor/state";
 import {renderTitleCard} from "./titleCard";
 
 /** 最后一次触发后等多久才重新生成（3A.10） */
@@ -78,10 +78,13 @@ export interface PreviewState {
     error: unknown;
     /** 改标题或副标题时直接更新当前预览里的文字（有标题图片则重画图片），不重新生成；文字确实变了返回 true */
     applyTitle: (title: string, subtitle: string) => boolean;
+    /** 改音量时直接更新当前预览的清单，拖滑块时边播边听，不重新生成 */
+    applyAudio: (musicVolume: number, videoVolume: number, duckMusic: boolean) => void;
 }
 
 /**
- * 编辑内容变化后自动重新生成预览（3A.10）。素材、比例、模板、转场、滤镜、时长、配乐、种子、是否显示标题、单页编排变化时触发，标题和副标题变化不触发。
+ * 编辑内容变化后自动重新生成预览（3A.10）。素材、比例、模板、转场、滤镜、时长、配乐、种子、是否显示标题、单页编排变化时触发。
+ * 标题、副标题和三个整片音量设置不触发，它们直接改当前预览。
  * 去抖 300 毫秒；生成中又有新变化，则丢弃当前这次，按最新内容再来。
  */
 export const usePreview = function usePreview(doc: EditorDoc, defaultTitleWord: string): PreviewState {
@@ -95,10 +98,24 @@ export const usePreview = function usePreview(doc: EditorDoc, defaultTitleWord: 
     titleRef.current = doc.title;
     const subtitleRef = useRef(doc.subtitle);
     subtitleRef.current = doc.subtitle;
+    const audioRef = useRef({musicVolume: doc.musicVolume, videoVolume: doc.videoVolume, duckMusic: doc.duckMusic});
+    audioRef.current = {musicVolume: doc.musicVolume, videoVolume: doc.videoVolume, duckMusic: doc.duckMusic};
 
     const applyTitle = (title: string, subtitle: string): boolean => {
         const current = resultRef.current;
         return current ? applyText(current, title, subtitle) : false;
+    };
+
+    const applyAudio = (musicVolume: number, videoVolume: number, duckMusic: boolean): void => {
+        const manifest = resultRef.current?.manifest;
+        if (!manifest) {
+            return;
+        }
+        manifest.videoVolume = videoVolume;
+        if (manifest.bgm) {
+            manifest.bgm.volume = musicVolume;
+            manifest.bgm.duck = duckMusic ? DUCKED_MUSIC_GAIN : 1;
+        }
     };
 
     useEffect(() => {
@@ -122,7 +139,7 @@ export const usePreview = function usePreview(doc: EditorDoc, defaultTitleWord: 
                     }
                     // 始终用默认标题、空副标题生成，再按当前文字改写，这样改标题不必重新生成
                     const {opened, manifest} = await createPreviewPackage(
-                        {media, aspect, templateId, transition, look, length, music, seed, pages, title: "", subtitle: "", showTitle},
+                        {media, aspect, templateId, transition, look, length, music, seed, pages, title: "", subtitle: "", showTitle, ...audioRef.current},
                         {...musicEntry && {music: musicEntry}, defaultTitleWord},
                     );
                     const controller = await PlaybackController.create(opened);
@@ -163,5 +180,5 @@ export const usePreview = function usePreview(doc: EditorDoc, defaultTitleWord: 
         [],
     );
 
-    return {result, updating, error, applyTitle};
+    return {result, updating, error, applyTitle, applyAudio};
 };

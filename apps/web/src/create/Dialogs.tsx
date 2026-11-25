@@ -91,15 +91,17 @@ const DialogShell = function DialogShell({title, initialFocus, onCancel, childre
 interface ConfirmDialogProps {
     message: string;
     confirmLabel: string;
+    /** 缺省是“取消” */
+    cancelLabel?: string;
     onConfirm: () => void;
     onCancel: () => void;
 }
 
 /** 确认框：默认焦点在“取消”，Esc 等同取消（3A.12） */
-export const ConfirmDialog = function ConfirmDialog({message, confirmLabel, onConfirm, onCancel}: ConfirmDialogProps) {
+export const ConfirmDialog = function ConfirmDialog({message, confirmLabel, cancelLabel, onConfirm, onCancel}: ConfirmDialogProps) {
     const {t} = useI18n();
     return (
-        <DialogShell initialFocus="cancel" cancelLabel={t("cancel")} confirmLabel={confirmLabel} onCancel={onCancel} onConfirm={onConfirm}>
+        <DialogShell initialFocus="cancel" cancelLabel={cancelLabel ?? t("cancel")} confirmLabel={confirmLabel} onCancel={onCancel} onConfirm={onConfirm}>
             {message}
         </DialogShell>
     );

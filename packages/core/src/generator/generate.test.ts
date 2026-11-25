@@ -574,10 +574,10 @@ describe("generateManifest errors", () => {
 });
 
 describe("素材信息和格式版本", () => {
-    it("写 formatVersion 0.3，素材和配乐都带 mimeType 和 source，且通过校验", () => {
+    it("写 formatVersion 0.4，素材和配乐都带 mimeType 和 source，且通过校验", () => {
         const converted: MediaInput = {...photo("m001", 2560, 1707, at(0)), mimeType: JPEG, source: {mimeType: "image/heic", transcoded: true}};
         const m = gen({media: [converted, video("m002", 5, at(1))], music: music(30)});
-        expect(m.formatVersion).toBe("0.3");
+        expect(m.formatVersion).toBe("0.4");
         expect(m.assets[0]).toMatchObject({mimeType: JPEG, source: {mimeType: "image/heic", transcoded: true}});
         expect(m.assets[1]).toMatchObject({mimeType: MP4, source: {mimeType: MP4, transcoded: false}});
         expect(m.assets[2]).toMatchObject({type: "audio", mimeType: M4A, source: {mimeType: M4A, transcoded: false}});
@@ -857,5 +857,49 @@ describe("手动编排：planPages 与 options.pages（docs/dev-0.4.1.md 2）", 
         expect(item.motion!.to.scale).toBeGreaterThan(item.motion!.from.scale);
         expect(item.motion!.from.scale).toBeGreaterThanOrEqual(2);
         expectValid(single);
+    });
+});
+
+describe("混音（格式 0.4）", () => {
+    it("有配乐时写出 videoVolume 0 和 duck 1；没有配乐时 videoVolume 为 1", () => {
+        const withMusic = gen({media: landscapePhotos(2), music: music(30)});
+        expect(withMusic.videoVolume).toBe(0);
+        expect(withMusic.bgm).toMatchObject({volume: 1, duck: 1});
+        const silent = gen({media: landscapePhotos(2)});
+        expect(silent.videoVolume).toBe(1);
+        expect(silent.bgm).toBeUndefined();
+        expectValid(withMusic);
+    });
+
+    it("指定的音量、压低和单个视频静音写进清单", () => {
+        const m = gen({
+            media: [...landscapePhotos(1), video("v1", 8, at(1))],
+            music: {...music(20), volume: 0.8, duck: 0.3},
+            videoVolume: 1,
+            pages: [
+                {items: [{assetId: "m000"}]},
+                {items: [{assetId: "v1", muted: true}], duration: 4},
+            ],
+        });
+        expect(m.videoVolume).toBe(1);
+        expect(m.bgm).toMatchObject({volume: 0.8, duck: 0.3});
+        expect(m.pages[1]!.items[0]!.muted).toBe(true);
+        expect(m.pages[0]!.items[0]).not.toHaveProperty("muted");
+        expectValid(m);
+    });
+
+    it("音量超出 0 到 1、给照片静音都拒绝", () => {
+        const code = (fn: () => unknown): string | undefined => {
+            try {
+                fn();
+            } catch (e) {
+                return e instanceof GenerateError ? e.code : "other";
+            }
+            return undefined;
+        };
+        expect(code(() => gen({media: landscapePhotos(1), videoVolume: 2}))).toBe("invalid-volume");
+        expect(code(() => gen({media: landscapePhotos(1), music: {...music(10), duck: -1}}))).toBe("invalid-volume");
+        const media = [...landscapePhotos(1), video("v1", 8, at(1))];
+        expect(code(() => gen({media, pages: [{items: [{assetId: "m000", muted: true}]}, {items: [{assetId: "v1"}]}]}))).toBe("invalid-plan");
     });
 });

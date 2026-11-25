@@ -1,3 +1,21 @@
+## 青云播放器 0.6.0 / qyPlayer 0.6.0
+
+### 中文
+
+0.6.0 给制作器加上配乐和视频原声的混音、草稿自动保存，并修正转码视频在旧手机上可能放不出来的问题。包格式升到 0.4。0.5.1 及更早的播放器打开新包会提示版本不支持，需要升级。
+
+- 混音：配乐音量和视频原声音量分开调。新建影片默认开着原声，有声音的视频页把配乐压到 30%，也可以把某一页的视频静音。重新打开的旧影片仍按原来的方式静音。
+- 草稿：电脑上停止编辑 2 秒后自动保存，下次打开可以恢复或丢弃。
+- 转码和导出的 H.264 按画面实际需要写级别。已经保存的影片重新打开再保存即可。
+
+### English
+
+0.6.0 adds mixing of music with the original video sound, automatic draft saving, and a fix for transcoded video that some older phones could not play. The package format is now 0.4. Players from 0.5.1 and earlier ask you to upgrade when they open a new package.
+
+- Mixing: music volume and original video volume are separate. A new film plays the original sound and lowers the music to 30% on a video page that has sound. One video page can be muted. An older film stays silent the way it was.
+- Drafts: on a computer the creator saves two seconds after you stop, and offers to restore or discard it next time.
+- Transcoding and MP4 export write the H.264 level the picture actually needs. Open an existing film and save it again to repair it.
+
 ## 青云播放器 0.5.1 / qyPlayer 0.5.1
 
 ### 中文
@@ -24,11 +42,11 @@
 
 | 文件 / File | 说明 / Description |
 | --- | --- |
-| `qyPlayer-0.5.1-Setup-x64.exe` | 播放器安装包，装好后双击 .qyp 文件即可播放 / Player installer |
-| `qyPlayer-0.5.1-x64-portable.zip` | 播放器免安装版，解压后运行 `qyPlayer.exe` / Player, portable |
-| `qyMaker-0.5.1-Setup-x64.exe` | 制作器安装包 / Creator installer |
-| `qyMaker-0.5.1-x64-portable.zip` | 制作器免安装版，解压后运行 `qyMaker.exe` / Creator, portable |
-| `qyPlayer-0.5.1-android-arm64.apk` | Android 播放器，Android 10 及以上、arm64 / Android player, Android 10+ on arm64 |
+| `qyPlayer-0.6.0-Setup-x64.exe` | 播放器安装包，装好后双击 .qyp 文件即可播放 / Player installer |
+| `qyPlayer-0.6.0-x64-portable.zip` | 播放器免安装版，解压后运行 `qyPlayer.exe` / Player, portable |
+| `qyMaker-0.6.0-Setup-x64.exe` | 制作器安装包 / Creator installer |
+| `qyMaker-0.6.0-x64-portable.zip` | 制作器免安装版，解压后运行 `qyMaker.exe` / Creator, portable |
+| `qyPlayer-0.6.0-android-arm64.apk` | Android 播放器，Android 10 及以上、arm64 / Android player, Android 10+ on arm64 |
 
 系统要求：Windows 10 / 11（64 位）；Android 10 及以上（arm64），系统的 Android System WebView 80 及以上。
 Requires Windows 10 / 11 (64-bit), or Android 10 and later on arm64 with Android System WebView 80 or later.

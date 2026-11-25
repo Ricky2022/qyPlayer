@@ -1,4 +1,4 @@
-import type {Direction, Fit, Frame, Manifest, Motion, Page} from "./manifest";
+import type {Direction, Fit, Frame, Item, Manifest, Motion, Page} from "./manifest";
 
 /** 画布归一化坐标下的矩形：与 Frame 同义，坐标和尺寸都是画布宽高的比例 */
 export type Rect = Frame;
@@ -313,11 +313,89 @@ export const stateAt = function stateAt(manifest: Manifest, t: number): FrameSta
     return state;
 };
 
+/** 整片的视频原声音量（格式 0.4）。清单没写时：有背景音乐为 0（视频静音），没有背景音乐为 1 */
+export const videoVolumeOf = function videoVolumeOf(manifest: Manifest): number {
+    return manifest.videoVolume ?? (manifest.bgm ? 0 : 1);
+};
+
+/** 有声视频页：整片原声音量大于 0，且页里有带音轨、没被静音的视频（PRD A-09） */
+export const isSoundPage = function isSoundPage(manifest: Manifest, page: Page): boolean {
+    if (videoVolumeOf(manifest) <= 0) {
+        return false;
+    }
+    return page.items.some((item) => {
+        if (item.muted === true) {
+            return false;
+        }
+        const asset = manifest.assets.find((a) => a.id === item.assetId);
+        return asset?.type === "video" && asset.hasAudio !== false;
+    });
+};
+
+/** 有声视频页占的时间段，按时间升序；首尾相接的页并成一段 */
+const soundSpans = function soundSpans(manifest: Manifest): {
+    start: number;
+    end: number;
+}[] {
+    const spans: {
+        start: number;
+        end: number;
+    }[] = [];
+    for (const page of manifest.pages) {
+        if (!isSoundPage(manifest, page)) {
+            continue;
+        }
+        const last = spans[spans.length - 1];
+        const end = page.start + page.duration;
+        if (last && page.start - last.end <= 1e-6) {
+            last.end = end;
+        } else {
+            spans.push({start: page.start, end});
+        }
+    }
+    return spans;
+};
+
+/** 配乐压低和恢复的过渡时长（秒）：有声视频页开始前这么久开始压低，结束后这么久恢复 */
+export const BGM_DUCK_FADE_SECONDS = 0.5;
+
 /**
- * 背景音乐在影片时间 t 的音量（PRD 第 9 节 A-03）：开头淡入、影片结尾淡出。
+ * 背景音乐在影片时间 t 的压低系数（PRD A-09）：在有声视频页内是 bgm.duck，离开越远越接近 1，
+ * 距离达到 BGM_DUCK_FADE_SECONDS 时为 1。没有 bgm.duck、没有有声视频页时恒为 1。
+ */
+export const bgmDuckAt = function bgmDuckAt(manifest: Manifest, t: number): number {
+    const duck = manifest.bgm?.duck ?? 1;
+    if (duck >= 1) {
+        return 1;
+    }
+    let distance = Number.POSITIVE_INFINITY;
+    for (const span of soundSpans(manifest)) {
+        distance = Math.min(distance, t < span.start ? span.start - t : Math.max(0, t - span.end));
+    }
+    return duck + ((1 - duck) * Math.min(1, distance / BGM_DUCK_FADE_SECONDS));
+};
+
+/** bgmDuckAt 这条分段线性曲线的全部折点（影片时间，秒，未排序）；导出时据此把曲线取成折线 */
+export const bgmDuckKnots = function bgmDuckKnots(manifest: Manifest): number[] {
+    const fade = BGM_DUCK_FADE_SECONDS;
+    const spans = soundSpans(manifest);
+    const knots: number[] = [];
+    spans.forEach((span, index) => {
+        knots.push(span.start - fade, span.start, span.end, span.end + fade);
+        // 两段离得近时，恢复到一半就又开始压低，中点是折点
+        const next = spans[index + 1];
+        if (next && next.start - span.end < 2 * fade) {
+            knots.push((span.end + next.start) / 2);
+        }
+    });
+    return knots;
+};
+
+/**
+ * 背景音乐的音量和首尾淡入淡出（PRD 第 9 节 A-03）：bgm.volume × 开头淡入 × 影片结尾淡出，不含压低。
  * 没有背景音乐时返回 0。
  */
-export const bgmGainAt = function bgmGainAt(manifest: Manifest, t: number): number {
+export const bgmFadeGainAt = function bgmFadeGainAt(manifest: Manifest, t: number): number {
     const bgm = manifest.bgm;
     if (!bgm) {
         return 0;
@@ -329,6 +407,11 @@ export const bgmGainAt = function bgmGainAt(manifest: Manifest, t: number): numb
     const inGain = fadeIn > 0 ? Math.min(1, time / fadeIn) : 1;
     const outGain = fadeOut > 0 ? Math.min(1, (manifest.duration - time) / fadeOut) : 1;
     return volume * inGain * outGain;
+};
+
+/** 背景音乐在影片时间 t 的音量：bgmFadeGainAt × bgmDuckAt。没有背景音乐时返回 0。 */
+export const bgmGainAt = function bgmGainAt(manifest: Manifest, t: number): number {
+    return manifest.bgm ? bgmFadeGainAt(manifest, t) * bgmDuckAt(manifest, t) : 0;
 };
 
 /** 背景音乐在影片时间 t 应处的音频位置（秒）。循环时对音频时长取模；不循环且音频已播完返回 null。 */
@@ -353,11 +436,19 @@ export const bgmPositionAt = function bgmPositionAt(manifest: Manifest, t: numbe
 export const VIDEO_AUDIO_FADE_SECONDS = 0.1;
 
 /**
- * 没有背景音乐时，视频页原声的增益系数（A-05）：页开头 FADE 秒内线性淡入，结尾 FADE 秒内线性淡出。
+ * 视频页原声每页首尾的淡入淡出（A-05）：页开头 FADE 秒内线性淡入，结尾 FADE 秒内线性淡出。
  * `localTime` 是相对该页开始的秒数；结果在 0 到 1 之间。预览和导出共用。
  */
 export const videoAudioGain = function videoAudioGain(localTime: number, pageDuration: number): number {
     const fade = VIDEO_AUDIO_FADE_SECONDS;
     const gain = Math.min(1, localTime / fade) * Math.min(1, (pageDuration - localTime) / fade);
     return Math.min(1, Math.max(0, gain));
+};
+
+/**
+ * 页里一个视频的原声增益：整片原声音量 × 每页首尾的淡入淡出；被静音的视频为 0。
+ * `localTime` 是相对该页开始的秒数。播放和导出共用。
+ */
+export const videoSoundGain = function videoSoundGain(manifest: Manifest, page: Page, item: Item, localTime: number): number {
+    return item.muted === true ? 0 : videoVolumeOf(manifest) * videoAudioGain(localTime, page.duration);
 };

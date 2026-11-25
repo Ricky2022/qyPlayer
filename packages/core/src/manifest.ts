@@ -66,6 +66,8 @@ export interface Bgm {
     loop?: boolean;
     fadeIn?: number;
     fadeOut?: number;
+    /** 格式 0.4：有声视频页上配乐的增益系数（0 到 1）；缺省为 1，不压低 */
+    duck?: number;
 }
 
 export interface TransitionIn {
@@ -102,6 +104,8 @@ export interface Item {
     enter?: Enter;
     /** 格式 0.3 */
     motion?: Motion;
+    /** 格式 0.4：为 true 时这个视频不出声；只对视频有意义 */
+    muted?: boolean;
 }
 
 export interface Page {
@@ -142,17 +146,19 @@ export interface Manifest {
     subtitle?: string;
     /** 格式 0.3 */
     titleCard?: TitleCard;
+    /** 格式 0.4：整片的视频原声音量（0 到 1）；缺省时有 bgm 为 0，没有 bgm 为 1 */
+    videoVolume?: number;
 }
 
 /** 本实现支持的清单格式版本。1.0 之前只接受列表里的版本（PRD 7.6）；0.2 起新写入的包用最后一个。 */
-export const SUPPORTED_FORMAT_VERSIONS: readonly string[] = ["0.1", "0.2", "0.3"];
+export const SUPPORTED_FORMAT_VERSIONS: readonly string[] = ["0.1", "0.2", "0.3", "0.4"];
 
 /** 新生成的包使用的格式版本 */
-export const CURRENT_FORMAT_VERSION = "0.3";
+export const CURRENT_FORMAT_VERSION = "0.4";
 
-/** 0.2 起每个素材都带 mimeType 和 source（0.3 沿用） */
+/** 0.2 起每个素材都带 mimeType 和 source（之后的版本沿用） */
 export const hasAssetTypeInfo = function hasAssetTypeInfo(formatVersion: string): boolean {
-    return formatVersion === "0.2" || formatVersion === "0.3";
+    return formatVersion === "0.2" || formatVersion === "0.3" || formatVersion === "0.4";
 };
 
 /** 清单引用的全部包内路径（素材、原片、封面），用于路径安全校验和缺失文件检查。 */

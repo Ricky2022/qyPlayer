@@ -1,4 +1,4 @@
-import {bgmGainAt, bgmPositionAt, stateAt, videoAudioGain, type Asset, type FrameState, type Layer, type Manifest} from "@qyplayer/core";
+import {bgmGainAt, bgmPositionAt, stateAt, videoSoundGain, videoVolumeOf, type Asset, type FrameState, type Layer, type Manifest} from "@qyplayer/core";
 import type {OpenedPackage} from "@qyplayer/qyp";
 import {renderFrame, type DrawableAsset, type PlaceholderAsset} from "@qyplayer/renderer";
 import {browserPreflightEnv, pagesUsing, playbackMimeType, preflightAssets, type PreflightEnv} from "./preflight";
@@ -59,7 +59,7 @@ interface VideoSlot {
  * 播放控制：把时间线引擎（stateAt）、渲染器（renderFrame）和浏览器的音视频元素接在一起。
  * - 时钟：有背景音乐且不循环时，音频是主时钟；其余情况用墙钟，循环音频按位置校正。
  * - 素材按页滑动窗口加载与释放，内存与素材总量无关（PRD N-PERF-04）。
- * - 声音规则：有背景音乐时所有视频静音，否则视频自带声音正常播放（PRD 第 9 节）。
+ * - 声音规则：视频原声按 videoVolume 播放（有配乐时缺省为 0），配乐按 bgmGainAt 播放（含压低，PRD 第 9 节）。
  */
 const attachForPlayback = function attachForPlayback(element: HTMLMediaElement): void {
     const body = document.body;
@@ -553,8 +553,8 @@ export class PlaybackController {
     }
 
     private applyVolume(): void {
-    // 有背景音乐时视频静音；没有时视频声音按主音量播放
-        const muteVideos = this.manifest.bgm !== undefined || this.mutedValue;
+        // 整片原声音量为 0（有配乐的旧包缺省就是 0）或用户静音时，视频不出声；否则各页的音量由 syncVideos 按帧算
+        const muteVideos = this.mutedValue || videoVolumeOf(this.manifest) === 0;
         for (const {element} of this.videos.values()) {
             element.muted = muteVideos;
             element.volume = this.volumeValue;
@@ -686,10 +686,13 @@ export class PlaybackController {
                 element.currentTime = layer.videoTime;
             }
             if (shouldRun) {
-                // 没有背景音乐时，视频原声每页首尾各淡 0.1 秒，避免相邻视频页切换时爆音（A-05）。
+                // 原声每页首尾各淡 0.1 秒，避免相邻视频页切换时爆音（A-05）；有配乐时再乘整片原声音量。
                 // 音量先写成 0 再 play() 时，部分安卓 WebView 会把音轨丢掉，之后再调高也没有声音。
-                if (currentPage && this.manifest.bgm === undefined) {
-                    const gain = videoAudioGain(t - currentPage.start, currentPage.duration);
+                const item = currentPage?.items.find((i) => i.assetId === id);
+                const base = currentPage && item ? videoVolumeOf(this.manifest) * (item.muted === true ? 0 : 1) : 0;
+                element.muted = this.mutedValue || base === 0;
+                if (base > 0 && currentPage && item) {
+                    const gain = videoSoundGain(this.manifest, currentPage, item, t - currentPage.start);
                     element.volume = this.volumeValue * (element.paused ? Math.max(gain, 0.05) : gain);
                 }
                 if (element.paused) {

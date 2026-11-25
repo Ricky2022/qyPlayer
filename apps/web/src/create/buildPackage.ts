@@ -54,6 +54,12 @@ export interface BuildOptions {
     seed: number;
     /** 手动编排（单页编辑），素材用 idFor(位置) 的 id；缺省表示自动编排。给了就写进清单的 generator.plan */
     pages?: readonly PagePlan[];
+    /** 整片的视频原声音量（0 到 1）；缺省时有配乐为 0，没有配乐为 1 */
+    videoVolume?: number;
+    /** 配乐音量（0 到 1），写进 bgm.volume；缺省 1 */
+    musicVolume?: number;
+    /** 有声视频页上配乐的增益（0 到 1），写进 bgm.duck；缺省 1 */
+    duck?: number;
     /** 缺省或空白时用生成器的默认标题 */
     title?: string;
     /** 副标题；写进清单，用于重新打开时还原 */
@@ -140,6 +146,8 @@ export const planPackage = function planPackage(options: BuildOptions): {
             duration: options.music.duration,
             ...options.music.title !== undefined && {title: options.music.title},
             ...options.music.license !== undefined && {license: options.music.license},
+            ...options.musicVolume !== undefined && {volume: options.musicVolume},
+            ...options.duck !== undefined && {duck: options.duck},
         };
     }
 
@@ -166,6 +174,7 @@ export const planPackage = function planPackage(options: BuildOptions): {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         ...options.defaultTitleWord && {defaultTitleWord: options.defaultTitleWord},
         ...music && {music},
+        ...options.videoVolume !== undefined && {videoVolume: options.videoVolume},
         generator: {name: "qyPlayer web", version: APP_VERSION},
     });
     // 手动编排写进 generator.plan（私有数据，播放器不读），重新打开时据此还原

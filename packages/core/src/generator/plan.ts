@@ -31,6 +31,8 @@ export interface ItemPlan {
     clipStart?: number;
     /** 仅多图页使用；缺省为淡入 */
     enter?: EnterChoice;
+    /** 仅视频：为 true 时这个视频不出声（docs/dev-0.6.0.md 1） */
+    muted?: boolean;
 }
 
 export interface PagePlan {
@@ -50,7 +52,7 @@ export const MAX_PAGE_ITEMS = 4;
 
 /**
  * 检查编排是否能用于这批素材，返回第一个问题的描述，没有问题返回 null。
- * 规则：每个素材恰好出现一次；每页 1 到 4 个；视频独占一页；取景放大倍数在范围内；时长大于 0。
+ * 规则：每个素材恰好出现一次；每页 1 到 4 个；视频独占一页；取景放大倍数在范围内；时长大于 0；只有视频能静音。
  */
 export const planProblems = function planProblems(pages: readonly PagePlan[], media: readonly {
     id: string;
@@ -80,6 +82,9 @@ export const planProblems = function planProblems(pages: readonly PagePlan[], me
             seen.add(item.assetId);
             if (type === "video" && page.items.length > 1) {
                 return `${at}: a video must have a page of its own`;
+            }
+            if (item.muted !== undefined && type !== "video") {
+                return `${at}: only a video can be muted`;
             }
             if (item.crop) {
                 const {zoom, x, y} = item.crop;

@@ -3,6 +3,7 @@
 import {stateAt, type Manifest} from "@qyplayer/core";
 import {renderFrame} from "@qyplayer/renderer";
 import {AudioBufferSource, BufferTarget, CanvasSource, Mp4OutputFormat, Output} from "mediabunny";
+import {patchAvcLevel} from "../transcode/avcLevel";
 import {abortError} from "../transcode/run";
 import {createAudioMixer} from "./audio";
 import {createFrameProvider} from "./frames";
@@ -120,7 +121,9 @@ export const exportMp4 = async function exportMp4(request: ExportRequest): Promi
         if (!target.buffer) {
             throw new Error("export: no output");
         }
-        return new Blob([target.buffer], {type: "video/mp4"});
+        const raw = new Blob([target.buffer], {type: "video/mp4"});
+        const patched = await patchAvcLevel(raw, {fps: EXPORT_FPS, bitrate: EXPORT_VIDEO_BITRATE});
+        return patched.blob;
     } catch (error) {
         await output.cancel().catch(() => undefined);
         throw signal.aborted ? abortError() : error;

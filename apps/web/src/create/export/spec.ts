@@ -1,5 +1,5 @@
 // 导出 MP4 的规格和纯计算（docs/dev-0.3.0.md 第 10 节）：输出参数、帧序号、每个视频素材要取的时间点、音量曲线。
-import {VIDEO_AUDIO_FADE_SECONDS, bgmGainAt, stateAt, videoAudioGain, type FrameState, type Layer, type Manifest} from "@qyplayer/core";
+import {VIDEO_AUDIO_FADE_SECONDS, bgmDuckAt, bgmDuckKnots, bgmFadeGainAt, stateAt, videoAudioGain, type FrameState, type Layer, type Manifest} from "@qyplayer/core";
 
 export const EXPORT_FPS = 30;
 /** H.264 High Profile，Level 4.0 */
@@ -81,12 +81,17 @@ export const gainPoints = function gainPoints(gainAt: (time: number) => number, 
     return [from, ...inside, to].map((time) => ({time, gain: gainAt(time)}));
 };
 
-/** 背景音乐在影片时间 [from, to] 内的增益折线 */
+/** 背景音乐的音量和首尾淡入淡出在影片时间 [from, to] 内的增益折线（不含压低） */
 export const bgmGainCurve = function bgmGainCurve(manifest: Manifest, from: number, to: number): GainPoint[] {
     const bgm = manifest.bgm;
     const duration = manifest.duration;
     const knots = bgm ? breakpoints(bgm.fadeIn ?? 0, duration - (bgm.fadeOut ?? 0)) : [];
-    return gainPoints((t) => bgmGainAt(manifest, t), knots, from, to);
+    return gainPoints((t) => bgmFadeGainAt(manifest, t), knots, from, to);
+};
+
+/** 背景音乐的压低在影片时间 [from, to] 内的增益折线。与 bgmGainCurve 相乘就是实际音量 */
+export const bgmDuckCurve = function bgmDuckCurve(manifest: Manifest, from: number, to: number): GainPoint[] {
+    return gainPoints((t) => bgmDuckAt(manifest, t), bgmDuckKnots(manifest), from, to);
 };
 
 /** 视频原声在页内时间 [from, to] 内的增益折线（没有背景音乐时） */

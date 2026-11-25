@@ -59,6 +59,8 @@ export interface PageMediaInfo {
     video: boolean;
     /** 视频素材的总时长（秒）；照片为 0 */
     duration: number;
+    /** 视频是否带音轨 */
+    hasAudio?: boolean;
 }
 
 interface PagePanelProps {
@@ -181,6 +183,14 @@ export const PagePanel = function PagePanel({index, pages, actualDuration, aspec
 
             {/* eslint-disable-next-line @stylistic/max-len */}
             {videoInfo && videoInfo.duration > 0 && <ClipControls index={index} page={page} total={videoInfo.duration} actualDuration={actualDuration} onAction={act} />}
+
+            {videoInfo?.hasAudio === true && (
+                <label className={classes.choice}>
+                    <input type="checkbox" checked={page.items[0]!.muted === true} onChange={(event) => act({kind: "mute", index, muted: event.target.checked})} />
+                    {" "}
+                    {t("pageMute")}
+                </label>
+            )}
 
             {!isVideo && (
                 <fieldset className={classes.section}>

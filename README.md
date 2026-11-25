@@ -19,12 +19,12 @@
 
 播放器（青云播放器 / qyPlayer）和制作器（青云制作器 / qyMaker）是两个独立的程序，都只在本机运行。需要 Windows 10 / 11（64 位）。
 
-当前版本：[v0.5.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.1)。上一个版本是 [v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0)，更早的正式版是 [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1)；v0.3.0 只是预览版，没有发布正式 Release，它的内容都包含在 0.4.0 里。
+当前版本：[v0.6.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.6.0)。上一个版本是 [v0.5.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.1)，再上一个是 [v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0)；v0.3.0 只是预览版，没有发布正式 Release，它的内容都包含在 0.4.0 里。
 
 | 程序 | 安装包 | 免安装版 |
 | --- | --- | --- |
-| 播放器 | [qyPlayer-0.5.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-Setup-x64.exe) | [qyPlayer-0.5.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-x64-portable.zip) |
-| 制作器 | [qyMaker-0.5.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyMaker-0.5.1-Setup-x64.exe) | [qyMaker-0.5.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyMaker-0.5.1-x64-portable.zip) |
+| 播放器 | [qyPlayer-0.6.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyPlayer-0.6.0-Setup-x64.exe) | [qyPlayer-0.6.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyPlayer-0.6.0-x64-portable.zip) |
+| 制作器 | [qyMaker-0.6.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyMaker-0.6.0-Setup-x64.exe) | [qyMaker-0.6.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyMaker-0.6.0-x64-portable.zip) |
 
 所有版本见 [Releases](https://github.com/Ricky2022/qyPlayer/releases)。
 
@@ -42,7 +42,7 @@
 
 | 程序 | 文件 |
 | --- | --- |
-| 播放器 | [qyPlayer-0.5.1-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-android-arm64.apk) |
+| 播放器 | [qyPlayer-0.6.0-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyPlayer-0.6.0-android-arm64.apk) |
 
 - 第一次安装要允许“安装未知来源应用”：在文件管理器里点开下载的 APK，按提示在系统设置里为这个来源打开权限。
 - 在文件管理器、微信等应用里选“用其他应用打开”，选“青云播放器”就能播放 `.qyp`；应用已经在运行时再打开一个文件，会换成新的一部。
@@ -55,6 +55,14 @@
 ## 当前状态
 
 Web 版、Windows 桌面版（播放器和制作器）和 Android 播放器都已可用；macOS、Android 制作器、Linux 和 AI 编排还没有开始（MP4 导出已包含在 0.3.0 起的版本里）。
+
+### 0.6.0
+
+0.6.0 给制作器加上配乐和视频原声的混音、草稿自动保存，并修正转码视频在旧手机上可能放不出来的问题。详细设计见 [`docs/dev-0.6.0.md`](./docs/dev-0.6.0.md)。包格式升到 0.4，0.1 到 0.4 的包都能打开；0.5.1 及更早的播放器打开 0.4 的包会提示版本不支持。
+
+- 混音：配乐音量和视频原声音量分开调节。新建影片默认开着原声，有声音的视频页把配乐压到 30%，也可以把某一页的视频静音。重新打开的旧影片仍按原来的方式静音。
+- 草稿：在电脑上停止编辑 2 秒后自动保存，下次打开制作器可以恢复或丢弃。手机上不启用。
+- 转码和导出的 H.264 按画面实际需要写级别，不再一律写成 5.0。已经保存的影片重新打开再保存即可。
 
 ### 0.5.1
 
@@ -121,7 +129,7 @@ Web 版、Windows 桌面版（播放器和制作器）和 Android 播放器都�
 待决定与已知问题：
 
 - 转码码率是否不超过源视频码率（目前低码率的源视频转码后可能变大）。
-- 导出的 MP4 先整个放在内存里，很长的影片可能内存不足（超过 10 分钟会先提示）；Chrome 的硬件编码器写入的 H.264 级别是 5.0 而不是规格里的 4.0，码流本身没有超出 4.0 的限制。
+- 导出的 MP4 先整个放在内存里，很长的影片可能内存不足（超过 10 分钟会先提示）。转码和导出会把 H.264 级别改写成码流实际满足的最低级别。
 - 滤镜和模糊背景用到 Canvas 的混合模式，Safari 上的效果以真机为准。
 
 0.2.0 的变化：播放器改成沉浸式界面（控制条自动隐藏、大播放按钮、快捷键）；中英双语界面；新增“关于”页；全新的 Q + 云图标（播放器带播放三角，制作器带铅笔），`.qyp` 文件也有专用图标；Windows 安装包重做（见上）。

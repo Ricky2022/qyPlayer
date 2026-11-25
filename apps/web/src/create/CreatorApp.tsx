@@ -15,6 +15,7 @@ import {AssetPanel, type ImportFailure} from "./AssetPanel";
 import {planPackageWithTitle, type MusicEntry} from "./buildPackage";
 import {describeBuildError, describeFileError} from "./describe";
 import {addCover} from "./cover";
+import {useDraftAutosave} from "./draft/useDraftAutosave";
 import {ConfirmDialog, MessageDialog, ProgressDialog} from "./Dialogs";
 import {MOBILE_MAX_BYTES, exceedsMobileLimit, mobileSizeLevel} from "./environment";
 import {classifyDrop} from "./editor/drop";
@@ -35,6 +36,7 @@ import {
     createEditor,
     currentDoc,
     isDirty,
+    loadDraft,
     loadEditor,
     markSaved,
     moveMedia,
@@ -45,14 +47,17 @@ import {
     setAspect,
     selectedMedia,
     setLength,
+    setDuckMusic,
     setLook,
     setMusic,
+    setMusicVolume,
     setSeed,
     setShowTitle,
     setSubtitle,
     setTemplate,
     setTitle,
     setTransition,
+    setVideoVolume,
     sortMediaByCapturedAt,
     undo,
     type EditorMediaInput,
@@ -231,9 +236,10 @@ export const CreatorApp = function CreatorApp() {
     const busy = importing !== null || working !== null;
     const busyRef = useRef(busy);
     busyRef.current = busy;
-    // eslint-disable-next-line @stylistic/max-len
-    const modalOpen = confirmation !== null || errorMessage !== null || savedNote !== null || progress !== null || exportProgress !== null || aboutOpen || framing !== null;
     const dirty = isDirty(editor);
+    const draft = useDraftAutosave(doc, dirty, !transcodeSetting.mobile, {onQuota: () => setErrorMessage(t("draftQuota"))});
+    // eslint-disable-next-line @stylistic/max-len
+    const modalOpen = confirmation !== null || errorMessage !== null || savedNote !== null || progress !== null || exportProgress !== null || aboutOpen || framing !== null || draft.offer !== null;
 
     // 转码开关关闭时丢弃转码缓存（5.5）
     useEffect(() => {
@@ -263,12 +269,17 @@ export const CreatorApp = function CreatorApp() {
     };
 
     // 标题改了（包括撤销重做）直接更新预览里的标题，不重新生成
-    const {applyTitle, result} = preview;
+    const {applyTitle, applyAudio, result} = preview;
     useEffect(() => {
         if (applyTitle(doc.title, doc.subtitle)) {
             bumpTitle((n) => n + 1);
         }
     }, [applyTitle, doc.title, doc.subtitle, result]);
+
+    // 音量改了（包括撤销重做）直接更新预览的清单，拖滑块时边播边听
+    useEffect(() => {
+        applyAudio(doc.musicVolume, doc.videoVolume, doc.duckMusic);
+    }, [applyAudio, doc.musicVolume, doc.videoVolume, doc.duckMusic, result]);
 
     // 预览重新生成后停留在选中的页（docs/dev-0.4.1.md 7）
     useEffect(() => {
@@ -810,6 +821,9 @@ export const CreatorApp = function CreatorApp() {
             onLook={(look) => apply((state) => setLook(state, look))}
             onLength={(length) => applyFilm((state) => setLength(state, length))}
             onMusic={(music) => apply((state) => setMusic(state, music))}
+            onMusicVolume={(volume, at) => apply((state) => setMusicVolume(state, volume, at))}
+            onVideoVolume={(volume, at) => apply((state) => setVideoVolume(state, volume, at))}
+            onDuckMusic={(duck) => apply((state) => setDuckMusic(state, duck))}
             onPickMusic={() => musicInput.current?.click()}
             onReroll={() => {
                 const seed = randomSeed();
@@ -831,7 +845,7 @@ export const CreatorApp = function CreatorApp() {
             aspect={pageAspect}
             mediaOf={(key) => {
                 const m = mediaByKey.get(key);
-                return m && {name: m.fileName, url: urlFor(m), video: m.type === "video", duration: m.duration ?? 0};
+                return m && {name: m.fileName, url: urlFor(m), video: m.type === "video", duration: m.duration ?? 0, hasAudio: m.hasAudio === true};
             }}
             ctx={pageContext}
             onAction={onPageAction}
@@ -975,6 +989,21 @@ export const CreatorApp = function CreatorApp() {
                 }}
             />
 
+            {draft.offer && (
+                <ConfirmDialog
+                    message={t("draftFound", {count: draft.offer.count, time: new Date(draft.offer.savedAt).toLocaleString(lang === "zh" ? "zh-CN" : "en")})}
+                    confirmLabel={t("draftRestore")}
+                    cancelLabel={t("draftDiscard")}
+                    onCancel={() => draft.discard()}
+                    onConfirm={() => {
+                        const content = draft.offer?.content;
+                        draft.accept();
+                        if (content) {
+                            apply((state) => loadDraft(state, content));
+                        }
+                    }}
+                />
+            )}
             {confirmation && (
                 <ConfirmDialog
                     message={confirmation.message}

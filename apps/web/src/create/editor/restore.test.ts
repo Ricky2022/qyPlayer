@@ -166,7 +166,22 @@ describe("还原：设置", () => {
 
 describe("还原：配乐", () => {
     it("没有配乐", async () => {
-        expect((await restorePackage(makeMemoryPackage(), options)).content.music).toEqual({kind: "none"});
+        const {content} = await restorePackage(makeMemoryPackage(), options);
+        expect(content.music).toEqual({kind: "none"});
+        // 生成器没写配乐，原声音量是 1；没有 duck 字段时压低开关按新影片的默认打开
+        expect(content).toMatchObject({musicVolume: 1, videoVolume: 1, duckMusic: true});
+    });
+
+    it("带配乐的旧包保持视频静音；写了音量和压低的包按原值还原", async () => {
+        const legacy = makeMemoryPackage({music: song}, (m) => {
+            delete m.videoVolume;
+            delete m.bgm?.duck;
+        });
+        expect(await restorePackage(legacy, options)).toMatchObject({content: {videoVolume: 0, musicVolume: 1, duckMusic: true}});
+        const mixed = makeMemoryPackage({music: song, videoVolume: 1, musicVolume: 0.8, duck: 0.3});
+        expect(await restorePackage(mixed, options)).toMatchObject({content: {videoVolume: 1, musicVolume: 0.8, duckMusic: true}});
+        const full = makeMemoryPackage({music: song, videoVolume: 0.5, musicVolume: 1, duck: 1});
+        expect(await restorePackage(full, options)).toMatchObject({content: {videoVolume: 0.5, duckMusic: false}});
     });
 
     it("CC0 且曲名是内置曲目：选中内置曲目，不读文件", async () => {
@@ -271,7 +286,7 @@ describe("还原：手动编排（generator.plan）", () => {
 describe("预览包", () => {
     it("readBlob 直接返回编辑状态里的素材，不存在的路径报缺失", async () => {
         const input: EditorMediaInput = {...photo("a.jpg"), final: false};
-        const state = loadEditor(createEditor(1, "clean"), {media: [input], title: "", subtitle: "", showTitle: false, aspect: "auto", templateId: "clean", transition: "auto", look: "original", length: "long", music: {kind: "none"}, seed: 1, pages: null});
+        const state = loadEditor(createEditor(1, "clean"), {media: [input], title: "", subtitle: "", showTitle: false, aspect: "auto", templateId: "clean", transition: "auto", look: "original", length: "long", music: {kind: "none"}, musicVolume: 1, videoVolume: 1, duckMusic: true, seed: 1, pages: null});
         const {opened, manifest} = await createPreviewPackage(currentDoc(state));
         const src = manifest.assets[0]!.src;
         expect(await (await opened.readBlob(src)).text()).toBe("a.jpg");
@@ -284,7 +299,7 @@ describe("预览包", () => {
 
     it("显示标题时按最终标题和画布尺寸画标题图片并放进包；不显示时不画", async () => {
         const input: EditorMediaInput = {...photo("a.jpg"), final: false};
-        const content = {media: [input], title: "春游", subtitle: "三月", showTitle: true, length: "long" as const, aspect: "auto" as const, templateId: "clean", transition: "auto" as const, look: "original" as const, music: {kind: "none" as const}, seed: 1, pages: null};
+        const content = {media: [input], title: "春游", subtitle: "三月", showTitle: true, length: "long" as const, aspect: "auto" as const, templateId: "clean", transition: "auto" as const, look: "original" as const, music: {kind: "none" as const}, musicVolume: 1, videoVolume: 1, duckMusic: true, seed: 1, pages: null};
         const requests: unknown[] = [];
         // eslint-disable-next-line @typescript-eslint/require-await
         const renderTitle = async (request: unknown) => (requests.push(request), new Blob(["png"]));

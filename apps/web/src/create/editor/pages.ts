@@ -172,7 +172,7 @@ export const updateItem = function updateItem(
     pages: readonly EditorPage[],
     pageIndex: number,
     itemIndex: number,
-    patch: Partial<Pick<EditorItem, "fit" | "crop" | "kenBurns" | "clipStart">>,
+    patch: Partial<Pick<EditorItem, "fit" | "crop" | "kenBurns" | "clipStart" | "muted">>,
 ): EditorPage[] | null {
     if (!inRange(pages, pageIndex) || !inRange(pages[pageIndex]!.items, itemIndex)) {
         return null;

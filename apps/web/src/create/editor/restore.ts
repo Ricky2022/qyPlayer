@@ -1,7 +1,9 @@
 // 打开已有 .qyp 时，把包还原成可编辑的内容（规则见 docs/dev-0.3.0.md 3A.5）。
-import {KNOWN_LOOKS, TEMPLATES, TRANSITION_CHOICES, planProblems, type Asset, type Manifest, type PagePlan} from "@qyplayer/core";
+import {KNOWN_LOOKS, TEMPLATES, TRANSITION_CHOICES, planProblems, videoVolumeOf, type Asset, type Manifest, type PagePlan} from "@qyplayer/core";
 import {mimeForPath, type OpenedPackage} from "@qyplayer/qyp";
 import type {MusicEntry} from "../buildPackage";
+import {codecMimeWithLevel, patchAvcLevel} from "../transcode/avcLevel";
+import {VIDEO_BITRATE, VIDEO_MAX_FPS} from "../transcode/size";
 import {BUILTIN_TRACKS, type BuiltinTrack} from "../builtinMusicInfo";
 import {pagesFromPlan, type EditorPage} from "./pages";
 import type {EditorContent, EditorMediaInput, MusicChoice} from "./state";
@@ -115,15 +117,23 @@ export const restorePackage = async function restorePackage(opened: OpenedPackag
     const assets = assetsInFirstAppearanceOrder(manifest);
     for (const asset of assets) {
         const type = asset.type as "image" | "video";
-        const blob = await opened.readBlob(asset.src);
+        let blob = await opened.readBlob(asset.src);
         totalBytes += blob.size;
         if (options.maxTotalBytes !== undefined && totalBytes > options.maxTotalBytes) {
             throw new RestoreError("too-large");
         }
         counters[type] += 1;
         // 0.2 的包带 mimeType 和 source；0.1 的包由扩展名推断，并视为最终文件（本来就是基准格式）
-        const mimeType = asset.mimeType ?? mimeForPath(asset.src);
+        let mimeType = asset.mimeType ?? mimeForPath(asset.src);
         const source = asset.source ?? {mimeType, transcoded: false};
+        // 本工具转码过的 H.264 可能被写成级别 5.0。打开时改回码流实际需要的级别，重新保存即修好
+        if (type === "video" && source.transcoded && mimeType.includes("avc1")) {
+            const patched = await patchAvcLevel(blob, {fps: VIDEO_MAX_FPS, bitrate: VIDEO_BITRATE});
+            if (patched.changed && patched.levelIdc !== undefined) {
+                blob = patched.blob;
+                mimeType = codecMimeWithLevel(mimeType, patched.levelIdc);
+            }
+        }
         media.push({
             fileName: options.serialName(type, counters[type]),
             type,
@@ -155,6 +165,10 @@ export const restorePackage = async function restorePackage(opened: OpenedPackag
             subtitle: manifest.subtitle ?? "",
             showTitle: manifest.titleCard !== undefined,
             look: KNOWN_LOOKS.find((look) => look === manifest.look) ?? "original",
+            musicVolume: manifest.bgm?.volume ?? 1,
+            videoVolume: videoVolumeOf(manifest),
+            // 旧包没有 duck：按新影片的默认打开压低；写过 duck 的包按它是否小于 1
+            duckMusic: manifest.bgm?.duck === undefined ? true : manifest.bgm.duck < 1,
             seed,
             pages,
             music: await restoreMusic(opened, options.builtinTracks ?? BUILTIN_TRACKS),

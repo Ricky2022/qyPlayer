@@ -19,12 +19,12 @@ The interface is available in Chinese and English. It follows the system languag
 
 The player (qyPlayer, 青云播放器) and the creator (qyMaker, 青云制作器) are two separate programs. Both run entirely on your machine. Windows 10 / 11 (64-bit) is required.
 
-Current version: [v0.5.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.1). The previous version is [v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0), and the official version before that is [v0.4.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.4.1); v0.3.0 was only a preview with no official Release, and everything in it is included in 0.4.0.
+Current version: [v0.6.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.6.0). The previous version is [v0.5.1](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.1), and the one before that is [v0.5.0](https://github.com/Ricky2022/qyPlayer/releases/tag/v0.5.0); v0.3.0 was only a preview with no official Release, and everything in it is included in 0.4.0.
 
 | Program | Installer | Portable |
 | --- | --- | --- |
-| Player | [qyPlayer-0.5.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-Setup-x64.exe) | [qyPlayer-0.5.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-x64-portable.zip) |
-| Creator | [qyMaker-0.5.1-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyMaker-0.5.1-Setup-x64.exe) | [qyMaker-0.5.1-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyMaker-0.5.1-x64-portable.zip) |
+| Player | [qyPlayer-0.6.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyPlayer-0.6.0-Setup-x64.exe) | [qyPlayer-0.6.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyPlayer-0.6.0-x64-portable.zip) |
+| Creator | [qyMaker-0.6.0-Setup-x64.exe](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyMaker-0.6.0-Setup-x64.exe) | [qyMaker-0.6.0-x64-portable.zip](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyMaker-0.6.0-x64-portable.zip) |
 
 All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/releases) page.
 
@@ -42,7 +42,7 @@ Since 0.5.0 there is an Android player. Install the APK directly; it is not dist
 
 | Program | File |
 | --- | --- |
-| Player | [qyPlayer-0.5.1-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.5.1/qyPlayer-0.5.1-android-arm64.apk) |
+| Player | [qyPlayer-0.6.0-android-arm64.apk](https://github.com/Ricky2022/qyPlayer/releases/download/v0.6.0/qyPlayer-0.6.0-android-arm64.apk) |
 
 - The first install has to allow "install unknown apps": open the downloaded APK in your file manager and allow that source in the system settings when prompted.
 - In a file manager, WeChat or another app, choose "Open with" and pick qyPlayer to play a `.qyp`; opening another file while the app is running switches to the new film.
@@ -55,6 +55,14 @@ Since 0.5.0 there is an Android player. Install the APK directly; it is not dist
 ## Status
 
 The web version, the Windows desktop apps (player and creator) and the Android player all work. macOS, an Android creator, Linux and AI-assisted editing have not been started (MP4 export is included since 0.3.0).
+
+### 0.6.0
+
+0.6.0 adds mixing of music and original video sound, automatic draft saving, and a fix for transcoded video that some older phones could not play. The design is in [`docs/dev-0.6.0.md`](./docs/dev-0.6.0.md) (in Chinese). The package format is now 0.4; packages from 0.1 to 0.4 all open. Players from 0.5.1 and earlier say the version is not supported when they open a 0.4 package.
+
+- Mixing: music volume and original video volume are separate. A new film plays the original sound, and the music drops to 30% on a video page that has sound. A single video page can be muted. An older film stays silent the way it was.
+- Drafts: on a computer the creator saves two seconds after you stop editing, and offers to restore or discard it next time. Phones do not.
+- Transcoding and MP4 export write the lowest H.264 level the picture actually needs, instead of always writing level 5.0. Open an existing film and save it again to repair it.
 
 ### 0.5.1
 
@@ -121,7 +129,7 @@ Available since 0.3.0:
 To decide, and known issues:
 
 - Whether transcoding should cap the bitrate at the source video's bitrate (a low-bitrate source can currently get larger).
-- An exported MP4 is held entirely in memory, so a very long film may run out of memory (a film over 10 minutes asks first); Chrome's hardware encoder writes H.264 level 5.0 instead of the 4.0 in the spec, though the stream itself stays within the level 4.0 limits.
+- An exported MP4 is held entirely in memory, so a very long film may run out of memory (a film over 10 minutes asks first). Transcoding and export rewrite the H.264 level down to the lowest one the stream actually fits.
 - Filters and the blurred backdrop use canvas blend modes; how they look on Safari is decided on a real device.
 
 New in 0.2.0: an immersive player (auto-hiding controls, a big play button, keyboard shortcuts); a bilingual Chinese / English interface; an About page; new Q + cloud icons (a play triangle for the player, a pencil for the creator) and a dedicated `.qyp` file icon; a reworked Windows installer (see above).

@@ -3,6 +3,7 @@ import {ALL_FORMATS, BlobSource, BufferTarget, Conversion, ConversionCanceledErr
 import {convertToJpeg} from "../importers";
 import {probeVideo} from "../probeVideo";
 import {abortError, type TranscodeWorkers} from "./run";
+import {patchAvcLevel} from "./avcLevel";
 import {fitVideoSize, VIDEO_BITRATE, VIDEO_MAX_FPS} from "./size";
 
 const AUDIO_BITRATE = 192_000;
@@ -84,8 +85,10 @@ export const browserWorkers: TranscodeWorkers = {
             onProgress,
             signal,
         );
-        const info = await probeVideo(out, entry.fileName);
-        return {blob: out, mimeType: info.mimeType, width: info.width, height: info.height, duration: end - range.start};
+        // 编码器把级别写成 5.0 时改回码流实际需要的级别，清单里的 mimeType 随之是新级别
+        const patched = await patchAvcLevel(out, {fps: VIDEO_MAX_FPS, bitrate: VIDEO_BITRATE});
+        const info = await probeVideo(patched.blob, entry.fileName);
+        return {blob: patched.blob, mimeType: info.mimeType, width: info.width, height: info.height, duration: end - range.start};
     },
 
     async audio(blob, onProgress, signal) {

@@ -1,9 +1,9 @@
-// 导出的音频混合（docs/dev-0.3.0.md 10.5）：用 OfflineAudioContext 混成 48 kHz 立体声。
-// 有背景音乐只混背景音乐；没有背景音乐才混入视频页的原声（与播放一致）。
+// 导出的音频混合（docs/dev-0.6.0.md 1.4）：用 OfflineAudioContext 混成 48 kHz 立体声。
+// 有背景音乐就混背景音乐；整片原声音量大于 0 就混视频原声，两路可以同时存在（与播放一致）。
 // 整部影片按 10 秒一段分别渲染，每段渲染完交给编码器就释放，内存不随影片变长。
-import type {Asset, Manifest} from "@qyplayer/core";
+import {videoVolumeOf, type Asset, type Manifest} from "@qyplayer/core";
 import {ALL_FORMATS, AudioBufferSink, BlobSource, Input} from "mediabunny";
-import {AUDIO_WINDOW_SECONDS, EXPORT_SAMPLE_RATE, bgmGainCurve, pageGainCurve, type GainPoint} from "./spec";
+import {AUDIO_WINDOW_SECONDS, EXPORT_SAMPLE_RATE, bgmDuckCurve, bgmGainCurve, pageGainCurve, type GainPoint} from "./spec";
 
 const WINDOW_SAMPLES = EXPORT_SAMPLE_RATE * AUDIO_WINDOW_SECONDS;
 
@@ -99,9 +99,12 @@ export const createAudioMixer = function createAudioMixer(manifest: Manifest, re
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.loop = loop;
-        const gain = ctx.createGain();
-        scheduleGain(gain.gain, bgmGainCurve(manifest, from, to), from);
-        source.connect(gain).connect(ctx.destination);
+        // 淡入淡出和压低各走一个增益：两条都是分段线性，相乘与播放器的 bgmGainAt 一致
+        const fade = ctx.createGain();
+        const duck = ctx.createGain();
+        scheduleGain(fade.gain, bgmGainCurve(manifest, from, to), from);
+        scheduleGain(duck.gain, bgmDuckCurve(manifest, from, to), from);
+        source.connect(fade).connect(duck).connect(ctx.destination);
         source.start(0, loop ? from % buffer.duration : from);
     };
 
@@ -115,7 +118,7 @@ export const createAudioMixer = function createAudioMixer(manifest: Manifest, re
             }
             for (const item of page.items) {
                 const asset = assets.get(item.assetId);
-                if (!asset || asset.type !== "video" || asset.hasAudio === false) {
+                if (!asset || asset.type !== "video" || asset.hasAudio === false || item.muted === true) {
                     continue;
                 }
                 const source = await clipSource(asset);
@@ -133,9 +136,11 @@ export const createAudioMixer = function createAudioMixer(manifest: Manifest, re
                 }
                 const node = ctx.createBufferSource();
                 node.buffer = buffer;
-                const gain = ctx.createGain();
-                scheduleGain(gain.gain, pageGainCurve(page.duration, a0 - page.start, a1 - page.start), from - page.start);
-                node.connect(gain).connect(ctx.destination);
+                const fade = ctx.createGain();
+                const level = ctx.createGain();
+                level.gain.value = videoVolumeOf(manifest);
+                scheduleGain(fade.gain, pageGainCurve(page.duration, a0 - page.start, a1 - page.start), from - page.start);
+                node.connect(fade).connect(level).connect(ctx.destination);
                 node.start(a0 - from);
             }
         }
@@ -164,7 +169,8 @@ export const createAudioMixer = function createAudioMixer(manifest: Manifest, re
             const ctx = new OfflineAudioContext(2, length, EXPORT_SAMPLE_RATE);
             if (manifest.bgm) {
                 await mixMusic(ctx, from, to);
-            } else {
+            }
+            if (videoVolumeOf(manifest) > 0) {
                 await mixVideoSound(ctx, from, to);
             }
             return ctx.startRendering();

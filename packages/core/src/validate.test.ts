@@ -2,6 +2,7 @@ import {describe, expect, it} from "vitest";
 import example from "../../../spec/examples/example.manifest.json";
 import example01 from "../../../spec/examples/example-0.1.manifest.json";
 import example03 from "../../../spec/examples/example-0.3.manifest.json";
+import example04 from "../../../spec/examples/example-0.4.manifest.json";
 import {checkPackagePath, referencedPaths, validateManifest, type Manifest} from "./index";
 
 /** 深拷贝示例清单后按需改动，得到一个只违反一条规则的不合法样本 */
@@ -96,9 +97,28 @@ describe("validateManifest: format 0.3", () => {
     });
 });
 
+describe("validateManifest: format 0.4", () => {
+    it("accepts the 0.4 example", () => {
+        const result = validateManifest(example04);
+        expect(result.errors).toEqual([]);
+        expect(result.ok).toBe(true);
+        expect(result.manifest?.videoVolume).toBe(1);
+        expect(result.manifest?.bgm?.duck).toBe(0.3);
+    });
+
+    it("rejects a volume outside 0 to 1", () => {
+        const over = JSON.parse(JSON.stringify(example04)) as {videoVolume: number; bgm: {duck: number}};
+        over.videoVolume = 1.5;
+        expect(codes(over)).toEqual(["schema"]);
+        over.videoVolume = 1;
+        over.bgm.duck = -0.1;
+        expect(codes(over)).toEqual(["schema"]);
+    });
+});
+
 describe("validateManifest: version and structure", () => {
     it("rejects a higher format version with a dedicated code", () => {
-        expect(codes(mutated((m) => m.formatVersion = "0.4"))).toEqual(["unsupported-version"]);
+        expect(codes(mutated((m) => m.formatVersion = "0.5"))).toEqual(["unsupported-version"]);
         expect(codes(mutated((m) => m.formatVersion = "1.0"))).toEqual(["unsupported-version"]);
     });
 

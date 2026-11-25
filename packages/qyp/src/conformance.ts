@@ -1,6 +1,7 @@
 import example from "../../../spec/examples/example.manifest.json";
 import example01 from "../../../spec/examples/example-0.1.manifest.json";
 import example03 from "../../../spec/examples/example-0.3.manifest.json";
+import example04 from "../../../spec/examples/example-0.4.manifest.json";
 import {referencedPaths, type Manifest} from "@qyplayer/core";
 import type {QypErrorCode} from "./open";
 import {writeZip, type PackageFile} from "./write";
@@ -31,6 +32,8 @@ const base = example01 as unknown as Manifest;
 const base02 = example as unknown as Manifest;
 /** 格式 0.3 的示例：新增的 v03 用例以它为基础 */
 const base03 = example03 as unknown as Manifest;
+/** 格式 0.4 的示例：配乐与视频原声混合 */
+const base04 = example04 as unknown as Manifest;
 
 const copyOf = function copyOf(manifest: Manifest, change: (m: any) => void): any {
     const copy = JSON.parse(JSON.stringify(manifest));
@@ -116,7 +119,7 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
         name: "invalid-version-too-high",
         description: "格式版本高于播放器支持的版本",
         expect: {ok: false, code: "unsupported-version"},
-        build: validPackage(variant((m) => m.formatVersion = "0.4")),
+        build: validPackage(variant((m) => m.formatVersion = "0.5")),
     },
     {
         name: "invalid-missing-file",
@@ -245,6 +248,18 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
         description: "格式 0.3：motion 的 scale 为 0",
         expect: {ok: false, code: "invalid-manifest"},
         build: validPackage(variant03((m) => m.pages[0].items[0].motion.to.scale = 0)),
+    },
+    {
+        name: "valid-v04-basic",
+        description: "格式 0.4 的完整示例：配乐与视频原声混合（videoVolume、bgm.duck）",
+        expect: {ok: true},
+        build: validPackage(base04),
+    },
+    {
+        name: "invalid-v04-video-volume",
+        description: "格式 0.4：videoVolume 超出 0 到 1",
+        expect: {ok: false, code: "invalid-manifest"},
+        build: validPackage(copyOf(base04, (m) => m.videoVolume = 1.5)),
     },
     {
         name: "invalid-size-mismatch",

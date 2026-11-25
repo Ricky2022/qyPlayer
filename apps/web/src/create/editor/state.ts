@@ -12,6 +12,8 @@ export const MAX_HISTORY = 50;
 export const TITLE_MERGE_MS = 1000;
 /** 滑块等连续调整同一项时，两次调整间隔不超过这个毫秒数就合并为一步（docs/dev-0.4.1.md 5） */
 export const TWEAK_MERGE_MS = 1000;
+/** 打开“自动压低配乐”时，有声视频页上配乐的增益（docs/dev-0.6.0.md 1） */
+export const DUCKED_MUSIC_GAIN = 0.3;
 
 /** 列表里的一个素材 */
 export interface EditorMedia extends MediaEntry {
@@ -57,6 +59,12 @@ export interface EditorDoc {
     /** 影片时长档位；只决定用哪些素材，不写进清单，重新打开一律是长 */
     length: LengthChoice;
     music: MusicChoice;
+    /** 配乐音量，0 到 1。没选配乐时保留，选回来仍是这个值 */
+    musicVolume: number;
+    /** 整片的视频原声音量，0 到 1 */
+    videoVolume: number;
+    /** 视频有声音时把配乐压到 DUCKED_MUSIC_GAIN */
+    duckMusic: boolean;
     seed: number;
     /** 单页编辑后的手动编排；null 表示自动编排（素材 + 设置 + 种子决定整部影片）。素材用 EditorMedia.key 标识 */
     pages: readonly EditorPage[] | null;
@@ -104,6 +112,9 @@ const initialDoc = function initialDoc(seed: number, templateId: string): Editor
         look: "original",
         length: "long",
         music: {kind: "builtin", trackId: DEFAULT_BUILTIN_TRACK_ID},
+        musicVolume: 1,
+        videoVolume: 1,
+        duckMusic: true,
         seed,
         pages: null,
     };
@@ -271,6 +282,43 @@ export const setMusic = function setMusic(state: EditorState, music: MusicChoice
     return sameMusic(doc.music, music) ? state : commit(state, {...doc, music});
 };
 
+const unitVolume = (value: number): number => Math.min(1, Math.max(0, value));
+
+/** 连续调整同一项、间隔不超过 TWEAK_MERGE_MS、且当前位置不是刚保存的位置时，合并到这一步 */
+const tweakMerges = function tweakMerges(state: EditorState, key: string, at: number): boolean {
+    const last = state.lastTweak;
+    return last?.key === key && at - last.at <= TWEAK_MERGE_MS && state.present.id !== state.savedId;
+};
+
+const setVolumeField = function setVolumeField(state: EditorState, field: "musicVolume" | "videoVolume", value: number, at: number): EditorState {
+    const doc = state.present.doc;
+    const next = unitVolume(value);
+    if (doc[field] === next) {
+        return state;
+    }
+    const edited = {...doc, [field]: next};
+    if (tweakMerges(state, field, at)) {
+        return {...state, present: {id: state.present.id, doc: edited}, lastTitleAt: null, lastTweak: {key: field, at}};
+    }
+    return commit(state, edited, null, {key: field, at});
+};
+
+/** 修改配乐音量。连续拖动间隔不超过 TWEAK_MERGE_MS 时合并成一步撤销 */
+export const setMusicVolume = function setMusicVolume(state: EditorState, value: number, at: number): EditorState {
+    return setVolumeField(state, "musicVolume", value, at);
+};
+
+/** 修改整片的视频原声音量，合并规则同配乐音量 */
+export const setVideoVolume = function setVideoVolume(state: EditorState, value: number, at: number): EditorState {
+    return setVolumeField(state, "videoVolume", value, at);
+};
+
+/** 视频有声音时是否压低配乐。不影响已记住的配乐音量 */
+export const setDuckMusic = function setDuckMusic(state: EditorState, duckMusic: boolean): EditorState {
+    const doc = state.present.doc;
+    return doc.duckMusic === duckMusic ? state : commit(state, {...doc, duckMusic});
+};
+
 /** “换一版”：换一个随机种子 */
 export const setSeed = function setSeed(state: EditorState, seed: number): EditorState {
     const doc = state.present.doc;
@@ -362,6 +410,11 @@ export const loadEditor = function loadEditor(state: EditorState, content: Edito
     };
 };
 
+/** 恢复草稿：内容和打开包一样整体替换，但算有未保存的更改，撤销历史是空的 */
+export const loadDraft = function loadDraft(state: EditorState, content: EditorContent): EditorState {
+    return {...loadEditor(state, content), savedId: null};
+};
+
 // ---------- 单页编辑（docs/dev-0.4.1.md 2） ----------
 
 /**
@@ -384,9 +437,8 @@ export const editPages = function editPages(
         return state;
     }
     const edited: EditorDoc = {...doc, pages: next, media: followPageOrder(doc.media, next)};
-    const last = state.lastTweak;
-    // eslint-disable-next-line @stylistic/max-len
-    const mergeable = tweak && doc.pages !== null && last?.key === tweak.key && tweak.at - last.at <= TWEAK_MERGE_MS && state.present.id !== state.savedId;
+    // 第一次单页修改会新建手动编排，不能并进上一步
+    const mergeable = tweak && doc.pages !== null && tweakMerges(state, tweak.key, tweak.at);
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (mergeable) {
         return {...state, present: {id: state.present.id, doc: edited}, lastTitleAt: null, lastTweak: tweak};
