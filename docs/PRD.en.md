@@ -94,10 +94,10 @@ qyPlayer is an open-source, cross-platform, fully local application of the same 
 | Filters and color grading | Phase 2 |
 | Beat sync (transitions aligned to the beat) | Phase 2 |
 | MP4 export | Phase 3 |
-| Per-page editing: captions for each page, muting a video, the transition into the first page, enter animations (duration, transition, layout, framing and clip of a single page are in 0.4.1, see F-ADJ-06) | Phase 4 |
+| Per-page editing: captions for each page, the transition into the first page, enter animations (duration, transition, layout, framing and clip of a single page are in 0.4.1, see F-ADJ-06; muting a single video is in 0.6.0) | Phase 4 |
 | Advanced transitions and effects (3D, particles, masks) | Phase 4 |
 | On-device intelligence (face or subject detection, de-duplication, selection) | Phase 4 |
-| Mixing background music with original video sound | Not scheduled |
+| Mixing background music with original video sound | In 0.6.0 (format 0.4, see [7.8](#78-changes-in-formats-02-03-and-04)) |
 | The motion part of Live Photos (treated as still photos) | Not scheduled |
 | Accounts, cloud storage, online sharing links | Will not do |
 
@@ -304,7 +304,7 @@ Originals in `originals/` may be in any format. A player does not read them.
 | `duration` | number | Yes | Total duration in seconds. Must equal the sum of all page durations |
 | `cover` | string | No | Path of the cover image |
 | `assets` | array | Yes | Asset list |
-| `bgm` | object | No | Background music. When present, all videos are muted; when absent, the original sound of videos plays |
+| `bgm` | object | No | Background music. When present, all videos are muted; when absent, the original sound of videos plays (since format 0.4 `videoVolume` can change this, see [7.8](#78-changes-in-formats-02-03-and-04)) |
 | `pages` | array | Yes | Page list in time order, at least 1 page |
 
 #### generator
@@ -589,10 +589,13 @@ Points to note in the example:
 - Because `bgm` is present, the original sound of `m004` does not play.
 - Cells on multi-photo pages are separated by gaps, which show the canvas background color.
 
-### 7.8 Changes in formats 0.2 and 0.3
+### 7.8 Changes in formats 0.2, 0.3 and 0.4
 
 - 0.2: every asset must have `mimeType` and `source` (where it came from before transcoding); an optional `cover.jpg` cover is added. 0.1 packages still open.
-- 0.3: only optional fields are added, and the behavior without them is identical to 0.2. Packages of 0.1, 0.2 and 0.3 open; for a newer `formatVersion` the player says it is not supported.
+- 0.3: only optional fields are added, and the behavior without them is identical to 0.2.
+- 0.4: only optional fields are added, and the behavior without them is identical to 0.3. Packages of 0.1 to 0.4 open; for a newer `formatVersion` the player says it is not supported.
+
+Added in 0.3:
 
 | Where | Field | Description |
 | --- | --- | --- |
@@ -603,7 +606,15 @@ Points to note in the example:
 | Top level | `subtitle`, `titleCard` | Subtitle text; the opening title picture (a transparent PNG in the asset table) and when it shows |
 | `generator` | `transition` | The transition the user picked, used to restore editing settings |
 
-The structure of the fields is in [`spec/manifest.schema.json`](../spec/manifest.schema.json); the full description and the drawing order are in [`dev-0.4.0.md`](./dev-0.4.0.md) (in Chinese). A player treats unknown `look` and `backdrop` values as absent.
+Added in 0.4 (mixing of sound; the rules are in [section 9](#9-audio-rules) and [`dev-0.6.0.md`](./dev-0.6.0.md), in Chinese):
+
+| Where | Field | Description |
+| --- | --- | --- |
+| Top level | `videoVolume` | Volume of original video sound for the whole film, 0 to 1. Default: 0 when `bgm` is present, 1 when it is absent |
+| `bgm` | `duck` | Gain factor of the music on video pages with sound, 0 to 1. Default 1 (no ducking) |
+| `pages[].items[]` | `muted` | When true, this video is silent. Default false |
+
+The structure of the fields is in [`spec/manifest.schema.json`](../spec/manifest.schema.json); the full description of the 0.3 fields and the drawing order are in [`dev-0.4.0.md`](./dev-0.4.0.md) (in Chinese). A player treats unknown `look` and `backdrop` values as absent.
 
 ## 8. Visual effects
 
@@ -667,14 +678,16 @@ The first release tentatively ships 3 templates (T-11). Names and parameters are
 
 | ID | Rule |
 | --- | --- |
-| A-01 | When the film has background music, all videos are muted. |
-| A-02 | When the film has no background music, the original sound of videos plays. Photo pages are silent. |
+| A-01 | When the film has background music, original video sound plays at `videoVolume`; the default is 0, so all videos are muted. |
+| A-02 | When the film has no background music, the original sound of videos plays (`videoVolume` defaults to 1). Photo pages are silent. |
 | A-03 | Background music plays from the start of the film, fading in at the start and out at the end (tentatively 1 second in and 2 seconds out, T-14). |
 | A-04 | When the music is longer than the film, it fades out where the film ends. When it is shorter, it loops. |
 | A-05 | When original video sound plays, the sound of each clip has a short fade at its start and end to avoid pops. |
 | A-06 | When there is background music, audio playback position is the master clock of the film, and the picture follows the audio. |
 | A-07 | After seeking, both the background music and the video jump to the matching position. |
 | A-08 | Browsers restrict autoplay of content with sound. Playback must be started by a user action. |
+| A-09 (format 0.4) | When background music and original video sound play together, the music is multiplied by `bgm.duck` on "video pages with sound": it ramps down linearly starting 0.5 seconds before the page, is fully down when the page starts, and ramps back up within 0.5 seconds after the page ends; it does not come back up between two adjacent video pages with sound. A video page with sound is one where `videoVolume` is above 0 and the page has a video with an audio track whose `muted` is not true. |
+| A-10 (format 0.4) | A video whose `muted` is true is silent and does not trigger the ducking of A-09. |
 
 ## 10. Non-functional requirements
 
@@ -921,7 +934,7 @@ The core layer depends on neither the interface framework nor a specific platfor
 
 | Rule | Acceptance criteria |
 | --- | --- |
-| A-01 | Playing a film that has background music and videos with audio tracks, the original video sound is never heard. |
+| A-01 | Playing a film that has background music and videos with audio tracks and no `videoVolume`, the original video sound is never heard; with `videoVolume` at 1, both the original sound and the music are heard on video pages. |
 | A-02 | Playing a film without background music, the original sound is heard on video pages and photo pages are silent. |
 | A-03 | The volume of the background music at the start and end changes as specified by `fadeIn` and `fadeOut` in the manifest. |
 | A-04 | When the music is longer than the film, there is silence as soon as the film ends. When the music is shorter and `loop` is true, the music continues from its start after it finishes. |
@@ -929,6 +942,8 @@ The core layer depends on neither the interface framework nor a specific platfor
 | A-06 | Playing a film with background music continuously to the end, the offset between picture and music does not exceed the value of T-12. |
 | A-07 | After seeking to the middle of a video page, both the video picture and the background music continue from the matching position. |
 | A-08 | In each target browser, after a package is opened, pressing play produces sound, with no silence or error caused by autoplay restrictions. |
+| A-09 | For a film with photos at 0–4 s, a video with sound at 4–10 s, photos at 10–14 s and `bgm.duck` 0.3: the gain factor of the music is 1 at 3.5 s, 0.3 from 4 to 10 s, and 1 at 10.5 s. The player and the exported MP4 sound the same. |
+| A-10 | Set the video of that film to `muted`: the original video sound is never heard and the music is not ducked. |
 
 ### 13.3 Non-functional requirements
 

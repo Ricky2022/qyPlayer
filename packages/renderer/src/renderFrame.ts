@@ -1,22 +1,22 @@
-import type { FrameState, Layer, Manifest } from "@qyplayer/core";
-import { stateAt } from "@qyplayer/core";
-import { BACKDROP_DIM, blurredBackdrop, type CreateCanvas } from "./backdrop";
-import { computeFit } from "./fit";
-import { applyLook, knownLook } from "./looks";
+import type {FrameState, Layer, Manifest} from "@qyplayer/core";
+import {stateAt} from "@qyplayer/core";
+import {BACKDROP_DIM, blurredBackdrop, type CreateCanvas} from "./backdrop";
+import {computeFit} from "./fit";
+import {applyLook, knownLook} from "./looks";
 
 /** 渲染器能画的素材：已解码的图片、当前帧的视频、或任意 Canvas */
 export interface DrawableAsset {
-  source: CanvasImageSource;
-  /** 素材的像素宽高（视频用 videoWidth/videoHeight） */
-  width: number;
-  height: number;
-  /** 画面不随时间变化（解码后的静态图片）。模糊背景的结果据此缓存 */
-  still?: boolean;
+    source: CanvasImageSource;
+    /** 素材的像素宽高（视频用 videoWidth/videoHeight） */
+    width: number;
+    height: number;
+    /** 画面不随时间变化（解码后的静态图片）。模糊背景的结果据此缓存 */
+    still?: boolean;
 }
 
 /** 本设备无法播放的素材：不带画面，渲染器在它的格子里画占位画面 */
 export interface PlaceholderAsset {
-  placeholder: true;
+    placeholder: true;
 }
 
 /** 占位画面的底色、文字颜色，字号取格子短边的 8%，过宽时缩小，最小 12 像素 */
@@ -33,25 +33,25 @@ const PLACEHOLDER_MIN_FONT_PX = 12;
 export type AssetResolver = (assetId: string, layer: Layer) => DrawableAsset | PlaceholderAsset | undefined;
 
 export interface RenderOptions {
-  /** 占位画面上的文字。渲染器不知道界面语言，由调用方传入；缺省时只画底色 */
-  placeholderText?: string;
-  /** 创建离屏画布（模糊背景用）；缺省用 OffscreenCanvas 或 canvas 元素。测试里可以换成假的 */
-  createCanvas?: CreateCanvas;
+    /** 占位画面上的文字。渲染器不知道界面语言，由调用方传入；缺省时只画底色 */
+    placeholderText?: string;
+    /** 创建离屏画布（模糊背景用）；缺省用 OffscreenCanvas 或 canvas 元素。测试里可以换成假的 */
+    createCanvas?: CreateCanvas;
 }
 
-function isPlaceholder(asset: DrawableAsset | PlaceholderAsset): asset is PlaceholderAsset {
-  return "placeholder" in asset;
-}
+const isPlaceholder = function isPlaceholder(asset: DrawableAsset | PlaceholderAsset): asset is PlaceholderAsset {
+    return "placeholder" in asset;
+};
 
 /**
  * 占位文字的字号：自然字号为格子短边的 8%；文字比可用宽度宽时等比缩小，但不小于 12 像素。
  * naturalWidth 是文字在自然字号下的宽度。
  */
-export function placeholderFontSize(cellShortSide: number, naturalWidth: number, maxWidth: number): number {
-  const natural = Math.max(cellShortSide * PLACEHOLDER_FONT_RATIO, PLACEHOLDER_MIN_FONT_PX);
-  const fitted = naturalWidth > maxWidth && naturalWidth > 0 ? (natural * maxWidth) / naturalWidth : natural;
-  return Math.max(fitted, PLACEHOLDER_MIN_FONT_PX);
-}
+export const placeholderFontSize = function placeholderFontSize(cellShortSide: number, naturalWidth: number, maxWidth: number): number {
+    const natural = Math.max(cellShortSide * PLACEHOLDER_FONT_RATIO, PLACEHOLDER_MIN_FONT_PX);
+    const fitted = naturalWidth > maxWidth && naturalWidth > 0 ? (natural * maxWidth) / naturalWidth : natural;
+    return Math.max(fitted, PLACEHOLDER_MIN_FONT_PX);
+};
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -60,128 +60,152 @@ type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
  * 画布像素尺寸取自 ctx.canvas，清单里的坐标是 0..1 的归一化坐标，因此与分辨率无关。
  * 预览和将来的 MP4 导出共用这个函数。
  */
-export function renderFrame(
-  ctx: Ctx,
-  manifest: Manifest,
-  timeOrState: number | FrameState,
-  resolve: AssetResolver,
-  options: RenderOptions = {},
-): FrameState {
-  const state = typeof timeOrState === "number" ? stateAt(manifest, timeOrState) : timeOrState;
-  const width = ctx.canvas.width;
-  const height = ctx.canvas.height;
-
-  ctx.save();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = manifest.canvas.background;
-  ctx.fillRect(0, 0, width, height);
-
-  // 标题图片在滤镜之后画，不被滤镜染色
-  const titles = state.layers.filter((layer) => layer.role === "title");
-  for (const layer of state.layers) {
-    if (layer.role === "title" || layer.opacity <= 0) continue;
-    const asset = resolve(layer.assetId, layer);
-    if (!asset) continue;
-
+// eslint-disable-next-line @stylistic/max-len
+const drawBackdrop = function drawBackdrop(ctx: Ctx, asset: DrawableAsset, layer: Layer, width: number, height: number, createCanvas: CreateCanvas | undefined): void {
+    const blurred = blurredBackdrop(asset, width / height, createCanvas);
+    const {clip, rect} = layer;
     ctx.save();
-    if (layer.rotation) {
-      // 绕画布中心旋转：之后的裁切和绘制都在旋转后的坐标系里进行
-      ctx.translate(width / 2, height / 2);
-      ctx.rotate(layer.rotation);
-      ctx.translate(-width / 2, -height / 2);
-    }
-    drawLayer(ctx, layer, asset, width, height, options);
-    ctx.restore();
-  }
-
-  const look = knownLook(manifest.look);
-  if (look) applyLook(ctx, look, width, height);
-
-  for (const layer of titles) {
-    const asset = layer.opacity > 0 ? resolve(layer.assetId, layer) : undefined;
-    if (!asset || isPlaceholder(asset)) continue;
-    ctx.save();
+    ctx.beginPath();
+    ctx.rect(clip.x * width, clip.y * height, clip.w * width, clip.h * height);
+    ctx.clip();
     ctx.globalAlpha = Math.min(1, layer.opacity);
-    ctx.drawImage(asset.source, 0, 0, asset.width, asset.height, 0, 0, width, height);
+    const x = rect.x * width;
+    const y = rect.y * height;
+    const w = rect.w * width;
+    const h = rect.h * height;
+    ctx.drawImage(blurred as unknown as CanvasImageSource, 0, 0, blurred.width, blurred.height, x, y, w, h);
+    ctx.fillStyle = `rgba(0, 0, 0, ${BACKDROP_DIM})`;
+    ctx.fillRect(x, y, w, h);
     ctx.restore();
-  }
-
-  ctx.restore();
-  return state;
-}
-
-function drawLayer(ctx: Ctx, layer: Layer, asset: DrawableAsset | PlaceholderAsset, width: number, height: number, options: RenderOptions): void {
-  const clip = layer.clip;
-  const rect = layer.rect;
-  const target = { x: rect.x * width, y: rect.y * height, w: rect.w * width, h: rect.h * height };
-  if (layer.role === "backdrop") {
-    // 无法播放的素材不画背景：占位画面本身就是灰底
-    if (!isPlaceholder(asset)) drawBackdrop(ctx, asset, layer, width, height, options.createCanvas);
-    return;
-  }
-  if (isPlaceholder(asset)) {
-    drawPlaceholder(ctx, target, clip, width, height, Math.min(1, layer.opacity), options.placeholderText);
-    return;
-  }
-  const { source, dest } = computeFit(layer.fit, asset.width, asset.height, target);
-  if (dest.w <= 0 || dest.h <= 0) return;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(clip.x * width, clip.y * height, clip.w * width, clip.h * height);
-  ctx.clip();
-  ctx.globalAlpha = Math.min(1, layer.opacity);
-  ctx.drawImage(asset.source, source.x, source.y, source.w, source.h, dest.x, dest.y, dest.w, dest.h);
-  ctx.restore();
-}
-
-/** 模糊背景层：素材放大铺满、重度模糊，再盖一层半透明黑 */
-function drawBackdrop(ctx: Ctx, asset: DrawableAsset, layer: Layer, width: number, height: number, createCanvas: CreateCanvas | undefined): void {
-  const blurred = blurredBackdrop(asset, width / height, createCanvas);
-  const { clip, rect } = layer;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(clip.x * width, clip.y * height, clip.w * width, clip.h * height);
-  ctx.clip();
-  ctx.globalAlpha = Math.min(1, layer.opacity);
-  const x = rect.x * width;
-  const y = rect.y * height;
-  const w = rect.w * width;
-  const h = rect.h * height;
-  ctx.drawImage(blurred as unknown as CanvasImageSource, 0, 0, blurred.width, blurred.height, x, y, w, h);
-  ctx.fillStyle = `rgba(0, 0, 0, ${BACKDROP_DIM})`;
-  ctx.fillRect(x, y, w, h);
-  ctx.restore();
-}
-
-function drawPlaceholder(
-  ctx: Ctx,
-  target: { x: number; y: number; w: number; h: number },
-  clip: { x: number; y: number; w: number; h: number },
-  width: number,
-  height: number,
-  opacity: number,
-  text: string | undefined,
+};
+const drawPlaceholder = function drawPlaceholder(
+    ctx: Ctx,
+    target: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+    },
+    clip: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+    },
+    width: number,
+    height: number,
+    opacity: number,
+    text: string | undefined,
 ): void {
-  if (target.w <= 0 || target.h <= 0) return;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(clip.x * width, clip.y * height, clip.w * width, clip.h * height);
-  ctx.clip();
-  ctx.globalAlpha = opacity;
-  ctx.fillStyle = PLACEHOLDER_BACKGROUND;
-  ctx.fillRect(target.x, target.y, target.w, target.h);
-  if (text) {
-    const shortSide = Math.min(target.w, target.h);
-    const family = "sans-serif";
-    const natural = Math.max(shortSide * PLACEHOLDER_FONT_RATIO, PLACEHOLDER_MIN_FONT_PX);
-    ctx.font = `${natural}px ${family}`;
-    const size = placeholderFontSize(shortSide, ctx.measureText(text).width, target.w * 0.9);
-    ctx.font = `${size}px ${family}`;
-    ctx.fillStyle = PLACEHOLDER_TEXT_COLOR;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text, target.x + target.w / 2, target.y + target.h / 2);
-  }
-  ctx.restore();
-}
+    if (target.w <= 0 || target.h <= 0) {
+        return;
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(clip.x * width, clip.y * height, clip.w * width, clip.h * height);
+    ctx.clip();
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = PLACEHOLDER_BACKGROUND;
+    ctx.fillRect(target.x, target.y, target.w, target.h);
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    if (text) {
+        const shortSide = Math.min(target.w, target.h);
+        const family = "sans-serif";
+        const natural = Math.max(shortSide * PLACEHOLDER_FONT_RATIO, PLACEHOLDER_MIN_FONT_PX);
+        ctx.font = `${natural}px ${family}`;
+        const size = placeholderFontSize(shortSide, ctx.measureText(text).width, target.w * 0.9);
+        ctx.font = `${size}px ${family}`;
+        ctx.fillStyle = PLACEHOLDER_TEXT_COLOR;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, target.x + (target.w / 2), target.y + (target.h / 2));
+    }
+    ctx.restore();
+};
+// eslint-disable-next-line @stylistic/max-len
+const drawLayer = function drawLayer(ctx: Ctx, layer: Layer, asset: DrawableAsset | PlaceholderAsset, width: number, height: number, options: RenderOptions): void {
+    const clip = layer.clip;
+    const rect = layer.rect;
+    const target = {x: rect.x * width, y: rect.y * height, w: rect.w * width, h: rect.h * height};
+    if (layer.role === "backdrop") {
+    // 无法播放的素材不画背景：占位画面本身就是灰底
+        if (!isPlaceholder(asset)) {
+            drawBackdrop(ctx, asset, layer, width, height, options.createCanvas);
+        }
+        return;
+    }
+    if (isPlaceholder(asset)) {
+        drawPlaceholder(ctx, target, clip, width, height, Math.min(1, layer.opacity), options.placeholderText);
+        return;
+    }
+    const {source, dest} = computeFit(layer.fit, asset.width, asset.height, target);
+    if (dest.w <= 0 || dest.h <= 0) {
+        return;
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(clip.x * width, clip.y * height, clip.w * width, clip.h * height);
+    ctx.clip();
+    ctx.globalAlpha = Math.min(1, layer.opacity);
+    ctx.drawImage(asset.source, source.x, source.y, source.w, source.h, dest.x, dest.y, dest.w, dest.h);
+    ctx.restore();
+};
+export const renderFrame = function renderFrame(
+    ctx: Ctx,
+    manifest: Manifest,
+    timeOrState: number | FrameState,
+    resolve: AssetResolver,
+    options: RenderOptions = {},
+): FrameState {
+    const state = typeof timeOrState === "number" ? stateAt(manifest, timeOrState) : timeOrState;
+    const width = ctx.canvas.width;
+    const height = ctx.canvas.height;
+
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = manifest.canvas.background;
+    ctx.fillRect(0, 0, width, height);
+
+    // 标题图片在滤镜之后画，不被滤镜染色
+    const titles = state.layers.filter((layer) => layer.role === "title");
+    for (const layer of state.layers) {
+        if (layer.role === "title" || layer.opacity <= 0) {
+            continue;
+        }
+        const asset = resolve(layer.assetId, layer);
+        if (!asset) {
+            continue;
+        }
+
+        ctx.save();
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+        if (layer.rotation) {
+            // 绕画布中心旋转：之后的裁切和绘制都在旋转后的坐标系里进行
+            ctx.translate(width / 2, height / 2);
+            ctx.rotate(layer.rotation);
+            ctx.translate(-width / 2, -height / 2);
+        }
+        drawLayer(ctx, layer, asset, width, height, options);
+        ctx.restore();
+    }
+
+    const look = knownLook(manifest.look);
+    if (look) {
+        applyLook(ctx, look, width, height);
+    }
+
+    for (const layer of titles) {
+        const asset = layer.opacity > 0 ? resolve(layer.assetId, layer) : undefined;
+        if (!asset || isPlaceholder(asset)) {
+            continue;
+        }
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, layer.opacity);
+        ctx.drawImage(asset.source, 0, 0, asset.width, asset.height, 0, 0, width, height);
+        ctx.restore();
+    }
+
+    ctx.restore();
+    return state;
+};

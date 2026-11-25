@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
+import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -44,6 +45,15 @@ class MainActivity : TauriActivity() {
       view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
       WindowInsetsCompat.CONSUMED
     }
+  }
+
+  /**
+   * 系统默认要有一次点击才允许出声。影片里的视频经常在开播很久以后才出现，
+   * 那时这次点击已经过期，play() 会被拒绝：画面靠不断定位还能动，但没有声音。
+   */
+  override fun onWebViewCreate(webView: WebView) {
+    webView.settings.mediaPlaybackRequiresUserGesture = false
+    super.onWebViewCreate(webView)
   }
 
   override fun onNewIntent(intent: Intent) {

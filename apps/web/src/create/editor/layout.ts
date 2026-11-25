@@ -5,7 +5,7 @@ export const DESKTOP_MIN_WIDTH = 1000;
 
 export type LayoutMode = "desktop" | "mobile";
 
-export const layoutFor = (width: number): LayoutMode => (width >= DESKTOP_MIN_WIDTH ? "desktop" : "mobile");
+export const layoutFor = (width: number): LayoutMode => width >= DESKTOP_MIN_WIDTH ? "desktop" : "mobile";
 
 /** 与 layoutFor 一致的媒体查询，供样式和 matchMedia 共用 */
 export const DESKTOP_MEDIA_QUERY = `(min-width: ${DESKTOP_MIN_WIDTH}px)`;
