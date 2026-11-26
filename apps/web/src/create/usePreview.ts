@@ -1,9 +1,9 @@
 import {useEffect, useRef, useState} from "react";
-import type {Manifest} from "@qyplayer/core";
+import {defaultFilmTitle, type Manifest} from "@qyplayer/core";
 import {PlaybackController} from "../player/PlaybackController";
 import {resolveMusic} from "./editor/music";
 import {createPreviewPackage, type MemoryPackage} from "./editor/preview";
-import {DUCKED_MUSIC_GAIN, type EditorDoc} from "./editor/state";
+import {DUCKED_MUSIC_GAIN, selectedMedia, type EditorDoc} from "./editor/state";
 import {renderTitleCard} from "./titleCard";
 
 /** 最后一次触发后等多久才重新生成（3A.10） */
@@ -40,7 +40,9 @@ const redrawTitleCard = async function redrawTitleCard(result: PreviewResult): P
         do {
             card.stale = false;
             const {width, height} = manifest.canvas;
-            const image = await renderTitleCard({title: manifest.title, subtitle: manifest.subtitle ?? "", width, height});
+            // 标题删空后这张图还在预览里，重画成完全空白，字马上消失
+            const subtitle = manifest.title.trim() === "" ? "" : manifest.subtitle ?? "";
+            const image = await renderTitleCard({title: manifest.title, subtitle, width, height});
             result.opened.setFile(asset.src, image);
             result.controller.refreshAsset(asset.id);
         } while (card.stale);
@@ -51,9 +53,9 @@ const redrawTitleCard = async function redrawTitleCard(result: PreviewResult): P
     }
 };
 
-/** 把标题和副标题写进预览的清单（空标题用默认标题），有标题图片时重画。文字确实变了返回 true */
+/** 把标题和副标题写进预览的清单。空标题保持为空，有标题图片时重画。文字确实变了返回 true */
 const applyText = function applyText(result: PreviewResult, title: string, subtitle: string): boolean {
-    const nextTitle = title.trim() || result.defaultTitle;
+    const nextTitle = title.trim();
     const nextSubtitle = subtitle.trim();
     const {manifest} = result;
     if (manifest.title === nextTitle && (manifest.subtitle ?? "") === nextSubtitle) {
@@ -89,6 +91,8 @@ export interface PreviewState {
  */
 export const usePreview = function usePreview(doc: EditorDoc, defaultTitleWord: string): PreviewState {
     const {media, aspect, templateId, transition, look, length, music, seed, showTitle, pages} = doc;
+    // 只在「有没有可画的标题」之间变化时重新生成。中间改字仍走 applyTitle
+    const hasTitleText = doc.title.trim() !== "";
     const [result, setResult] = useState<PreviewResult | null>(null);
     const [updating, setUpdating] = useState(false);
     const [error, setError] = useState<unknown>(null);
@@ -137,9 +141,23 @@ export const usePreview = function usePreview(doc: EditorDoc, defaultTitleWord: 
                     if (cancelled) {
                         return;
                     }
-                    // 始终用默认标题、空副标题生成，再按当前文字改写，这样改标题不必重新生成
+                    // 用当前标题生成。标题从空变成有字时需要片头图，所以那种变化会重新生成；其余改字只重画
                     const {opened, manifest} = await createPreviewPackage(
-                        {media, aspect, templateId, transition, look, length, music, seed, pages, title: "", subtitle: "", showTitle, ...audioRef.current},
+                        {
+                            media,
+                            aspect,
+                            templateId,
+                            transition,
+                            look,
+                            length,
+                            music,
+                            seed,
+                            pages,
+                            title: titleRef.current,
+                            subtitle: subtitleRef.current,
+                            showTitle,
+                            ...audioRef.current,
+                        },
                         {...musicEntry && {music: musicEntry}, defaultTitleWord},
                     );
                     const controller = await PlaybackController.create(opened);
@@ -147,8 +165,8 @@ export const usePreview = function usePreview(doc: EditorDoc, defaultTitleWord: 
                         controller.dispose();
                         return;
                     }
-                    // eslint-disable-next-line @stylistic/max-len
-                    const next: PreviewResult = {controller, manifest, defaultTitle: manifest.title, opened, card: {busy: false, stale: false}};
+                    const defaultTitle = defaultFilmTitle(selectedMedia({media, length}).map((item) => item.capturedAt), defaultTitleWord);
+                    const next: PreviewResult = {controller, manifest, defaultTitle, opened, card: {busy: false, stale: false}};
                     applyText(next, titleRef.current, subtitleRef.current);
                     setResult((previous) => {
                         previous?.controller.dispose();
@@ -170,7 +188,7 @@ export const usePreview = function usePreview(doc: EditorDoc, defaultTitleWord: 
             cancelled = true;
             clearTimeout(timer);
         };
-    }, [media, aspect, templateId, transition, look, length, music, seed, showTitle, pages, defaultTitleWord]);
+    }, [media, aspect, templateId, transition, look, length, music, seed, showTitle, hasTitleText, pages, defaultTitleWord]);
 
     // 离开页面时释放播放器
     useEffect(

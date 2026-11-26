@@ -311,6 +311,12 @@ describe("预览包", () => {
         expect(await (await shown.opened.readBlob("media/title.png")).text()).toBe("new");
 
         requests.length = 0;
+        const blank = await createPreviewPackage(currentDoc(loadEditor(createEditor(1, "clean"), {...content, title: ""})), {renderTitle});
+        expect(requests).toEqual([]);
+        expect(blank.manifest.title).toBe("");
+        expect(blank.manifest.titleCard).toBeUndefined();
+
+        requests.length = 0;
         const hidden = await createPreviewPackage(currentDoc(loadEditor(createEditor(1, "clean"), {...content, showTitle: false})), {renderTitle});
         expect(requests).toEqual([]);
         expect(hidden.manifest.titleCard).toBeUndefined();

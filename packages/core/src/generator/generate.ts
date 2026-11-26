@@ -91,6 +91,7 @@ export interface GenerateOptions {
     videoVolume?: number;
     /** 为 true 时保持 media 的传入顺序，不按拍摄时间排序（用户手动调整过顺序） */
     keepOrder?: boolean;
+    /** 缺省时用最早拍摄日期加 defaultTitleWord。空字符串表示不要标题，不再换成默认标题 */
     title?: string;
     /** 指定后全片（除首页）都用这一种转场；缺省跟随模板。会写进 generator.transition 以便重新打开时还原 */
     transition?: TransitionChoice;
@@ -115,6 +116,12 @@ export interface GenerateOptions {
 }
 
 export type GenerateErrorCode = "no-media" | "too-many-media" | "unknown-template" | "unknown-transition" | "unknown-look" | "invalid-media" | "duplicate-media-id" | "invalid-plan" | "invalid-volume";
+
+/** 默认标题：参与成片的素材里最早的拍摄日期，加一个词。没有拍摄日期时只有那个词 */
+export const defaultFilmTitle = function defaultFilmTitle(capturedAt: readonly (string | undefined)[], word = "回忆"): string {
+    const earliest = capturedAt.filter((value): value is string => value !== undefined && value !== "").sort()[0];
+    return earliest === undefined ? word : `${earliest.slice(0, 10)} ${word}`;
+};
 
 /** 用户可以指定的转场（缺省跟随模板）。首页固定淡入 */
 export const TRANSITION_CHOICES = ["fade", "slide", "zoom", "rotate"] as const;
@@ -609,16 +616,12 @@ export const generateManifest = function generateManifest(options: GenerateOptio
         assets.push({id: card.id, type: "image", src: card.src, mimeType: card.mimeType, source: {mimeType: card.mimeType, transcoded: false}, width: card.width, height: card.height});
     }
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    const earliest = ordered.map((m) => m.capturedAt).filter((t): t is string => !!t).sort()[0];
-    const titleWord = options.defaultTitleWord ?? "回忆";
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    const defaultTitle = earliest ? `${earliest.slice(0, 10)} ${titleWord}` : titleWord;
+    const defaultTitle = defaultFilmTitle(ordered.map((item) => item.capturedAt), options.defaultTitleWord);
 
     return {
         formatVersion: CURRENT_FORMAT_VERSION,
         id: options.id ?? randomId(),
-        title: options.title ?? defaultTitle,
+        title: options.title !== undefined ? options.title : defaultTitle,
         createdAt: options.createdAt ?? new Date().toISOString(),
         generator: {
             name: options.generator?.name ?? "qyPlayer",

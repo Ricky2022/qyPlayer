@@ -531,6 +531,7 @@ describe("generated manifests are valid", () => {
         expect(m.generator).toMatchObject({name: "qyPlayer", templateId: "classic", seed: 1});
         expect(gen({media: [photo("a", 100, 100)]}).title).toBe("回忆");
         expect(gen({media: [photo("a", 100, 100)], title: "我的旅行"}).title).toBe("我的旅行");
+        expect(gen({media: [photo("a", 100, 100, "2026-10-01T09:00:00+08:00")], title: ""}).title).toBe("");
     });
 
     it("uses the given word in the default title, so the UI can pick the language", () => {
