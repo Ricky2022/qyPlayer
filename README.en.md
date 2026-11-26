@@ -32,7 +32,7 @@ All versions are on the [Releases](https://github.com/Ricky2022/qyPlayer/release
 - Uninstall from Settings > Apps, or use the Start menu shortcut. It removes shortcuts, registry entries and the `.qyp` association; tick "Delete the application data" to remove cached program data too. Your own `.qyp` files are never touched.
 - The player no longer bundles music, so it is smaller; the built-in music is only in the creator.
 - Upgrading from 0.1.0: just run the new player installer over it. The 0.1.0 creator was named "qyPlayer 制作器" and the new one is "qyMaker", so it is not treated as an upgrade; please uninstall the old one from Settings > Apps first.
-- For the portable zips, unzip and run `qyPlayer.exe` or `qyMaker.exe`. WebView2 must already be installed (Windows 10 / 11 usually ship with it); the installers install it when it is missing.
+- For the portable zips, unzip and run `qyPlayer.exe` or `qyMaker.exe`. Windows 10 does not always include the WebView2 Runtime: if it is missing, the program asks in Chinese and downloads Microsoft's installer. The setup packages install it during setup as well.
 - The programs are not code-signed, so Windows SmartScreen may warn about an "unknown publisher" on first run: click "More info", then "Run anyway".
 - The desktop apps are the web app inside the system WebView2, so features and limitations are the same as the web version.
 

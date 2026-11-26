@@ -1,4 +1,7 @@
 //! 播放器和制作器共用的 Tauri 命令：改窗口标题、用系统浏览器打开白名单里的链接。
+//! Windows 上还会在打开窗口前确认 WebView2 运行时。
+
+mod webview2;
 
 /// 允许从程序里打开的链接前缀：作者主页和项目仓库。
 /// 网页不能借此让系统打开任意地址。
@@ -96,13 +99,15 @@ pub fn read_range(path: &std::path::Path, offset: u64, length: u64) -> std::io::
 }
 
 /// 给应用注册 open_url 依赖的 opener 插件（插件配置类型不对外公开，所以包一层 Builder）。
+/// Windows 上若当前用户没有 WebView2，先用中文说明并安装，避免弹出 Tauri 那句改不了的英文提示。
 pub fn with_opener<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    webview2::ensure_webview2();
     builder.plugin(tauri_plugin_opener::init())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{is_allowed, read_range, write_atomically};
+    use super::{is_allowed, read_range, webview2, write_atomically};
 
     /// 每个测试一个独立的临时目录，测完删除
     fn scratch_dir(name: &str) -> std::path::PathBuf {
@@ -145,6 +150,14 @@ mod tests {
         assert!(is_allowed("https://github.com/Ricky2022/qyPlayer"));
         assert!(is_allowed("https://github.com/Ricky2022/qyPlayer/releases/latest"));
         assert!(is_allowed("https://github.com/Ricky2022/qyPlayer#readme"));
+    }
+
+    #[test]
+    fn treats_only_a_real_webview2_version_as_installed() {
+        assert!(webview2::runtime_version_present("131.0.2903.86"));
+        assert!(!webview2::runtime_version_present(""));
+        assert!(!webview2::runtime_version_present("0.0.0.0"));
+        assert!(!webview2::runtime_version_present("  "));
     }
 
     #[test]
