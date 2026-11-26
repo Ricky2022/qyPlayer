@@ -39,6 +39,8 @@ const useStyles = createUseStyles({
     // 手机 WebView 可能很老（实测这台是 Chrome 83）：不能用 inset 简写（Chrome 87+）和 CSS aspect-ratio（88+），
     // 所以四个边写全，画布尺寸由组件自己算（见下面的 fit）。
     root: {position: "fixed", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", background: "#000", color: theme.text, fontFamily: theme.font, userSelect: "none"},
+    /** 制作器预览：铺满预览舞台，不相对窗口。写在 root 后面，同元素上覆盖 position */
+    embedded: {position: "absolute"},
     idle: {cursor: "none"},
     stage: {position: "absolute", top: 0, right: 0, bottom: 0, left: 0, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden"},
     // 环境背景：当前画面缩小后铺满、模糊压暗。竖屏看横屏影片时四周是柔和的画面延伸，不是死黑
@@ -149,10 +151,12 @@ interface PlayerViewProps {
     onClose?: () => void;
     /** 提供底部缩略图条（默认不显示，播放界面上有开关）；制作器内嵌预览不提供 */
     filmstrip?: boolean;
+    /** 制作器预览传入：只铺满预览舞台。缺省按整窗固定，独立播放器不传 */
+    embedded?: boolean;
 }
 
 /** 播放界面：画面铺满，控制条浮在底部、静止几秒后自动隐藏；空格、方向键、F、M 为快捷键。 */
-export const PlayerView = function PlayerView({controller, onClose, filmstrip = false}: PlayerViewProps) {
+export const PlayerView = function PlayerView({controller, onClose, filmstrip = false, embedded = false}: PlayerViewProps) {
     const classes = useStyles();
     const {t} = useI18n();
     const rootRef = useRef<HTMLDivElement>(null);
@@ -359,7 +363,7 @@ export const PlayerView = function PlayerView({controller, onClose, filmstrip = 
     const stripLabel = stripOn ? t("playerHidePages") : t("playerShowPages");
 
     return (
-        <div ref={rootRef} className={`${classes.root} ${!visible ? classes.idle : ""}`} onPointerMove={poke} onPointerDown={poke}>
+        <div ref={rootRef} className={`${classes.root} ${embedded ? classes.embedded : ""} ${!visible ? classes.idle : ""}`} onPointerMove={poke} onPointerDown={poke}>
             <div ref={stageRef} className={classes.stage} onDoubleClick={toggleFullscreen}>
                 {/* 环境背景：由下面那个循环把当前画面缩小画进来 */}
                 <canvas ref={backdropRef} className={classes.backdrop} aria-hidden="true" />
