@@ -21,6 +21,7 @@ import {MOBILE_MAX_BYTES, exceedsMobileLimit, mobileSizeLevel} from "./environme
 import {classifyDrop} from "./editor/drop";
 import {editorMediaFromImport} from "./editor/fromImport";
 import type {PlaybackController} from "../player/PlaybackController";
+import {syncDefaultTitle} from "./editor/defaultTitle";
 import {DESKTOP_MEDIA_QUERY} from "./editor/layout";
 import {menuStatus} from "./editor/menu";
 import {needsMusicRightsConfirm, resolveMusic} from "./editor/music";
@@ -395,7 +396,7 @@ export const CreatorApp = function CreatorApp() {
         // 只对这一批按拍摄时间排序后接在末尾，已有的手动顺序不动
         const sortedBatch = sortByCapturedAt(added, (m) => m);
         if (sortedBatch.length > 0) {
-            apply((state) => addMedia(state, sortedBatch).state);
+            apply((state) => syncDefaultTitle(state, addMedia(state, sortedBatch).state, t("defaultTitleWord")));
             announce(t("statusAdded", {count: sortedBatch.length}));
         }
         setFailures((previous) => [...previous, ...failed]);
@@ -789,7 +790,7 @@ export const CreatorApp = function CreatorApp() {
             sizeWarning={transcodeSetting.mobile && mobileSizeLevel(originalTotal) === "warn"}
             onAdd={() => run("addMedia")}
             onMove={(from, to) => applyFilm((state) => moveMedia(state, from, to))}
-            onRemove={(key) => apply((state) => removeMedia(state, key))}
+            onRemove={(key) => apply((state) => syncDefaultTitle(state, removeMedia(state, key), t("defaultTitleWord")))}
             onClearFailures={() => setFailures([])}
         />
     );
@@ -849,7 +850,7 @@ export const CreatorApp = function CreatorApp() {
             disabled={empty}
             hasVideoSound={hasVideoSound}
             customMusic={customMusic}
-            placeholderTitle={result?.defaultTitle ?? t("makerTitlePlaceholder")}
+            placeholderTitle={t("makerTitlePlaceholder")}
             // eslint-disable-next-line @stylistic/max-len
             transcode={{checked: transcodeSetting.transcode, canChange: transcodeSetting.capabilities.videoEncode, note: transcodeSetting.note}}
             onTranscode={transcodeSetting.setTranscode}

@@ -2,7 +2,7 @@
 ; 本文件必须保存为带 BOM 的 UTF-8，否则 NSIS 会把中文当成乱码。
 !define QY_NAME_ZH "青云播放器"
 !define QY_NAME_EN "qyPlayer"
-!define QY_FILETYPE_ZH "青云播放器回忆影片"
+!define QY_FILETYPE_ZH "青云播放器影片"
 !define QY_FILETYPE_EN "qyPlayer memory film"
 ; 中文安装时协议页使用的文本：中文说明加英文原文，两个程序共用
 !define QY_LICENSE_ZH "${__FILEDIR__}\..\..\..\desktop-common\nsis\license.zh-CN.txt"

@@ -60,7 +60,7 @@ export interface BuildOptions {
     musicVolume?: number;
     /** 有声视频页上配乐的增益（0 到 1），写进 bgm.duck；缺省 1 */
     duck?: number;
-    /** 缺省或空白时用生成器的默认标题 */
+    /** 缺省时用生成器的默认标题。空字符串写进清单，并且不画片头 */
     title?: string;
     /** 副标题；写进清单，用于重新打开时还原 */
     subtitle?: string;
@@ -151,7 +151,8 @@ export const planPackage = function planPackage(options: BuildOptions): {
         };
     }
 
-    const title = options.title?.trim();
+    const titleGiven = options.title !== undefined;
+    const title = options.title?.trim() ?? "";
     const subtitle = options.subtitle?.trim();
     const aspectRatio = aspectOf(options);
     if (options.titleImage) {
@@ -169,8 +170,7 @@ export const planPackage = function planPackage(options: BuildOptions): {
         ...options.pages && {pages: options.pages},
         ...options.transition && {transition: options.transition},
         ...options.look && {look: options.look},
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        ...title && {title},
+        ...titleGiven && {title},
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         ...options.defaultTitleWord && {defaultTitleWord: options.defaultTitleWord},
         ...music && {music},
@@ -200,7 +200,8 @@ export const planPackageWithTitle = async function planPackageWithTitle(
     files: BlobFile[];
 }> {
     const first = planPackage(options);
-    if (!show) {
+    // 没勾选，或标题是空的：清单里不放片头图。预览里已有的图由调用方重画成空白
+    if (!show || first.manifest.title.trim() === "") {
         return first;
     }
     const {width, height} = first.manifest.canvas;

@@ -309,7 +309,7 @@ export const App = function App({initialSource}: AppProps) {
                 <button className={classes.open} disabled={busy} onClick={() => inputRef.current?.click()}>
                     {checking ? t("homeChecking") : busy ? t("homeOpening") : t("homeOpen")}
                 </button>
-                <p className={classes.hint}>{t("homeDrop")}</p>
+                {!isAndroidShell() && <p className={classes.hint}>{t("homeDrop")}</p>}
                 <p className={classes.privacy}>{t("homePrivacy")}</p>
                 {/* 示例和制作页只在网页版提供，桌面播放器里没有这两样 */}
                 {!isDesktop() && (

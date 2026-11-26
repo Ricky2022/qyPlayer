@@ -37,10 +37,11 @@ describe("buildPackage", () => {
         expect(manifest.assets[0]?.capturedAt).toBe("2026-05-01T00:00:00Z");
     });
 
-    it("uses a trimmed custom title, or the default title when blank", async () => {
+    it("uses a trimmed custom title, the default title when omitted, and keeps an empty title", async () => {
         const base = {media: [photo("a.jpg", 1600, 1067, "2026-03-04T10:00:00Z")], templateId: "clean", seed: 1};
         expect((await buildPackage({...base, title: "  春游  "})).manifest.title).toBe("春游");
-        expect((await buildPackage({...base, title: "   "})).manifest.title).toBe("2026-03-04 回忆");
+        expect((await buildPackage({...base, title: "   "})).manifest.title).toBe("");
+        expect((await buildPackage({...base, title: ""})).manifest.title).toBe("");
         expect((await buildPackage(base)).manifest.title).toBe("2026-03-04 回忆");
         expect((await buildPackage({...base, defaultTitleWord: "Memories"})).manifest.title).toBe("2026-03-04 Memories");
     });
