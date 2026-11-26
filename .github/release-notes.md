@@ -1,3 +1,19 @@
+## 青云播放器 0.6.1 / qyPlayer 0.6.1
+
+### 中文
+
+0.6.1 修正播放器的两处界面问题。
+
+- 全屏后按新的画面尺寸重算影片，不再停在进入全屏之前的大小。
+- 页面缩略图条画在影片之上。点「显示页面缩略图」后，整条都看得见，不会被画面挡住。
+
+### English
+
+0.6.1 fixes two player issues.
+
+- After entering fullscreen the film is measured again, instead of staying at the size it had before.
+- The page thumbnail strip is drawn above the film. Turning it on shows the whole row, not only the part the picture does not cover.
+
 ## 青云播放器 0.6.0 / qyPlayer 0.6.0
 
 ### 中文
@@ -42,11 +58,11 @@
 
 | 文件 / File | 说明 / Description |
 | --- | --- |
-| `qyPlayer-0.6.0-Setup-x64.exe` | 播放器安装包，装好后双击 .qyp 文件即可播放 / Player installer |
-| `qyPlayer-0.6.0-x64-portable.zip` | 播放器免安装版，解压后运行 `qyPlayer.exe` / Player, portable |
-| `qyMaker-0.6.0-Setup-x64.exe` | 制作器安装包 / Creator installer |
-| `qyMaker-0.6.0-x64-portable.zip` | 制作器免安装版，解压后运行 `qyMaker.exe` / Creator, portable |
-| `qyPlayer-0.6.0-android-arm64.apk` | Android 播放器，Android 10 及以上、arm64 / Android player, Android 10+ on arm64 |
+| `qyPlayer-0.6.1-Setup-x64.exe` | 播放器安装包，装好后双击 .qyp 文件即可播放 / Player installer |
+| `qyPlayer-0.6.1-x64-portable.zip` | 播放器免安装版，解压后运行 `qyPlayer.exe` / Player, portable |
+| `qyMaker-0.6.1-Setup-x64.exe` | 制作器安装包 / Creator installer |
+| `qyMaker-0.6.1-x64-portable.zip` | 制作器免安装版，解压后运行 `qyMaker.exe` / Creator, portable |
+| `qyPlayer-0.6.1-android-arm64.apk` | Android 播放器，Android 10 及以上、arm64 / Android player, Android 10+ on arm64 |
 
 系统要求：Windows 10 / 11（64 位）；Android 10 及以上（arm64），系统的 Android System WebView 80 及以上。
 Requires Windows 10 / 11 (64-bit), or Android 10 and later on arm64 with Android System WebView 80 or later.
