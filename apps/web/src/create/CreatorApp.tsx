@@ -88,7 +88,19 @@ const useStyles = createUseStyles({
         body: {background: theme.bg, color: theme.text, fontFamily: theme.font, colorScheme: "dark", overflow: "hidden"},
     },
     root: {display: "flex", flexDirection: "column", height: "100vh", "@supports (height: 100dvh)": {height: "100dvh"}, position: "relative"},
-    top: {display: "flex", alignItems: "center", gap: 10, height: 48, flex: "none", padding: "0 12px", boxSizing: "border-box", borderBottom: `1px solid ${theme.border}`, background: theme.surface},
+    top: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        height: 48,
+        flex: "none",
+        padding: "0 12px",
+        boxSizing: "border-box",
+        borderBottom: `1px solid ${theme.border}`,
+        background: theme.surface,
+        position: "relative",
+        zIndex: 5,
+    },
     spacer: {flex: 1},
     tabTitle: {flex: 1, textAlign: "center", fontSize: 15, fontWeight: 600},
     link: {color: theme.accent, fontSize: 14, textDecoration: "none", "&:hover": {textDecoration: "underline"}},
@@ -108,14 +120,32 @@ const useStyles = createUseStyles({
         "&:hover": {background: theme.surfaceHover},
         "&:focus-visible": {outline: `2px solid ${theme.accent}`},
     },
+    saveButton: {
+        display: "inline-flex",
+        alignItems: "center",
+        flex: "none",
+        minHeight: 34,
+        padding: "4px 14px",
+        border: `1px solid ${theme.accent}`,
+        borderRadius: 999,
+        background: theme.accent,
+        color: theme.onAccent,
+        font: "inherit",
+        fontSize: 14,
+        fontWeight: 600,
+        cursor: "pointer",
+        "&:hover:not(:disabled)": {background: "#67d0fb"},
+        "&:disabled": {opacity: 0.45, cursor: "default"},
+        "&:focus-visible": {outline: `2px solid ${theme.accent}`, outlineOffset: 2},
+    },
     notice: {display: "flex", alignItems: "center", gap: 10, flex: "none", padding: "6px 14px", fontSize: 13, background: "rgba(56, 189, 248, 0.15)", color: theme.text},
     noticeClose: {padding: "2px 10px", border: `1px solid ${theme.border}`, borderRadius: 999, background: "transparent", color: theme.text, font: "inherit", fontSize: 12, cursor: "pointer"},
     desktopMain: {flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "300px minmax(0, 1fr) 340px"},
     cell: {minWidth: 0, minHeight: 0, overflow: "hidden"},
-    cellSide: {borderRight: `1px solid ${theme.border}`},
-    cellRight: {borderLeft: `1px solid ${theme.border}`},
+    cellSide: {borderRight: `1px solid ${theme.border}`, background: theme.bg},
+    cellRight: {borderLeft: `1px solid ${theme.border}`, background: theme.bg},
     mobileMain: {flex: 1, minHeight: 0, overflow: "hidden"},
-    tabs: {display: "flex", flex: "none", borderTop: `1px solid ${theme.border}`, background: theme.surface},
+    tabs: {display: "flex", flex: "none", position: "relative", zIndex: 5, borderTop: `1px solid ${theme.border}`, background: theme.surface},
     tab: {
         flex: 1,
         minHeight: 56,
@@ -370,6 +400,10 @@ export const CreatorApp = function CreatorApp() {
         }
         setFailures((previous) => [...previous, ...failed]);
         setImporting(null);
+        // 窄窗口这一批至少加入一个时进入预览；一个都没成功则留在原标签。宽窗口不切标签，右栏仍停在「影片」
+        if (sortedBatch.length > 0 && !desktopLayout) {
+            setTab("preview");
+        }
     };
 
     const serialName = (type: "image" | "video", index: number): string => t(type === "image" ? "serialPhoto" : "serialVideo", {n: index});
@@ -799,6 +833,13 @@ export const CreatorApp = function CreatorApp() {
                 error={preview.error ? describeBuildError(preview.error, t) : null}
                 layoutMayDiffer={layoutMayDiffer}
                 strip={strip}
+                {...!desktopLayout && {
+                    actions: {
+                        onMedia: () => setTab("media"),
+                        onSave: () => run("save"),
+                        saveDisabled: status.save !== "enabled",
+                    },
+                }}
             />
         );
     const settings = (
@@ -853,6 +894,13 @@ export const CreatorApp = function CreatorApp() {
         />
     );
     const rightPanel = <RightPanel mode={panelMode} onMode={setPanelMode} disabled={empty} film={settings} page={pagePanel} />;
+    const saveButton = empty
+        ? null
+        : (
+            <button className={classes.saveButton} disabled={status.save !== "enabled"} onClick={() => run("save")}>
+                {t("makerSave")}
+            </button>
+        );
 
     return (
         <div
@@ -893,6 +941,7 @@ export const CreatorApp = function CreatorApp() {
                                 <InfoIcon size={18} />
                                 {t("about")}
                             </button>
+                            {saveButton}
                         </>
                     )
                     : (
@@ -900,6 +949,7 @@ export const CreatorApp = function CreatorApp() {
                             <MenuBar groups={groups} label={t("menuBarLabel")} onCommand={run} compact={{label: t("menuMobile")}} />
                             <div className={classes.tabTitle}>{t(TAB_LABELS[tab])}</div>
                             <Logo size={28} kind="maker" />
+                            {saveButton}
                         </>
                     )}
             </header>
