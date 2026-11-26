@@ -24,6 +24,7 @@ apps/*/src-tauri/gen/
 # Tauri 构建时生成的权限 schema
 apps/desktop-player/src-tauri/gen/schemas/
 apps/desktop-player/src-tauri/gen/android/.gradle/
+apps/desktop-player/src-tauri/gen/android/**/.gradle/
 apps/desktop-player/src-tauri/gen/android/build/
 apps/desktop-player/src-tauri/gen/android/app/build/
 apps/desktop-player/src-tauri/gen/android/local.properties
