@@ -60,7 +60,8 @@ const useStyles = createUseStyles({
     },
     // 影片本身做成悬浮卡片：轻微圆角 + 投影，和 Apple 影集里的观感接近
     canvas: {position: "relative", zIndex: 1, display: "block", maxWidth: "100%", maxHeight: "100%", cursor: "inherit", borderRadius: 8, boxShadow: "0 18px 60px rgba(0, 0, 0, 0.55)"},
-    overlay: {position: "absolute", left: 0, right: 0, transition: "opacity 0.25s", pointerEvents: "none", "& > *": {pointerEvents: "auto"}},
+    // 画布是 z-index 1。控制条、缩略图条和标题必须更高，否则全屏后画面铺满时会把它们盖住
+    overlay: {position: "absolute", zIndex: 2, left: 0, right: 0, transition: "opacity 0.25s", pointerEvents: "none", "& > *": {pointerEvents: "auto"}},
     hidden: {opacity: 0, "& > *": {pointerEvents: "none"}},
     top: {
         top: 0,
@@ -107,6 +108,7 @@ const useStyles = createUseStyles({
         padding: 0,
         border: "none",
         borderRadius: "50%",
+        zIndex: 2,
         background: "rgba(7, 11, 18, 0.62)",
         color: "#fff",
         boxShadow: `0 0 0 2px ${theme.border}`,
@@ -118,6 +120,7 @@ const useStyles = createUseStyles({
     },
     warning: {
         position: "absolute",
+        zIndex: 2,
         top: 64,
         left: 16,
         right: 16,
@@ -197,6 +200,11 @@ export const PlayerView = function PlayerView({controller, onClose, filmstrip = 
         observer?.observe(stage);
         window.addEventListener("resize", fit);
         window.addEventListener("orientationchange", fit);
+        // 全屏切换时舞台尺寸会变，部分 WebView 不会因此触发 ResizeObserver
+        const onFullscreen = (): void => {
+            requestAnimationFrame(fit);
+        };
+        document.addEventListener("fullscreenchange", onFullscreen);
 
         let lastShown = -1;
         controller.setEvents({
@@ -215,6 +223,7 @@ export const PlayerView = function PlayerView({controller, onClose, filmstrip = 
             observer?.disconnect();
             window.removeEventListener("resize", fit);
             window.removeEventListener("orientationchange", fit);
+            document.removeEventListener("fullscreenchange", onFullscreen);
             controller.setEvents(null);
             canvas.removeEventListener("click", onClick);
             canvas.remove();

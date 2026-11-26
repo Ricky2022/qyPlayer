@@ -10,6 +10,8 @@ const TILE_HEIGHT = 56;
 const useStyles = createUseStyles({
     strip: {
         display: "flex",
+        width: "100%",
+        minWidth: 0,
         overflowX: "auto",
         "& > * + *": {marginLeft: 6},
         padding: "4px 0 8px",
@@ -19,6 +21,7 @@ const useStyles = createUseStyles({
     tile: {
         position: "relative",
         flex: "none",
+        minWidth: 0,
         height: TILE_HEIGHT,
         padding: 0,
         border: "2px solid transparent",

@@ -2801,7 +2801,7 @@ dependencies = [
 
 [[package]]
 name = "qy-desktop-common"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "tauri",
  "tauri-plugin-opener",
@@ -2810,7 +2810,7 @@ dependencies = [
 
 [[package]]
 name = "qymaker"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "percent-encoding",
  "qy-desktop-common",
@@ -2821,7 +2821,7 @@ dependencies = [
 
 [[package]]
 name = "qyplayer"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "qy-desktop-common",
  "tauri",
