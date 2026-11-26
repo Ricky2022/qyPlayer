@@ -37,7 +37,7 @@ class Bits {
 
     u(count: number, value: number): void {
         for (let i = count - 1; i >= 0; i--) {
-            this.bit((value >> i) & 1);
+            this.bit(Math.floor(value / (2 ** i)) % 2);
         }
     }
 
@@ -53,7 +53,9 @@ class Bits {
     bytes(): Uint8Array {
         const out = new Uint8Array(Math.ceil(this.bits.length / 8));
         this.bits.forEach((value, index) => {
-            out[index >> 3] = (out[index >> 3] ?? 0) | (value << (7 - (index & 7)));
+            const shift = 7 - (index % 8);
+            const at = Math.floor(index / 8);
+            out[at] = (out[at] ?? 0) + (value * (2 ** shift));
         });
         return out;
     }

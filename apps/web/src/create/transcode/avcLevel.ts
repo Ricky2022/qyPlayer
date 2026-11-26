@@ -67,11 +67,12 @@ class BitReader {
     constructor(private readonly data: Uint8Array) {}
 
     bit(): number {
-        const byte = this.data[this.pos >> 3];
+        const byte = this.data[Math.floor(this.pos / 8)];
         if (byte === undefined) {
             throw new Error("eof");
         }
-        const value = (byte >> (7 - (this.pos & 7))) & 1;
+        const shift = 7 - (this.pos % 8);
+        const value = Math.floor(byte / (2 ** shift)) % 2;
         this.pos += 1;
         return value;
     }
@@ -79,7 +80,7 @@ class BitReader {
     bits(count: number): number {
         let value = 0;
         for (let i = 0; i < count; i++) {
-            value = (value << 1) | this.bit();
+            value = (value * 2) + this.bit();
         }
         return value;
     }
@@ -92,12 +93,12 @@ class BitReader {
                 throw new Error("ue");
             }
         }
-        return zeros === 0 ? 0 : ((1 << zeros) | this.bits(zeros)) - 1;
+        return zeros === 0 ? 0 : ((2 ** zeros) + this.bits(zeros)) - 1;
     }
 
     se(): number {
         const value = this.ue();
-        return (value & 1) === 0 ? -(value >> 1) : (value + 1) >> 1;
+        return value % 2 === 0 ? -Math.floor(value / 2) : Math.floor((value + 1) / 2);
     }
 }
 
@@ -139,7 +140,7 @@ interface SpsInfo {
 const parseSps = function parseSps(nal: Uint8Array): SpsInfo | null {
     try {
         const raw = stripEmulation(nal);
-        if ((raw[0]! & 0x1f) !== 7 || raw[3] === undefined) {
+        if ((raw[0] ?? 0) % 32 !== 7 || raw[3] === undefined) {
             return null;
         }
         const profileIdc = raw[1]!;
@@ -209,11 +210,11 @@ const sequencesOf = function sequencesOf(payload: Uint8Array): Sequence[] | null
         return null;
     }
     let offset = 5;
-    const count = payload[offset]! & 0x1f;
+    const count = (payload[offset] ?? 0) % 32;
     offset += 1;
     const sequences: Sequence[] = [];
     for (let i = 0; i < count; i++) {
-        const length = ((payload[offset] ?? 0) << 8) | (payload[offset + 1] ?? 0);
+        const length = ((payload[offset] ?? 0) * 256) + (payload[offset + 1] ?? 0);
         offset += 2;
         const nal = payload.subarray(offset, offset + length);
         if (nal.length !== length) {
